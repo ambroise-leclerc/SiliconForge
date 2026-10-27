@@ -1,0 +1,48 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [develop, master]
+  pull_request:
+    branches: [develop, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  linux-gcc16:
+    runs-on: ubuntu-24.04
+    # GCC 16 and the AVR toolchain come from Ubuntu 26.04.
+    container: ubuntu:26.04
+    timeout-minutes: 30
+    env:
+      CC: gcc-16
+      CXX: g++-16
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+    steps:
+      - name: Install the toolchains
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
+            ca-certificates git cmake ninja-build gcc-16 g++-16 gcc-avr avr-libc binutils-avr make
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache/CPM
+          key: cpm-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
+          restore-keys: cpm-
+      - name: Configure
+        run: cmake --preset ci -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+      - name: Build
+        run: cmake --build --preset ci
+      - name: Test
+        run: ctest --preset ci
+      - name: Build the test firmware from source
+        run: make -C firmware
+      - name: Emulation speed (headless)
+        run: build/ci/apps/siliconforge/siliconforge --headless --speed max --duration 10 firmware/build/blink.hex

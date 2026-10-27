@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SiliconForge</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="WebFront.js"></script>
+  <script src="siliconforge.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">◆</span> SiliconForge</div>
+    <div class="chip" id="chip">—</div>
+    <div class="firmware" id="firmware" title="Firmware">no firmware</div>
+    <div class="status" id="status" data-state="paused">connecting…</div>
+  </header>
+
+  <nav class="toolbar" aria-label="Simulation controls">
+    <button id="run" class="primary" title="Run / pause (Space)">Run</button>
+    <button id="step" title="Execute one instruction (S)">Step</button>
+    <button id="reset" title="Reset the MCU (R)">Reset</button>
+    <label class="field">Speed
+      <select id="speed">
+        <option value="0.1">×0.1</option>
+        <option value="0.5">×0.5</option>
+        <option value="1" selected>×1 (real time)</option>
+        <option value="2">×2</option>
+        <option value="10">×10</option>
+        <option value="0">max</option>
+      </select>
+    </label>
+    <label class="button" title="Load an Intel HEX or ELF firmware">Load firmware…
+      <input type="file" id="firmware-file" accept=".hex,.ihx,.elf" hidden>
+    </label>
+    <div class="clock">
+      <span id="time">0.000000 s</span>
+      <span id="cycles" class="muted">0 cycles</span>
+      <span id="rate" class="muted"></span>
+    </div>
+  </nav>
+
+  <main class="workspace">
+    <section class="panel board" aria-label="Board">
+      <h2>Board <span class="muted">Arduino Uno pinout</span></h2>
+      <div class="leds">
+        <div class="led" id="led-l"><span class="lamp"></span>L <small>D13</small></div>
+        <div class="led tx" id="led-tx"><span class="lamp"></span>TX</div>
+        <div class="led rx" id="led-rx"><span class="lamp"></span>RX</div>
+      </div>
+      <h3>Digital</h3>
+      <div class="pins" id="digital"></div>
+      <h3>Analog</h3>
+      <div class="pins analog" id="analog"></div>
+      <p class="hint">Click an input to drive it: released → high → low → released. Sliders apply a voltage to analog inputs.</p>
+    </section>
+
+    <section class="panel serial" aria-label="Serial monitor">
+      <h2>Serial monitor <span class="muted">USART0</span>
+        <button id="serial-clear" class="small">Clear</button></h2>
+      <pre id="serial-output" tabindex="0"></pre>
+      <form id="serial-form" class="serial-input">
+        <input id="serial-text" autocomplete="off" placeholder="Send to the MCU…">
+        <select id="serial-eol" title="Line ending">
+          <option value="">No line ending</option>
+          <option value="\n" selected>LF</option>
+          <option value="\r">CR</option>
+          <option value="\r\n">CR LF</option>
+        </select>
+        <button type="submit">Send</button>
+      </form>
+    </section>
+
+    <section class="panel cpu" aria-label="CPU">
+      <h2>CPU <span class="muted" id="arch"></span></h2>
+      <div class="special" id="special"></div>
+      <div class="flags" id="flags"></div>
+      <div class="registers" id="registers"></div>
+    </section>
+  </main>
+</body>
+</html>
