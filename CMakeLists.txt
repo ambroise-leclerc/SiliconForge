@@ -16,6 +16,10 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     # No C++20 modules here; module scanning adds -fmodules-ts, which makes GCC 16 crash on stdexec (WebFront).
     set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
+    # `mkdir build && cd build && cmake .. && cmake --build .` gives an optimised build.
+    if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+    endif()
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
@@ -29,6 +33,10 @@ siliconforge_set_warnings(SiliconForge_options)
 add_subdirectory(src)
 
 if(SILICONFORGE_BUILD_APP)
+    # The application opens a native window (WebKitGTK, WebView2 or WKWebView) when WebFront finds the platform's
+    # engine, and the system browser otherwise. -DWEBFRONT_EMBED_WEBKITGTK=OFF (or the platform's option) forces the
+    # browser.
+    set(WEBFRONT_AUTODETECT_NATIVE ON CACHE BOOL "Enable the native window engine of this platform when found")
     # Override with -DCPM_WebFront_SOURCE=/path/to/WebFront to work on a local checkout.
     CPMAddPackage(
         NAME WebFront

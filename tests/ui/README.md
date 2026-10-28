@@ -21,7 +21,7 @@ The specs are meant for WebFront's `wf test` command, which runs Jasmine specs i
 with a non-zero code on failure. Wiring `wf test` into CTest (the application in developer mode, as WebFront's
 `examples/life/LifeDeveloper.cpp` does) is the next step of the roadmap; until then the suite can be run by hand:
 
-1. `build/dev/apps/siliconforge/siliconforge firmware/prebuilt/uart_echo.hex`
+1. `build/apps/siliconforge/siliconforge firmware/prebuilt/uart_echo.hex`
 2. In the page's developer console, load Jasmine and `board.spec.js`, or run them from a WebFront developer project
    (`wf install jasmine-core@7.0.2`, then list `tests/board.spec.js` under `"test": {"specs": [...]}`).
 

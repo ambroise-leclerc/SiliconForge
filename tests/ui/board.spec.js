@@ -34,6 +34,8 @@ describe("SiliconForge board page", () => {
     await sf().setPin("D2", 1);
     await sf().waitForPin("D2", sf().pinState.high, 2000);
     await sf().waitFor(() => document.querySelector('.pin[data-pin="PD2"]').dataset.state === "1", 2000);
+    await sf().waitFor(() => document.querySelector('.bb-leg[data-pin="PD2"]').dataset.state === "1", 2000);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 2000);
     await sf().setPin("D2", null);
     await sf().waitForPin("D2", sf().pinState.floating, 2000);
   });
@@ -41,5 +43,19 @@ describe("SiliconForge board page", () => {
   it("shows USART0 transmit pin as an output once the transmitter is enabled", async () => {
     await sf().waitForSerial("ready", 3000);
     expect(sf().pin("D1").output).toBeTrue();
+  });
+
+  it("pulls D2 low while the breadboard push button is pressed", async () => {
+    const button = document.querySelector('.bb-button[data-pin="D2"]');
+    button.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true}));
+    await sf().waitForPin("D2", sf().pinState.low, 2000);
+    button.dispatchEvent(new PointerEvent("pointerup", {bubbles: true}));
+    await sf().waitForPin("D2", sf().pinState.floating, 2000);
+  });
+
+  it("applies the potentiometer voltage to A0", async () => {
+    const pot = document.querySelector('.bb-pot[data-pin="A0"]');
+    for (let i = 0; i < 25; ++i) pot.dispatchEvent(new WheelEvent("wheel", {deltaY: -1, cancelable: true}));
+    expect(pot.querySelector(".bb-value").textContent).toBe("2.50 V");
   });
 });

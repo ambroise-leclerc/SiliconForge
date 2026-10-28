@@ -112,12 +112,8 @@
       `<span class="mode"></span><span class="level"></span>`;
     element.title = "Click to drive this input";
     element.addEventListener("click", (event) => {
-      if (event.target.tagName === "INPUT" || element.dataset.output === "true") return;
-      const current = forced.get(pin.name);
-      const next = current === undefined ? 1 : current === 1 ? 0 : undefined;
-      if (next === undefined) forced.delete(pin.name);
-      else forced.set(pin.name, next);
-      api.setPin(pin.name, next);
+      if (event.target.tagName === "INPUT") return;
+      cycleInput(pin.name);
     });
     if (analog) {
       const slider = document.createElement("input");
@@ -135,6 +131,45 @@
       element.append(slider);
     }
     return element;
+  }
+
+  /** Drives an input pin in turn high, low, then releases it; outputs are left alone. */
+  function cycleInput(name) {
+    if (api.pin(name)?.output) return;
+    const current = forced.get(name);
+    const next = current === undefined ? 1 : current === 1 ? 0 : undefined;
+    if (next === undefined) forced.delete(name);
+    else forced.set(name, next);
+    api.setPin(name, next);
+  }
+
+  // Board views (breadboard, pinout) built from the chip description once the first state names the chip ---------
+  const viewContext = {
+    pin: (name) => api.pin(name),
+    cycle: cycleInput,
+    forced: (name) => (forced.has(name) ? (forced.get(name) ? "high" : "low") : ""),
+    setPin: (name, level) => api.setPin(name, level),
+    setVoltage: (name, volts) => api.setVoltage(name, volts),
+  };
+  let views = null;
+
+  function renderViews(s) {
+    if (!views) {
+      views = [];
+      const chip = window.SiliconForgeChips?.[s.mcu];
+      for (const name of ["breadboard", "pinout"]) {
+        const container = $(name);
+        if (chip && window.SiliconForgeViews?.[name]) views.push(window.SiliconForgeViews[name](container, chip, viewContext));
+        else container.querySelector(".hint").textContent = `No ${name} view for ${s.mcu} yet: see the Pins tab.`;
+      }
+    }
+    for (const view of views) view.update(s);
+  }
+
+  function selectView(name) {
+    for (const element of document.querySelectorAll("[data-view]"))
+      element.classList.toggle("selected", element.dataset.view === name);
+    try { localStorage.setItem("siliconforge.view", name); } catch { /* Storage may be unavailable */ }
   }
 
   function renderPins(pins) {
@@ -198,12 +233,17 @@
   function render(s) {
     renderStatus(s);
     renderPins(s.pins);
+    renderViews(s);
     renderCpu(s);
     renderSerial(s.serial);
   }
 
   // Controls ------------------------------------------------------------------------------------------------------
   function bindControls() {
+    for (const tab of document.querySelectorAll(".tabs [data-view]")) tab.addEventListener("click", () => selectView(tab.dataset.view));
+    let view = "breadboard";
+    try { view = localStorage.getItem("siliconforge.view") || view; } catch { /* Storage may be unavailable */ }
+    selectView(view);
     $("run").addEventListener("click", () => (state?.running ? api.pause() : api.run()));
     $("step").addEventListener("click", () => api.step());
     $("reset").addEventListener("click", () => api.reset());

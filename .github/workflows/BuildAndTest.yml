@@ -37,12 +37,12 @@ jobs:
           key: cpm-${{ hashFiles('CMakeLists.txt', 'tests/CMakeLists.txt') }}
           restore-keys: cpm-
       - name: Configure
-        run: cmake --preset ci -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+        run: mkdir -p build && cd build && cmake .. -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
       - name: Build
-        run: cmake --build --preset ci
+        run: cmake --build build
       - name: Test
-        run: ctest --preset ci
+        run: cd build && ctest --output-on-failure
       - name: Build the test firmware from source
         run: make -C firmware
       - name: Emulation speed (headless)
-        run: build/ci/apps/siliconforge/siliconforge --headless --speed max --duration 10 firmware/build/blink.hex
+        run: build/apps/siliconforge/siliconforge --headless --speed max --duration 10 firmware/build/blink.hex

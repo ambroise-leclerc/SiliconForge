@@ -66,8 +66,16 @@ by name; the registry is the only place that knows the list of chips.
 - `WebBridge` registers the `sf.*` C++ functions called by the page, and pushes the state about 30 times per second
   with `siliconForge.onState(json)`. Each pin carries the fraction of the frame it spent high: a PWM-driven LED is
   shown with its average brightness.
+- `main.cpp` shows the interface in a native window (`webfront::frontend::NativeWebViewFrontend`: WebKitGTK, WebView2
+  or WKWebView) when WebFront found the platform's engine at configuration time, and falls back to the system browser
+  when it was not built or no graphical session is available. The application code is the same for both: `WebBridge`
+  is a template over the WebFront application type.
 - `ui/` is plain HTML/CSS/JavaScript served from a document root. `window.siliconForge` is both the page's model and
   the automation API used by UI tests.
+- The board views are generic and driven by a chip description (`ui/atmega328p.js`, registered under the name the MCU
+  reports): the package pins with their labels for the **pinout** view, and a demonstration circuit for the
+  **breadboard** view (wires, resistors, LEDs bound to a pin, a push button, a potentiometer, given by breadboard
+  holes). Supporting a new chip in the interface means adding such a file; the **pins** view needs nothing.
 
 ## Threads and locks
 
