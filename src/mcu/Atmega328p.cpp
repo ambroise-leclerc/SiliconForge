@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 #include <siliconforge/mcu/atmega328p/Atmega328p.hpp>
 #include <siliconforge/mcu/Description.hpp>
 namespace siliconforge::mcu {

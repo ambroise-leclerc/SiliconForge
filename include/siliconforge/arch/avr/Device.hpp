@@ -29,6 +29,7 @@ public:
     [[nodiscard]] u64 clockHz() const noexcept override {
         return clock;
     }
+    /// Accepts Program and Eeprom only; Data segments throw std::invalid_argument.
     /// Rejects out-of-range segments with std::out_of_range before changing any device state.
     void      load(const ProgramImage& image) override;
     void      reset() override;

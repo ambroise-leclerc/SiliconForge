@@ -1,11 +1,12 @@
 #pragma once
-#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <siliconforge/core/Mcu.hpp>
 
 #include <expected>
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <string_view>
 
 namespace siliconforge::mcu {
 struct LoadError {
