@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <siliconforge/core/loader/ProgramImage.hpp>
 #include <siliconforge/mcu/Registry.hpp>
+
 #include <webfront/WebFront.hpp>
 
 #include <chrono>
@@ -22,21 +23,11 @@ inline void appendJsonString(std::string& out, std::string_view text) {
     out += '"';
     for (const char c : text) {
         switch (c) {
-            case '"':
-                out += "\\\"";
-                break;
-            case '\\':
-                out += "\\\\";
-                break;
-            case '\n':
-                out += "\\n";
-                break;
-            case '\r':
-                out += "\\r";
-                break;
-            case '\t':
-                out += "\\t";
-                break;
+            case '"': out += "\\\""; break;
+            case '\\': out += "\\\\"; break;
+            case '\n': out += "\\n"; break;
+            case '\r': out += "\\r"; break;
+            case '\t': out += "\\t"; break;
             default:
                 if (static_cast<unsigned char>(c) < 0x20 || static_cast<unsigned char>(c) >= 0x7F)
                     out += std::format("\\u{:04x}", static_cast<unsigned char>(c));
@@ -105,7 +96,7 @@ private:
         double takeDuty(Cycles now) {
             if (now < windowStart) {  // The MCU was reset.
                 windowStart = highSince = now;
-                highTotal               = 0;
+                highTotal   = 0;
             }
             if (now == windowStart)
                 return high ? 1.0 : 0.0;
@@ -166,22 +157,14 @@ private:
             replace(std::move(*device));
             return {};
         });
-        app.cppFunction("sf.run", [this] {
-            simulation.run();
-        });
-        app.cppFunction("sf.pause", [this] {
-            simulation.pause();
-        });
-        app.cppFunction("sf.step", [this] {
-            simulation.step();
-        });
+        app.cppFunction("sf.run", [this] { simulation.run(); });
+        app.cppFunction("sf.pause", [this] { simulation.pause(); });
+        app.cppFunction("sf.step", [this] { simulation.step(); });
         app.cppFunction("sf.reset", [this] {
             simulation.reset();
             resetSerialOffsets();
         });
-        app.cppFunction("sf.setSpeed", [this](double factor) {
-            simulation.setSpeed(factor);
-        });
+        app.cppFunction("sf.setSpeed", [this](double factor) { simulation.setSpeed(factor); });
         app.cppFunction("sf.serialSend", [this](std::string text) {
             simulation.access([&](Mcu& mcu) {
                 if (auto* port = mcu.serial(0))
@@ -209,14 +192,12 @@ private:
         // Firmware sent by the browser (Intel HEX or ELF content). Returns an error message, empty on success.
         app.cppFunction("sf.loadFirmware", [this](std::string name, std::vector<std::uint8_t> bytes) -> std::string {
             const auto isElf = bytes.size() >= 4 && bytes[0] == 0x7F && bytes[1] == 'E' && bytes[2] == 'L' && bytes[3] == 'F';
-            auto       image = isElf ? parseElf(bytes) : parseIntelHex(std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()});
+            auto image = isElf ? parseElf(bytes) : parseIntelHex(std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()});
             if (!image)
                 return image.error().line ? std::format("{} (line {})", image.error().message, image.error().line) : image.error().message;
             simulation.pause();
             try {
-                simulation.access([&](Mcu& mcu) {
-                    mcu.load(*image);
-                });
+                simulation.access([&](Mcu& mcu) { mcu.load(*image); });
             } catch (const std::exception& e) {
                 return e.what();
             }
@@ -228,15 +209,9 @@ private:
             return {};
         });
         app.cppFunction("sf.addBreakpoint", [this](double address) {
-            simulation.access([&](Mcu& mcu) {
-                mcu.debugger().addBreakpoint(static_cast<Address>(address));
-            });
+            simulation.access([&](Mcu& mcu) { mcu.debugger().addBreakpoint(static_cast<Address>(address)); });
         });
-        app.cppFunction("sf.clearBreakpoints", [this] {
-            simulation.access([](Mcu& mcu) {
-                mcu.debugger().clearBreakpoints();
-            });
-        });
+        app.cppFunction("sf.clearBreakpoints", [this] { simulation.access([](Mcu& mcu) { mcu.debugger().clearBreakpoints(); }); });
     }
 
     void resetSerialOffsets() {
@@ -258,37 +233,39 @@ private:
             firmware = firmwareName;
         }
 
-        const auto  reason = simulation.stopReason();
+        const auto  reason  = simulation.stopReason();
         std::string common;
         std::string serialOutput;
         simulation.access([&](Mcu& mcu) {
-            const auto     now = mcu.cycles();
+            const auto now = mcu.cycles();
             nlohmann::json state{
-                {         "mcu",                         mcu.name()},
-                {        "arch",                 mcu.architecture()},
-                {     "clockHz",                      mcu.clockHz()},
-                {      "cycles",                                now},
-                {          "pc",               mcu.programCounter()},
-                {     "running",             simulation.isRunning()},
-                {       "speed",           simulation.speedFactor()},
+                {         "mcu", mcu.name()},
+                {        "arch",
+                                         mcu.architecture()},
+                {     "clockHz", mcu.clockHz()},
+                {      "cycles", now},
+                {          "pc", mcu.programCounter()},
+                {     "running", simulation.isRunning()},
+                {       "speed", simulation.speedFactor()},
                 {      "symbol", mcu.symbolAt(mcu.programCounter())},
-                {    "firmware",                           firmware},
+                {    "firmware", firmware},
                 {"chipRevision",                       chipRevision}
             };
             state["stop"] = reason ? nlohmann::json(toString(*reason)) : nlohmann::json(nullptr);
             state["pins"] = nlohmann::json::array();
             for (std::size_t index = 0; index < mcu.pins().size(); ++index) {
-                const auto& pin   = mcu.pins()[index];
+                const auto& pin = mcu.pins()[index];
                 auto&       a     = activity[index];
-                const auto  edges = a.edges;
+                const auto edges       = a.edges;
                 state["pins"].push_back({
-                    {  "name",                    pin.name()},
-                    { "label",                   pin.label()},
+                    {  "name",
+                                      pin.name()},
+                    { "label", pin.label()},
                     { "state", static_cast<int>(pin.state())},
-                    {"output",                pin.isOutput()},
-                    {"pullUp",               pin.hasPullUp()},
+                    {"output", pin.isOutput()},
+                    {"pullUp", pin.hasPullUp()},
                     {  "duty",               a.takeDuty(now)},
-                    { "edges",                         edges}
+                    { "edges", edges}
                 });
             }
             state["registers"] = nlohmann::json::array();
@@ -320,15 +297,15 @@ private:
         }
     }
 
-    App&                                  app;
-    Simulation&                           simulation;
-    std::string                           firmwareName;
-    std::vector<Activity>                 activity;
+    App&                     app;
+    Simulation&              simulation;
+    std::string              firmwareName;
+    std::vector<Activity>    activity;
     unsigned                              chipRevision{0};
-    std::mutex                            clientsMutex;
+    std::mutex               clientsMutex;
     std::map<webfront::WebLinkId, Client> clients;
-    webfront::UISubscription              closed;
-    std::jthread                          pusher;
+    webfront::UISubscription closed;
+    std::jthread             pusher;
 };
 
 }  // namespace siliconforge::app

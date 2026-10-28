@@ -2,7 +2,9 @@
 
 #include "Simulation.hpp"
 #include "WebBridge.hpp"
+
 #include <siliconforge/mcu/Registry.hpp>
+
 #include <webfront/WebFront.hpp>
 
 #include <charconv>
@@ -30,18 +32,18 @@ constexpr bool nativeWindowBuilt = false;
 enum class Display { Window, Browser, None };
 
 struct Options {
-    std::string                          mcu{"atmega328p"};
+    std::string                  mcu{"atmega328p"};
     std::optional<std::filesystem::path> firmware;
-    bool                                 headless{false};
+    bool                         headless{false};
     bool                                 help{false};
     std::optional<std::filesystem::path> mcuFile;
     std::vector<std::filesystem::path>   mcuPaths;
-    Display                              display{nativeWindowBuilt ? Display::Window : Display::Browser};
-    double                               duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
-    double                               speed{1.0};   ///< 0 = as fast as possible.
-    std::string                          address{"127.0.0.1"};
-    std::string                          port{"9002"};
-    std::filesystem::path                ui{SILICONFORGE_UI_DIR};
+    Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
+    double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
+    double                       speed{1.0};   ///< 0 = as fast as possible.
+    std::string                  address{"127.0.0.1"};
+    std::string                  port{"9002"};
+    std::filesystem::path        ui{SILICONFORGE_UI_DIR};
 };
 
 void printUsage() {
@@ -152,13 +154,8 @@ int runHeadless(Mcu& mcu, const Options& options) {
     }
     const auto wall      = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     const auto simulated = static_cast<double>(mcu.cycles()) / static_cast<double>(mcu.clockHz());
-    std::println(stderr,
-                 "\n[siliconforge] {} simulated s in {:.3f} s ({:.1f} MHz effective, x{:.1f} real time), stop: {}",
-                 simulated,
-                 wall,
-                 static_cast<double>(mcu.cycles()) / wall / 1e6,
-                 simulated / wall,
-                 app::toString(reason));
+    std::println(stderr, "\n[siliconforge] {} simulated s in {:.3f} s ({:.1f} MHz effective, x{:.1f} real time), stop: {}", simulated, wall,
+                 static_cast<double>(mcu.cycles()) / wall / 1e6, simulated / wall, app::toString(reason));
     if (reason != StopReason::BudgetReached)
         std::println(stderr, "[siliconforge] PC = {:#06x} {}", mcu.programCounter(), mcu.symbolAt(mcu.programCounter()));
     return reason == StopReason::BudgetReached ? 0 : 2;
@@ -215,10 +212,7 @@ int main(int argc, char** argv) {
     if (options->firmware) {
         auto image = loadProgram(*options->firmware);
         if (!image) {
-            std::println(stderr,
-                         "{}: {}{}",
-                         options->firmware->string(),
-                         image.error().message,
+            std::println(stderr, "{}: {}{}", options->firmware->string(), image.error().message,
                          image.error().line ? std::format(" (line {})", image.error().line) : std::string{});
             return 1;
         }
