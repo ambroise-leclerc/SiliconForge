@@ -6,7 +6,23 @@ répertoire source. Le chargeur utilise nlohmann/json et le validateur JSON Sche
 (pboettch), obtenus par CPM. Le schéma est strict ; les références entre registres,
 vecteurs, GPIO et périphériques sont ensuite vérifiées en C++.
 
-## Chargement C++
+## Charger une puce
+
+```sh
+siliconforge --mcu-file ma-puce.json firmware.hex
+siliconforge --mcu-path ./mes-puces --help
+siliconforge --mcu-path ./mes-puces --mcu atmega168 firmware.hex
+```
+
+`--mcu-path` peut être répété. Les fichiers `.json` sont lus dans l'ordre alphabétique.
+Les descriptions invalides et les noms en double sont signalés ; le catalogue conserve
+le contenu validé au démarrage. `--help` découvre les puces quel que soit l'ordre des
+options. Les noms du catalogue sont insensibles à la casse.
+
+Dans l'interface, choisir une puce dans la liste, utiliser **Load MCU…**, ou déposer un
+fichier JSON. Le remplacement met la simulation en pause et efface le firmware ; charger
+ensuite le firmware de la nouvelle puce. Une erreur laisse la puce courante intacte et
+s'affiche avec son JSON Pointer, par exemple `/peripherals/6/vector`.
 
 En C++ :
 
@@ -99,7 +115,7 @@ le registre. Les adresses et valeurs de reset viennent du JSON.
 `package` décrit le boîtier (numérotation consécutive et paire), les broches physiques,
 `port` (ou `null` pour l'alimentation), les `functions`, l'étiquette de carte `label` et
 les `labels` de présentation avec leurs `slotKinds`. Une étiquette `TXD:serial` choisit
-la couleur « serial ». `Mcu::chipJson()` expose ces métadonnées aux consommateurs du modèle.
+la couleur « serial ». `sf.chip()` sert ces données aux vues Pinout et Breadboard.
 Le champ facultatif `breadboard` conserve le circuit de démonstration existant ; une
 puce sans circuit affiche quand même son brochage et ses broches interactives.
 

@@ -1,0 +1,42 @@
+const {chromium} = require(process.env.SILICONFORGE_PLAYWRIGHT_MODULE || 'playwright');
+const fs = require('fs');
+(async () => {
+ const browser = await chromium.launch({headless:true,executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE,args:['--no-sandbox']});
+ try {
+ const page = await browser.newPage(); const errors=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(process.env.SILICONFORGE_URL || 'http://127.0.0.1:9002');
+ await page.waitForFunction(()=>window.siliconForge?.state);
+ await page.evaluate(()=>siliconForge.selectMcu('atmega328p'));
+ await page.waitForFunction(()=>siliconForge.state.mcu==='ATmega328P');
+ await page.waitForSelector('#breadboard svg');
+ const chip=await page.evaluate(()=>siliconForge.chip());
+ if(chip.pins.length!==28)throw Error('wrong built-in pinout');
+ let d=JSON.parse(fs.readFileSync('mcus/atmega328p.json','utf8'));
+ d.name='ATmega168';d.memories.flash.size=16384;d.memories.sram.size=1024;d.memories.eeprom.size=512;d.registers.SPH.reset=4;
+ await page.setInputFiles('#mcu-file',{name:'atmega168.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(d))});
+ await page.waitForFunction(()=>siliconForge.state.mcu==='ATmega168');
+ await page.waitForFunction(()=>document.querySelector('#breadboard .bb-chip-name')?.textContent==='atmega168');
+ await page.click('#tab-pinout');
+ await page.waitForSelector('#pinout svg[aria-label="ATmega168 pinout"]');
+ const bytes=Array.from(fs.readFileSync('firmware/prebuilt/blink.hex'));
+ await page.evaluate(async bytes=>{await siliconForge.load('blink.hex',new Uint8Array(bytes));await siliconForge.setSpeed(10);await siliconForge.run();},bytes);
+ await page.waitForFunction(()=>siliconForge.state.cycles>20000000);
+ const malformed=JSON.parse(JSON.stringify(d));malformed.peripherals[6].vector='missing';
+ await page.setInputFiles('#mcu-file',{name:'bad.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(malformed))});
+ await page.waitForFunction(()=>document.querySelector('#mcu-error').textContent.includes('/peripherals/6/vector'));
+ if(await page.evaluate(()=>siliconForge.state.mcu)!=='ATmega168')throw Error('invalid MCU replaced running device');
+ const bare=JSON.parse(JSON.stringify(d)); delete bare.breadboard; bare.name='BareAVR';
+ await page.evaluate(text=>siliconForge.loadMcu(text),JSON.stringify(bare));
+ await page.waitForSelector('#pinout svg[aria-label="BareAVR pinout"]');
+ await page.waitForFunction(()=>!document.querySelector('#breadboard svg'));
+ await page.selectOption('#mcu-select','atmega328p');
+ await page.waitForFunction(()=>siliconForge.state.mcu==='ATmega328P');
+ await page.waitForFunction(()=>document.querySelector('#breadboard .bb-chip-name')?.textContent==='atmega328p');
+ await page.click('#tab-pinout');
+ await page.waitForSelector('#pinout svg');
+ if(errors.length)throw Error(errors.join('\n'));
+ if (process.env.SILICONFORGE_SCREENSHOT) await page.screenshot({path:process.env.SILICONFORGE_SCREENSHOT,fullPage:true});
+ console.log('UI OK: JSON upload, dynamic pinout/breadboard, firmware on ATmega168, localized error, built-in selection');
+ } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exit(1)});

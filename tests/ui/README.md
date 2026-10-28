@@ -27,3 +27,11 @@ with a non-zero code on failure. Wiring `wf test` into CTest (the application in
 
 The same API can be used by any browser automation tool (Playwright, WebDriver) to test a firmware's behaviour from
 the outside.
+
+## Dynamic MCU smoke test
+
+With SiliconForge serving port 9002, run `node tests/ui/mcu.playwright.cjs` from the
+repository root (install Playwright in your test environment). `SILICONFORGE_URL`
+overrides the server URL. The test uploads an ATmega168 JSON description, checks the
+dynamic breadboard and pinout, runs `blink`, verifies a localized validation error,
+and returns to the built-in chip. It clears the current simulation and firmware.

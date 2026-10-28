@@ -2,9 +2,7 @@
 
 #include "Simulation.hpp"
 #include "WebBridge.hpp"
-
 #include <siliconforge/mcu/Registry.hpp>
-
 #include <webfront/WebFront.hpp>
 
 #include <charconv>
@@ -32,15 +30,18 @@ constexpr bool nativeWindowBuilt = false;
 enum class Display { Window, Browser, None };
 
 struct Options {
-    std::string                  mcu{"atmega328p"};
+    std::string                          mcu{"atmega328p"};
     std::optional<std::filesystem::path> firmware;
-    bool                         headless{false};
-    Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
-    double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
-    double                       speed{1.0};   ///< 0 = as fast as possible.
-    std::string                  address{"127.0.0.1"};
-    std::string                  port{"9002"};
-    std::filesystem::path        ui{SILICONFORGE_UI_DIR};
+    bool                                 headless{false};
+    bool                                 help{false};
+    std::optional<std::filesystem::path> mcuFile;
+    std::vector<std::filesystem::path>   mcuPaths;
+    Display                              display{nativeWindowBuilt ? Display::Window : Display::Browser};
+    double                               duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
+    double                               speed{1.0};   ///< 0 = as fast as possible.
+    std::string                          address{"127.0.0.1"};
+    std::string                          port{"9002"};
+    std::filesystem::path                ui{SILICONFORGE_UI_DIR};
 };
 
 void printUsage() {
@@ -51,6 +52,8 @@ on http://<address>:<port>/.
 
 Options:
   --mcu <name>        Microcontroller to emulate (default atmega328p)
+  --mcu-file <file>   Load a JSON MCU description
+  --mcu-path <dir>    Discover JSON MCU descriptions (repeatable)
   --headless          No interface: run, print the serial output on stdout and report the emulation speed
   --duration <s>      Simulated seconds to run in headless mode (default: until interrupted)
   --speed <factor>    1 = real time (default), 0 or "max" = as fast as possible
@@ -84,15 +87,18 @@ std::optional<Options> parseOptions(int argc, char** argv) {
                 return std::nullopt;
             return std::string_view{argv[++i]};
         };
-        if (argument == "--help" || argument == "-h")
-            return std::nullopt;
+        if (argument == "--help" || argument == "-h") {
+            options.help = true;
+            continue;
+        }
         if (argument == "--headless") {
             options.headless = true;
         } else if (argument == "--browser") {
             options.display = Display::Browser;
         } else if (argument == "--no-browser") {
             options.display = Display::None;
-        } else if (argument == "--mcu" || argument == "--address" || argument == "--port" || argument == "--ui") {
+        } else if (argument == "--mcu" || argument == "--address" || argument == "--port" || argument == "--ui" || argument == "--mcu-file"
+                   || argument == "--mcu-path") {
             const auto text = value();
             if (!text)
                 return std::nullopt;
@@ -102,6 +108,10 @@ std::optional<Options> parseOptions(int argc, char** argv) {
                 options.address = *text;
             else if (argument == "--port")
                 options.port = *text;
+            else if (argument == "--mcu-file")
+                options.mcuFile = std::filesystem::path{*text};
+            else if (argument == "--mcu-path")
+                options.mcuPaths.emplace_back(*text);
             else
                 options.ui = *text;
         } else if (argument == "--duration" || argument == "--speed") {
@@ -142,8 +152,13 @@ int runHeadless(Mcu& mcu, const Options& options) {
     }
     const auto wall      = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
     const auto simulated = static_cast<double>(mcu.cycles()) / static_cast<double>(mcu.clockHz());
-    std::println(stderr, "\n[siliconforge] {} simulated s in {:.3f} s ({:.1f} MHz effective, x{:.1f} real time), stop: {}", simulated, wall,
-                 static_cast<double>(mcu.cycles()) / wall / 1e6, simulated / wall, app::toString(reason));
+    std::println(stderr,
+                 "\n[siliconforge] {} simulated s in {:.3f} s ({:.1f} MHz effective, x{:.1f} real time), stop: {}",
+                 simulated,
+                 wall,
+                 static_cast<double>(mcu.cycles()) / wall / 1e6,
+                 simulated / wall,
+                 app::toString(reason));
     if (reason != StopReason::BudgetReached)
         std::println(stderr, "[siliconforge] PC = {:#06x} {}", mcu.programCounter(), mcu.symbolAt(mcu.programCounter()));
     return reason == StopReason::BudgetReached ? 0 : 2;
@@ -174,7 +189,23 @@ int main(int argc, char** argv) {
         printUsage();
         return 1;
     }
-    auto device = mcu::create(options->mcu);
+    for (const auto& directory : options->mcuPaths)
+        for (const auto& [path, error] : mcu::addPath(directory))
+            std::println(stderr, "{}{}: {}", path.string(), error.path, error.message);
+    if (options->help) {
+        printUsage();
+        return 0;
+    }
+    std::unique_ptr<Mcu> device;
+    if (options->mcuFile) {
+        auto result = mcu::load(*options->mcuFile);
+        if (!result) {
+            std::println(stderr, "{}{}: {}", options->mcuFile->string(), result.error().path, result.error().message);
+            return 1;
+        }
+        device = std::move(*result);
+    } else
+        device = mcu::create(options->mcu);
     if (!device) {
         std::println(stderr, "Unknown microcontroller '{}'", options->mcu);
         printUsage();
@@ -184,11 +215,19 @@ int main(int argc, char** argv) {
     if (options->firmware) {
         auto image = loadProgram(*options->firmware);
         if (!image) {
-            std::println(stderr, "{}: {}{}", options->firmware->string(), image.error().message,
+            std::println(stderr,
+                         "{}: {}{}",
+                         options->firmware->string(),
+                         image.error().message,
                          image.error().line ? std::format(" (line {})", image.error().line) : std::string{});
             return 1;
         }
-        device->load(*image);
+        try {
+            device->load(*image);
+        } catch (const std::exception& e) {
+            std::println(stderr, "{}", e.what());
+            return 1;
+        }
         firmwareName = options->firmware->filename().string();
     } else if (options->headless) {
         std::println(stderr, "--headless needs a firmware");

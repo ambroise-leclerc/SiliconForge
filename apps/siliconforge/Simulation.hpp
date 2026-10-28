@@ -18,9 +18,14 @@ namespace siliconforge::app {
 /// advances by slices of one simulated millisecond, so the UI and the controls never wait long.
 class Simulation {
 public:
-    explicit Simulation(std::unique_ptr<Mcu> device) : device(std::move(device)), worker([this](std::stop_token stop) { loop(stop); }) {}
+    explicit Simulation(std::unique_ptr<Mcu> device)
+        : device(std::move(device)), worker([this](std::stop_token stop) {
+              loop(stop);
+          }) {}
 
-    ~Simulation() { shutdown(); }
+    ~Simulation() {
+        shutdown();
+    }
 
     /// Stops the emulation thread for good; the MCU stays accessible.
     void shutdown() {
@@ -35,6 +40,16 @@ public:
     decltype(auto) access(Function&& function) {
         std::scoped_lock lock{mutex};
         return std::forward<Function>(function)(*device);
+    }
+
+    template <typename Initialize>
+    void replace(std::unique_ptr<Mcu> next, Initialize&& initialize) {
+        std::scoped_lock lock{mutex};
+        running = false;
+        device  = std::move(next);
+        initialize(*device);
+        lastStop.reset();
+        paceFrom(std::chrono::steady_clock::now());
     }
 
     void run() {
@@ -73,8 +88,12 @@ public:
         paceFrom(std::chrono::steady_clock::now());
     }
 
-    [[nodiscard]] bool isRunning() const noexcept { return running; }
-    [[nodiscard]] double speedFactor() const noexcept { return speed; }
+    [[nodiscard]] bool isRunning() const noexcept {
+        return running;
+    }
+    [[nodiscard]] double speedFactor() const noexcept {
+        return speed;
+    }
     [[nodiscard]] std::optional<StopReason> stopReason() const {
         std::scoped_lock lock{mutex};
         return lastStop;
@@ -89,7 +108,9 @@ private:
     void loop(std::stop_token stop) {
         while (!stop.stop_requested()) {
             std::unique_lock lock{mutex};
-            wakeUp.wait(lock, stop, [this] { return running.load(); });
+            wakeUp.wait(lock, stop, [this] {
+                return running.load();
+            });
             if (stop.stop_requested())
                 break;
 
@@ -126,12 +147,18 @@ private:
 
 [[nodiscard]] constexpr std::string_view toString(StopReason reason) {
     switch (reason) {
-        case StopReason::BudgetReached: return "budget";
-        case StopReason::Breakpoint: return "breakpoint";
-        case StopReason::Watchpoint: return "watchpoint";
-        case StopReason::BreakInstruction: return "break instruction";
-        case StopReason::InvalidOpcode: return "invalid opcode";
-        case StopReason::Requested: return "stop requested";
+        case StopReason::BudgetReached:
+            return "budget";
+        case StopReason::Breakpoint:
+            return "breakpoint";
+        case StopReason::Watchpoint:
+            return "watchpoint";
+        case StopReason::BreakInstruction:
+            return "break instruction";
+        case StopReason::InvalidOpcode:
+            return "invalid opcode";
+        case StopReason::Requested:
+            return "stop requested";
     }
     return "unknown";
 }
