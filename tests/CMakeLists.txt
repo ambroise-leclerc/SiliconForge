@@ -24,3 +24,7 @@ else()
     add_test(NAME McuDescriptionTools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/McuToolsTests.py)
 endif()
 set_tests_properties(McuDescriptionTools PROPERTIES TIMEOUT 30 LABELS fast)
+
+# Explicit opt-in target for profiling; not part of CTest or the default build.
+add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
+target_link_libraries(siliconforge_mcu_bench PRIVATE SiliconForge::mcu SiliconForge_options)

@@ -40,7 +40,8 @@ void AvrCore::eraseFlash() { std::ranges::fill(flashWords, u16{0xFFFF}); }
 RunResult AvrCore::run(Cycles budget, bool honourBreakpoints) {
     if (decoded.empty())
         throw std::logic_error("AVR instruction timings are not configured");
-    const auto& table = decoded;
+    const auto* indices = instructionIndices().data();
+    const auto* table = decoded.data();
     const auto  start = cycles;
     const auto  end   = cycles + budget;
 
@@ -70,7 +71,7 @@ RunResult AvrCore::run(Cycles budget, bool honourBreakpoints) {
 
         interruptDelay    = false;
         const auto opcode = fetch();
-        const auto& entry  = table[opcode];
+        const auto& entry  = table[indices[opcode]];
         cycles            += entry.handler(*this, opcode, entry.timing);
 
         if (stopRequest) [[unlikely]]

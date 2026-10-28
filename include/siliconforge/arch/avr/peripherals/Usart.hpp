@@ -32,8 +32,8 @@ public:
 
     Usart(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, const Cycles& clock, SerialPort& serial, Registers registers,
           Vectors vectors, Pins pins,
-          std::array<u16, 2>   clockDividers    = {16, 8},
-          std::size_t          receiveFifoDepth = 2);
+          std::array<u16, 2> clockDividers = {16, 8},
+          std::size_t receiveFifoDepth = 2);
 
     /// Keep JSON-provided register reset values when assembling a described device.
     void reset(bool preserveRegisters = false);

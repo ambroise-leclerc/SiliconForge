@@ -4,6 +4,8 @@
 #include <nlohmann/json.hpp>
 #include <siliconforge/arch/avr/AvrCore.hpp>
 
+#include <algorithm>
+#include <map>
 #include <utility>
 
 namespace siliconforge::avr {
@@ -228,10 +230,14 @@ u8 LDI(AvrCore& c, u16 op, u32 timing) { c.r(d4(op)) = k8(op); return static_cas
 
 u8 LDS(AvrCore& c, u16 op, u32 timing) {
     const auto address = c.fetch();
-    c.r(d5(op)) = c.data.read(address); return c.memoryCycles(address, timing); }
+    c.r(d5(op))        = c.data.read(address);
+    return c.memoryCycles(address, timing);
+}
 u8 STS(AvrCore& c, u16 op, u32 timing) {
     const auto address = c.fetch();
-    c.data.write(address, c.r(d5(op))); return c.memoryCycles(address, timing); }
+    c.data.write(address, c.r(d5(op)));
+    return c.memoryCycles(address, timing);
+}
 
 /// LD/ST through X (26), Y (28) or Z (30), with optional post-increment or pre-decrement.
 enum class Mode { Plain, PostIncrement, PreDecrement };
@@ -314,7 +320,8 @@ u8 BCLR(AvrCore& c, u16 op, u32 timing) { c.sreg &= static_cast<u8>(~(1 << ((op 
 // Branches -------------------------------------------------------------------------------------------------------------
 u8 RJMP(AvrCore& c, u16 op, u32 timing) {
     jumpRelative(c, k12(op));
-    return static_cast<u8>(timing); }
+    return static_cast<u8>(timing);
+}
 u8 RCALL(AvrCore& c, u16 op, u32 timing) {
     c.pushPc(c.pc);
     jumpRelative(c, k12(op));
@@ -492,6 +499,28 @@ constexpr Decoded decode(u16 op) {
     return {INVALID, "(invalid)"};
 }
 
+// Decode once per process. Distinct handlers keep distinct IDs even when they share a mnemonic (LPM R0 / LPM Rd).
+struct InstructionSet {
+    std::array<u16, 65536> indices{};
+    std::vector<Decoded>   kinds;
+};
+const InstructionSet& instructionSet() {
+    static const auto set = [] {
+        InstructionSet result;
+        for (u32 op = 0; op < result.indices.size(); ++op) {
+            const auto d     = decode(static_cast<u16>(op));
+            const auto it    = std::ranges::find_if(result.kinds, [&](const Decoded& kind) {
+                return kind.handler == d.handler && kind.name == d.name;
+            });
+            const auto index = static_cast<u16>(std::distance(result.kinds.begin(), it));
+            if (it == result.kinds.end())
+                result.kinds.push_back(d);
+            result.indices[op] = index;
+        }
+        return result;
+    }();
+    return set;
+}
 }  // namespace
 
 const std::array<InstructionHandler, 65536>& instructionTable() {
@@ -504,19 +533,29 @@ const std::array<InstructionHandler, 65536>& instructionTable() {
     return table;
 }
 
+const std::array<u16, 65536>& instructionIndices() { return instructionSet().indices; }
+
 void AvrCore::setTiming(const nlohmann::json& timing) {
-    decoded.resize(65536);
-    for (u32 op = 0; op < decoded.size(); ++op) {
-        const auto d = decode(static_cast<u16>(op));
+    const auto&                     kinds = instructionSet().kinds;
+    std::map<std::string_view, u32> packed;
+    std::vector<InstructionEntry>   configured;
+    configured.reserve(kinds.size());
+    for (const auto& d : kinds) {
         if (d.name == "(invalid)") {
-            decoded[op] = {d.handler, 0x01010101};
+            configured.push_back({d.handler, 0x01010101});
             continue;
         }
-        const auto& t    = timing.at(std::string(d.name));
-        const auto  base = cfg.pcBytes == 3 ? t.value("pc3Bytes", t.at("cycles").get<u32>()) : t.at("cycles").get<u32>();
-        decoded[op]      = {d.handler,
-                            base | (t.value("taken", t.value("skipOneWord", base)) << 8) | (t.value("skipTwoWords", base) << 16) | (t.value("sram", base) << 24)};
+        auto it = packed.find(d.name);
+        if (it == packed.end()) {
+            const auto& t     = timing.at(std::string(d.name));
+            const auto  base  = cfg.pcBytes == 3 ? t.value("pc3Bytes", t.at("cycles").get<u32>()) : t.at("cycles").get<u32>();
+            const auto  value = base | (t.value("taken", t.value("skipOneWord", base)) << 8) | (t.value("skipTwoWords", base) << 16)
+                               | (t.value("sram", base) << 24);
+            it = packed.emplace(d.name, value).first;
+        }
+        configured.push_back({d.handler, it->second});
     }
+    decoded = std::move(configured);
 }
 
 std::string_view mnemonic(u16 opcode) { return decode(opcode).name; }
