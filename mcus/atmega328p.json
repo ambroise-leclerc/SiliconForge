@@ -1411,7 +1411,7 @@
           "ICP1"
         ],
         "functions": [
-          "CLK0",
+          "CLKO",
           "ICP1",
           "PCINT0"
         ]
