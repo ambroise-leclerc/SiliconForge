@@ -1,0 +1,1080 @@
+{
+  "created_utc": "2026-10-28T19:14:24.472553+00:00",
+  "configuration": {
+    "cpu": 0,
+    "blocks": 24,
+    "simulated_seconds": 30.0,
+    "warmup_seconds": 5.0,
+    "seed": 1729,
+    "bootstrap_resamples": 10000,
+    "firmware": "${REPO}/firmware/prebuilt/blink.hex",
+    "perf_event_paranoid": "4",
+    "firmware_sha256": "b3c5dedb3f6bdec8a05353005edc2fbbfac01f5563743571ffd854134a942d1f",
+    "host": {
+      "cpu_model": "AMD Ryzen 9 3900X 12-Core Processor",
+      "l2_per_core_KiB": 512,
+      "kernel": "7.0.0-38-generic",
+      "compiler": "GCC 16.1 Release",
+      "frequency_and_background_load_controlled": false
+    }
+  },
+  "binaries": {
+    "baseline": {
+      "path": "/tmp/siliconforge-before-epic3",
+      "sha256": "38fa8de7cef77fb23158c476e5445731826a5410e80a1a104df2b51df91cec38"
+    },
+    "large": {
+      "path": "/tmp/sf-before-compact",
+      "sha256": "56c490498347a7bb5553d54774cddf6eb6c82ddc3118328fc70d84510a8d593f"
+    },
+    "compact": {
+      "path": "/tmp/sf-compact-diagnostic",
+      "sha256": "5904a2954579d54ab9368628640754ed4bd9004f5e292718f2c50fc967d459d6"
+    }
+  },
+  "perf_stat": {
+    "baseline": {
+      "command": [
+        "perf",
+        "stat",
+        "-x",
+        ";",
+        "-r",
+        "5",
+        "-e",
+        "cycles:u,instructions:u,branches:u,branch-misses:u,L1-dcache-loads:u,L1-dcache-load-misses:u",
+        "--",
+        "/tmp/siliconforge-before-epic3",
+        "--headless",
+        "--speed",
+        "max",
+        "--duration",
+        "30.0",
+        "${REPO}/firmware/prebuilt/blink.hex"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Error:\nNo supported events found.\nAccess to performance monitoring and observability operations is limited.\nConsider adjusting /proc/sys/kernel/perf_event_paranoid setting to open\naccess to performance monitoring and observability operations for processes\nwithout CAP_PERFMON, CAP_SYS_PTRACE or CAP_SYS_ADMIN Linux capability.\nMore information can be found at 'Perf events and tool security' document:\nhttps://www.kernel.org/doc/html/latest/admin-guide/perf-security.html\nperf_event_paranoid setting is 4:\n  -1: Allow use of (almost) all events by all users\n      Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK\n>= 0: Disallow raw and ftrace function tracepoint access\n>= 1: Disallow CPU event access\n>= 2: Disallow kernel profiling\nTo make the adjusted perf_event_paranoid setting permanent preserve it\nin /etc/sysctl.conf (e.g. kernel.perf_event_paranoid = <setting>)\n"
+    },
+    "large": {
+      "command": [
+        "perf",
+        "stat",
+        "-x",
+        ";",
+        "-r",
+        "5",
+        "-e",
+        "cycles:u,instructions:u,branches:u,branch-misses:u,L1-dcache-loads:u,L1-dcache-load-misses:u",
+        "--",
+        "/tmp/sf-before-compact",
+        "--headless",
+        "--speed",
+        "max",
+        "--duration",
+        "30.0",
+        "${REPO}/firmware/prebuilt/blink.hex"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Error:\nNo supported events found.\nAccess to performance monitoring and observability operations is limited.\nConsider adjusting /proc/sys/kernel/perf_event_paranoid setting to open\naccess to performance monitoring and observability operations for processes\nwithout CAP_PERFMON, CAP_SYS_PTRACE or CAP_SYS_ADMIN Linux capability.\nMore information can be found at 'Perf events and tool security' document:\nhttps://www.kernel.org/doc/html/latest/admin-guide/perf-security.html\nperf_event_paranoid setting is 4:\n  -1: Allow use of (almost) all events by all users\n      Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK\n>= 0: Disallow raw and ftrace function tracepoint access\n>= 1: Disallow CPU event access\n>= 2: Disallow kernel profiling\nTo make the adjusted perf_event_paranoid setting permanent preserve it\nin /etc/sysctl.conf (e.g. kernel.perf_event_paranoid = <setting>)\n"
+    },
+    "compact": {
+      "command": [
+        "perf",
+        "stat",
+        "-x",
+        ";",
+        "-r",
+        "5",
+        "-e",
+        "cycles:u,instructions:u,branches:u,branch-misses:u,L1-dcache-loads:u,L1-dcache-load-misses:u",
+        "--",
+        "/tmp/sf-compact-diagnostic",
+        "--headless",
+        "--speed",
+        "max",
+        "--duration",
+        "30.0",
+        "${REPO}/firmware/prebuilt/blink.hex"
+      ],
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Error:\nNo supported events found.\nAccess to performance monitoring and observability operations is limited.\nConsider adjusting /proc/sys/kernel/perf_event_paranoid setting to open\naccess to performance monitoring and observability operations for processes\nwithout CAP_PERFMON, CAP_SYS_PTRACE or CAP_SYS_ADMIN Linux capability.\nMore information can be found at 'Perf events and tool security' document:\nhttps://www.kernel.org/doc/html/latest/admin-guide/perf-security.html\nperf_event_paranoid setting is 4:\n  -1: Allow use of (almost) all events by all users\n      Ignore mlock limit after perf_event_mlock_kb without CAP_IPC_LOCK\n>= 0: Disallow raw and ftrace function tracepoint access\n>= 1: Disallow CPU event access\n>= 2: Disallow kernel profiling\nTo make the adjusted perf_event_paranoid setting permanent preserve it\nin /etc/sysctl.conf (e.g. kernel.perf_event_paranoid = <setting>)\n"
+    }
+  },
+  "blocks": [
+    {
+      "index": 0,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 153.8,
+          "process_wall_seconds": 3.126787041008356,
+          "process_cpu_seconds": 3.1257900000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 31,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.121 s (153.8 MHz effective, x9.6 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 165.7,
+          "process_wall_seconds": 2.8990303839964326,
+          "process_cpu_seconds": 2.8982430000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 27,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.897 s (165.7 MHz effective, x10.4 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 159.3,
+          "process_wall_seconds": 3.0217432909994386,
+          "process_cpu_seconds": 3.0206789999999994,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.013 s (159.3 MHz effective, x10.0 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 1,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 157.9,
+          "process_wall_seconds": 3.042057329992531,
+          "process_cpu_seconds": 3.0405019999999996,
+          "voluntary_switches": 1,
+          "involuntary_switches": 91,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.040 s (157.9 MHz effective, x9.9 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 149.7,
+          "process_wall_seconds": 3.2107457850070205,
+          "process_cpu_seconds": 3.2096059999999964,
+          "voluntary_switches": 1,
+          "involuntary_switches": 40,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.206 s (149.7 MHz effective, x9.4 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 162.6,
+          "process_wall_seconds": 2.9602835370023968,
+          "process_cpu_seconds": 2.9587130000000017,
+          "voluntary_switches": 1,
+          "involuntary_switches": 49,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.952 s (162.6 MHz effective, x10.2 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 2,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 162.0,
+          "process_wall_seconds": 2.9709417289996054,
+          "process_cpu_seconds": 2.966858000000002,
+          "voluntary_switches": 1,
+          "involuntary_switches": 96,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.963 s (162.0 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 163.0,
+          "process_wall_seconds": 2.9469570600049337,
+          "process_cpu_seconds": 2.9427579999999987,
+          "voluntary_switches": 1,
+          "involuntary_switches": 109,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.945 s (163.0 MHz effective, x10.2 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 139.3,
+          "process_wall_seconds": 3.450368507998064,
+          "process_cpu_seconds": 3.4038329999999997,
+          "voluntary_switches": 1,
+          "involuntary_switches": 251,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.446 s (139.3 MHz effective, x8.7 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 3,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 159.4,
+          "process_wall_seconds": 3.0201985710009467,
+          "process_cpu_seconds": 3.0177340000000044,
+          "voluntary_switches": 1,
+          "involuntary_switches": 48,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.012 s (159.4 MHz effective, x10.0 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 158.0,
+          "process_wall_seconds": 3.042707998989499,
+          "process_cpu_seconds": 3.0402679999999997,
+          "voluntary_switches": 1,
+          "involuntary_switches": 63,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.038 s (158.0 MHz effective, x9.9 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 166.9,
+          "process_wall_seconds": 2.8775750569911906,
+          "process_cpu_seconds": 2.876169,
+          "voluntary_switches": 1,
+          "involuntary_switches": 57,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.876 s (166.9 MHz effective, x10.4 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 4,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 161.9,
+          "process_wall_seconds": 2.9662814479961526,
+          "process_cpu_seconds": 2.9468949999999983,
+          "voluntary_switches": 1,
+          "involuntary_switches": 147,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.964 s (161.9 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 151.1,
+          "process_wall_seconds": 3.1864243400050327,
+          "process_cpu_seconds": 3.165422000000005,
+          "voluntary_switches": 1,
+          "involuntary_switches": 103,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.178 s (151.1 MHz effective, x9.4 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 158.8,
+          "process_wall_seconds": 3.0276509709947277,
+          "process_cpu_seconds": 3.0263879999999963,
+          "voluntary_switches": 1,
+          "involuntary_switches": 46,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.023 s (158.8 MHz effective, x9.9 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 5,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 155.7,
+          "process_wall_seconds": 3.0881603689922486,
+          "process_cpu_seconds": 3.087051999999999,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.084 s (155.7 MHz effective, x9.7 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 159.6,
+          "process_wall_seconds": 3.016545433012652,
+          "process_cpu_seconds": 3.015305999999999,
+          "voluntary_switches": 1,
+          "involuntary_switches": 47,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.008 s (159.6 MHz effective, x10.0 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 156.7,
+          "process_wall_seconds": 3.0657725089986343,
+          "process_cpu_seconds": 3.064533999999996,
+          "voluntary_switches": 1,
+          "involuntary_switches": 46,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.064 s (156.7 MHz effective, x9.8 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 6,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 157.2,
+          "process_wall_seconds": 3.0574305260088295,
+          "process_cpu_seconds": 3.056251,
+          "voluntary_switches": 1,
+          "involuntary_switches": 42,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.053 s (157.2 MHz effective, x9.8 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 166.5,
+          "process_wall_seconds": 2.8851318240049295,
+          "process_cpu_seconds": 2.8840989999999986,
+          "voluntary_switches": 1,
+          "involuntary_switches": 33,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.883 s (166.5 MHz effective, x10.4 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 152.8,
+          "process_wall_seconds": 3.149337517999811,
+          "process_cpu_seconds": 3.1481689999999998,
+          "voluntary_switches": 1,
+          "involuntary_switches": 47,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.141 s (152.8 MHz effective, x9.6 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 7,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 153.1,
+          "process_wall_seconds": 3.1428982429933967,
+          "process_cpu_seconds": 3.119129999999998,
+          "voluntary_switches": 1,
+          "involuntary_switches": 106,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.135 s (153.1 MHz effective, x9.6 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 154.0,
+          "process_wall_seconds": 3.1193399609910557,
+          "process_cpu_seconds": 3.1182619999999988,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.117 s (154.0 MHz effective, x9.6 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 157.6,
+          "process_wall_seconds": 3.049357622003299,
+          "process_cpu_seconds": 3.048329000000012,
+          "voluntary_switches": 1,
+          "involuntary_switches": 36,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.045 s (157.6 MHz effective, x9.9 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 8,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 160.2,
+          "process_wall_seconds": 3.0042922959983116,
+          "process_cpu_seconds": 3.003235999999994,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.996 s (160.2 MHz effective, x10.0 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 156.8,
+          "process_wall_seconds": 3.0648283030022867,
+          "process_cpu_seconds": 3.063633999999998,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.060 s (156.8 MHz effective, x9.8 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 150.5,
+          "process_wall_seconds": 3.191410436993465,
+          "process_cpu_seconds": 3.185313000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 77,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.189 s (150.5 MHz effective, x9.4 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 9,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 158.9,
+          "process_wall_seconds": 3.0260198879987,
+          "process_cpu_seconds": 3.0250219999999928,
+          "voluntary_switches": 1,
+          "involuntary_switches": 43,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.021 s (158.9 MHz effective, x9.9 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 161.3,
+          "process_wall_seconds": 2.9844307620078325,
+          "process_cpu_seconds": 2.983372999999996,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.976 s (161.3 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 166.4,
+          "process_wall_seconds": 2.887389463998261,
+          "process_cpu_seconds": 2.8863400000000117,
+          "voluntary_switches": 1,
+          "involuntary_switches": 39,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.885 s (166.4 MHz effective, x10.4 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 10,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 155.4,
+          "process_wall_seconds": 3.091673960996559,
+          "process_cpu_seconds": 3.0902299999999823,
+          "voluntary_switches": 1,
+          "involuntary_switches": 50,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.090 s (155.4 MHz effective, x9.7 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 154.7,
+          "process_wall_seconds": 3.111967912002001,
+          "process_cpu_seconds": 3.110971000000014,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.103 s (154.7 MHz effective, x9.7 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 158.5,
+          "process_wall_seconds": 3.0336014720087405,
+          "process_cpu_seconds": 3.0326350000000044,
+          "voluntary_switches": 1,
+          "involuntary_switches": 35,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.029 s (158.5 MHz effective, x9.9 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 11,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 166.6,
+          "process_wall_seconds": 2.8829970879887696,
+          "process_cpu_seconds": 2.882070999999997,
+          "voluntary_switches": 0,
+          "involuntary_switches": 35,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.881 s (166.6 MHz effective, x10.4 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 156.0,
+          "process_wall_seconds": 3.082151527996757,
+          "process_cpu_seconds": 3.0809180000000027,
+          "voluntary_switches": 1,
+          "involuntary_switches": 43,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.078 s (156.0 MHz effective, x9.7 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 150.4,
+          "process_wall_seconds": 3.201341964988387,
+          "process_cpu_seconds": 3.1322309999999938,
+          "voluntary_switches": 1,
+          "involuntary_switches": 303,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.192 s (150.4 MHz effective, x9.4 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 12,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 165.3,
+          "process_wall_seconds": 2.905423300995608,
+          "process_cpu_seconds": 2.9021289999999986,
+          "voluntary_switches": 1,
+          "involuntary_switches": 80,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.903 s (165.3 MHz effective, x10.3 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 160.1,
+          "process_wall_seconds": 3.005927657999564,
+          "process_cpu_seconds": 3.0017229999999953,
+          "voluntary_switches": 1,
+          "involuntary_switches": 115,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.998 s (160.1 MHz effective, x10.0 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 158.8,
+          "process_wall_seconds": 3.027556122004171,
+          "process_cpu_seconds": 3.023927000000012,
+          "voluntary_switches": 1,
+          "involuntary_switches": 99,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.023 s (158.8 MHz effective, x9.9 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 13,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 155.4,
+          "process_wall_seconds": 3.0979934300121386,
+          "process_cpu_seconds": 3.076769000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 167,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.089 s (155.4 MHz effective, x9.7 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 154.4,
+          "process_wall_seconds": 3.1130400889960583,
+          "process_cpu_seconds": 3.097068999999993,
+          "voluntary_switches": 1,
+          "involuntary_switches": 111,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.108 s (154.4 MHz effective, x9.7 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 165.8,
+          "process_wall_seconds": 2.8972416519973194,
+          "process_cpu_seconds": 2.8961850000000173,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.895 s (165.8 MHz effective, x10.4 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 14,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 159.3,
+          "process_wall_seconds": 3.0183754330064403,
+          "process_cpu_seconds": 3.016679000000016,
+          "voluntary_switches": 1,
+          "involuntary_switches": 47,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.014 s (159.3 MHz effective, x10.0 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 159.2,
+          "process_wall_seconds": 3.024226595996879,
+          "process_cpu_seconds": 3.0147829999999782,
+          "voluntary_switches": 1,
+          "involuntary_switches": 88,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.016 s (159.2 MHz effective, x9.9 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 152.3,
+          "process_wall_seconds": 3.15301948999695,
+          "process_cpu_seconds": 3.1519700000000075,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.151 s (152.3 MHz effective, x9.5 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 15,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 156.1,
+          "process_wall_seconds": 3.078429891000269,
+          "process_cpu_seconds": 3.077371999999987,
+          "voluntary_switches": 1,
+          "involuntary_switches": 40,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.074 s (156.1 MHz effective, x9.8 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 161.3,
+          "process_wall_seconds": 2.977803934001713,
+          "process_cpu_seconds": 2.9767999999999946,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.976 s (161.3 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 158.2,
+          "process_wall_seconds": 3.041494285003864,
+          "process_cpu_seconds": 3.0403569999999975,
+          "voluntary_switches": 1,
+          "involuntary_switches": 45,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.033 s (158.2 MHz effective, x9.9 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 16,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 154.3,
+          "process_wall_seconds": 3.113492784992559,
+          "process_cpu_seconds": 3.112485999999992,
+          "voluntary_switches": 1,
+          "involuntary_switches": 35,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.111 s (154.3 MHz effective, x9.6 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 156.1,
+          "process_wall_seconds": 3.0806327650061576,
+          "process_cpu_seconds": 3.0795470000000074,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.076 s (156.1 MHz effective, x9.8 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 162.0,
+          "process_wall_seconds": 2.971505165012786,
+          "process_cpu_seconds": 2.970458999999998,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.963 s (162.0 MHz effective, x10.1 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 17,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 160.9,
+          "process_wall_seconds": 2.991947364003863,
+          "process_cpu_seconds": 2.990842999999989,
+          "voluntary_switches": 1,
+          "involuntary_switches": 40,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.983 s (160.9 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 162.9,
+          "process_wall_seconds": 2.948090863006655,
+          "process_cpu_seconds": 2.946991000000021,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.946 s (162.9 MHz effective, x10.2 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 149.8,
+          "process_wall_seconds": 3.2095974130061222,
+          "process_cpu_seconds": 3.176008000000004,
+          "voluntary_switches": 1,
+          "involuntary_switches": 202,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.205 s (149.8 MHz effective, x9.4 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 18,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 158.9,
+          "process_wall_seconds": 3.0241062190034427,
+          "process_cpu_seconds": 3.022948000000015,
+          "voluntary_switches": 1,
+          "involuntary_switches": 47,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.020 s (158.9 MHz effective, x9.9 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 161.9,
+          "process_wall_seconds": 2.973399224996683,
+          "process_cpu_seconds": 2.9718969999999953,
+          "voluntary_switches": 1,
+          "involuntary_switches": 98,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.965 s (161.9 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 167.7,
+          "process_wall_seconds": 2.8644673630042234,
+          "process_cpu_seconds": 2.863223000000007,
+          "voluntary_switches": 1,
+          "involuntary_switches": 68,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.862 s (167.7 MHz effective, x10.5 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 19,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 154.0,
+          "process_wall_seconds": 3.1241473099944415,
+          "process_cpu_seconds": 3.120275999999999,
+          "voluntary_switches": 1,
+          "involuntary_switches": 50,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.116 s (154.0 MHz effective, x9.6 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 162.0,
+          "process_wall_seconds": 2.9650254220032366,
+          "process_cpu_seconds": 2.9640899999999917,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.963 s (162.0 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 156.7,
+          "process_wall_seconds": 3.06688189599663,
+          "process_cpu_seconds": 3.0656980000000025,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.063 s (156.7 MHz effective, x9.8 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 20,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 166.3,
+          "process_wall_seconds": 2.888471969999955,
+          "process_cpu_seconds": 2.8875139999999675,
+          "voluntary_switches": 1,
+          "involuntary_switches": 31,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.886 s (166.3 MHz effective, x10.4 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 156.1,
+          "process_wall_seconds": 3.078676056000404,
+          "process_cpu_seconds": 3.077421000000006,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.074 s (156.1 MHz effective, x9.8 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 145.6,
+          "process_wall_seconds": 3.307519238005625,
+          "process_cpu_seconds": 3.3063830000000065,
+          "voluntary_switches": 1,
+          "involuntary_switches": 39,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.297 s (145.6 MHz effective, x9.1 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 21,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 160.7,
+          "process_wall_seconds": 2.9955479920026846,
+          "process_cpu_seconds": 2.9945430000000006,
+          "voluntary_switches": 1,
+          "involuntary_switches": 34,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.987 s (160.7 MHz effective, x10.0 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 157.3,
+          "process_wall_seconds": 3.056709021999268,
+          "process_cpu_seconds": 3.0556429999999946,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.052 s (157.3 MHz effective, x9.8 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 165.3,
+          "process_wall_seconds": 2.9055918890080648,
+          "process_cpu_seconds": 2.904578000000011,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.904 s (165.3 MHz effective, x10.3 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 22,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 150.3,
+          "process_wall_seconds": 3.1987463980040047,
+          "process_cpu_seconds": 3.147368999999982,
+          "voluntary_switches": 1,
+          "involuntary_switches": 272,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.194 s (150.3 MHz effective, x9.4 real time), stop: budget\n"
+        },
+        "baseline": {
+          "MHz": 159.0,
+          "process_wall_seconds": 3.0209771119989455,
+          "process_cpu_seconds": 3.019974000000015,
+          "voluntary_switches": 1,
+          "involuntary_switches": 34,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.019 s (159.0 MHz effective, x9.9 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 162.2,
+          "process_wall_seconds": 2.9682389779918594,
+          "process_cpu_seconds": 2.967118,
+          "voluntary_switches": 1,
+          "involuntary_switches": 49,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.960 s (162.2 MHz effective, x10.1 real time), stop: budget\n"
+        }
+      }
+    },
+    {
+      "index": 23,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 166.9,
+          "process_wall_seconds": 2.8785708299983526,
+          "process_cpu_seconds": 2.877577000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 33,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.877 s (166.9 MHz effective, x10.4 real time), stop: budget\n"
+        },
+        "large": {
+          "MHz": 160.9,
+          "process_wall_seconds": 2.9914797199890018,
+          "process_cpu_seconds": 2.9868249999999876,
+          "voluntary_switches": 1,
+          "involuntary_switches": 59,
+          "stderr": "\n[siliconforge] 30 simulated s in 2.983 s (160.9 MHz effective, x10.1 real time), stop: budget\n"
+        },
+        "compact": {
+          "MHz": 141.3,
+          "process_wall_seconds": 3.4023224150005262,
+          "process_cpu_seconds": 3.3983570000000007,
+          "voluntary_switches": 1,
+          "involuntary_switches": 42,
+          "stderr": "\n[siliconforge] 30 simulated s in 3.397 s (141.3 MHz effective, x8.8 real time), stop: budget\n"
+        }
+      }
+    }
+  ],
+  "interval_scope": "Exploratory paired-block bootstrap on this session only; drift/autocorrelation may remain. No sample exclusion.",
+  "summary": {
+    "baseline": {
+      "n": 24,
+      "median_MHz": 162.95,
+      "mean_MHz": 161.69166666666666,
+      "stdev_MHz": 5.343823469704282,
+      "min_MHz": 150.5,
+      "max_MHz": 167.7,
+      "q1_MHz": 157.6,
+      "q3_MHz": 166.32500000000002
+    },
+    "large": {
+      "n": 24,
+      "median_MHz": 159.5,
+      "mean_MHz": 157.81666666666666,
+      "stdev_MHz": 4.572951350929836,
+      "min_MHz": 145.6,
+      "max_MHz": 162.6,
+      "q1_MHz": 154.52499999999998,
+      "q3_MHz": 161.0
+    },
+    "compact": {
+      "n": 24,
+      "median_MHz": 156.39999999999998,
+      "mean_MHz": 154.80833333333334,
+      "stdev_MHz": 5.27297594934007,
+      "min_MHz": 139.3,
+      "max_MHz": 159.3,
+      "q1_MHz": 154.25,
+      "q3_MHz": 158.125
+    }
+  },
+  "comparisons": {
+    "compact_vs_baseline": {
+      "ratio_of_medians_delta_percent": -4.019637925744101,
+      "ratio_bootstrap_95_ci_percent": [
+        -5.853952926976458,
+        -1.6352201257861743
+      ],
+      "paired_median_delta_percent": -5.01642282422004,
+      "paired_bootstrap_95_ci_percent": [
+        -5.733014068938486,
+        -3.223806571605714
+      ],
+      "paired_deltas_percent": [
+        -7.1816535908267864,
+        -5.1931602279924105,
+        -14.53987730061349,
+        -5.332534451767524,
+        -1.914762198888198,
+        -0.638162093171668,
+        -5.585585585585595,
+        2.3376623376623273,
+        4.1860465116279055,
+        -4.507211538461542,
+        1.9948519948519872,
+        -6.362545018007204,
+        -3.932244404113727,
+        -6.875753920386007,
+        4.596191726854881,
+        -3.223806571605714,
+        1.1665586519766569,
+        -8.041743400859424,
+        -5.2474657125819775,
+        -3.2716049382716106,
+        -6.133493686109448,
+        -4.839685420447671,
+        -5.471698113207535,
+        -15.338526063511082
+      ]
+    },
+    "large_vs_baseline": {
+      "ratio_of_medians_delta_percent": -2.1172138692850506,
+      "ratio_bootstrap_95_ci_percent": [
+        -4.839685420447671,
+        0.37735849056603765
+      ],
+      "paired_median_delta_percent": -2.9238614814556363,
+      "paired_bootstrap_95_ci_percent": [
+        -3.862401931200954,
+        -0.5844155844155874
+      ],
+      "paired_deltas_percent": [
+        -3.862401931200954,
+        2.9765674477517434,
+        -0.6134969325153339,
+        -4.493708807669261,
+        -6.67078443483633,
+        1.8506700701978351,
+        -8.228228228228218,
+        -0.5844155844155874,
+        6.445182724252474,
+        -3.0649038461538436,
+        -0.45045045045045695,
+        -9.723889555822318,
+        -3.145795523290995,
+        -6.272617611580222,
+        4.530531845042662,
+        -1.9218846869187955,
+        4.990278677900184,
+        -1.2277470841006721,
+        -3.4585569469290256,
+        -4.938271604938271,
+        -12.447384245339755,
+        -2.782819116757429,
+        2.012578616352201,
+        -3.594967046135411
+      ]
+    },
+    "compact_vs_large": {
+      "ratio_of_medians_delta_percent": -1.9435736677116178,
+      "ratio_bootstrap_95_ci_percent": [
+        -3.05963159537932,
+        0.5146636611187827
+      ],
+      "paired_median_delta_percent": -1.4076721768375267,
+      "paired_bootstrap_95_ci_percent": [
+        -2.6528004119319104,
+        0.212906562464088
+      ],
+      "paired_deltas_percent": [
+        -3.4526051475204045,
+        -7.933579335793361,
+        -14.01234567901234,
+        -0.8782936010037656,
+        5.095962938451359,
+        -2.4436090225563922,
+        2.8795811518324443,
+        2.939255388634887,
+        -2.122347066167274,
+        -1.4879107253564783,
+        2.4563671622495287,
+        3.7234042553191404,
+        -0.8119925046845666,
+        -0.6435006435006385,
+        0.06281407035177988,
+        -1.327433628318575,
+        -3.641975308641976,
+        -6.898694841516462,
+        -1.8529956763434163,
+        1.753246753246751,
+        7.211538461538458,
+        -2.1157436216552417,
+        -7.33662145499382,
+        -12.181479179614662
+      ]
+    }
+  },
+  "hardware_counters_available": false,
+  "static_dispatch_evidence": "dispatch-snippets.txt; static dependency evidence only, not dynamic IPC or miss measurements",
+  "source_notes": {
+    "baseline": "Runtime before epic #3, immutable executable saved at implementation start",
+    "large": "1 MiB table revision 65bcb3b, immutable saved executable",
+    "compact": "Compact dispatch at 1518be2 (same C++ runtime as 6dba94e); measured before the test-only inspection-access cleanup"
+  }
+}

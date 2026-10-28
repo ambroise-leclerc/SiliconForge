@@ -172,13 +172,75 @@ Les échantillons et les empreintes des exécutables sont conservés dans
 
 ## Mesures de la table compacte
 
-La comparaison alternée entre le moteur initial, l'ancienne table privée de 1 Mio et
-la table compacte (même CPU, L2 de 512 Kio, GCC 16.1 Release, `blink`, 30 s simulées)
-donne des médianes de 165,7 / 159,85 / 156,85 MHz. La table compacte économise la mémoire
-et le temps de construction mais n'atteint pas encore l'objectif d'exécution de ±3 % :
-l'écart mesuré face au moteur initial reste **−5,34 %**. L'indirection supplémentaire
-n'est donc pas présentée comme une correction démontrée du débit. Les valeurs demeurent
-sensibles au firmware et à la machine.
+Le premier relevé alterné ne contient que quatre exécutions par variante : médianes
+165,7 / 159,85 / 156,85 MHz (moteur initial / table privée de 1 Mio / compacte), soit
+−5,34 % pour compacte/initial. Il est conservé comme mesure exploratoire dans
+[le relevé initial](benchmarks/mcu-compact.json) ; sa dispersion ne permet pas de
+classer les deux nouvelles tables.
+
+Une nouvelle session utilise **24 blocs**, chacun exécutant les trois binaires. Les
+six ordres possibles sont équilibrés et mélangés par groupes de six blocs (graine
+1729). Chaque binaire reçoit un échauffement de 5 secondes simulées, puis chaque
+exécution mesure 30 secondes simulées de `blink`, sur CPU 0 (L2 512 Kio), GCC 16.1
+Release. Les 72 échantillons sont conservés, y compris les plus lents. Aucun build
+ne tourne pendant la mesure. L'hôte reste partagé ; fréquence et charge extérieure
+ne sont pas contrôlées.
+
+| Variante | n | Médiane MHz | Écart-type MHz | Minimum–maximum MHz |
+| --- | ---: | ---: | ---: | ---: |
+| Moteur initial | 24 | 162,95 | 5,34 | 150,5–167,7 |
+| Table privée 1 Mio | 24 | 159,50 | 4,57 | 145,6–162,6 |
+| Table compacte | 24 | 156,40 | 5,27 | 139,3–159,3 |
+
+Le rapport des médianes compacte/initial donne **−4,02 %**, avec un intervalle
+bootstrap exploratoire à 95 % de [−5,85 ; −1,64] %. Un autre estimateur, la médiane
+des écarts relatifs calculés dans chaque bloc, donne **−5,02 %** [−5,73 ; −3,22] %.
+Ces estimateurs distincts sont fournis avec leurs propres intervalles dans
+[le relevé complet](benchmarks/mcu-dispatch-24blocks.json). Ils ne démontrent pas
+le respect de l'objectif ±3 % ; le critère de #13 reste ouvert.
+
+Pour compacte/table privée, le rapport des médianes vaut −1,94 % [−3,06 ; +0,51] % ;
+la médiane des écarts par bloc vaut −1,41 % [−2,65 ; +0,21] %. Les deux intervalles
+contiennent zéro : **le classement entre ces deux variantes n'est pas établi**.
+Les intervalles rééchantillonnent 10 000 fois les blocs de cette seule session ;
+ils ne remplacent pas des répétitions indépendantes sur plusieurs sessions ou
+machines et peuvent sous-estimer la dérive et l'autocorrélation.
+
+### Diagnostic du dispatch et compteurs matériels
+
+`perf stat` a été tenté sur chacun des trois exécutables pour `cycles`,
+`instructions`, `branches`, `branch-misses`, `L1-dcache-loads` et
+`L1-dcache-load-misses` en espace utilisateur. Les trois essais ont été refusés
+par l'hôte (`perf_event_paranoid=4`), y compris hors du bac à sable. Les refus bruts
+figurent dans le relevé ; **IPC, instructions retirées et taux de défauts n'ont pas
+été mesurés**. La configuration du noyau n'a pas été modifiée.
+
+Les [extraits de désassemblage](benchmarks/dispatch-snippets.txt) montrent une
+lecture de pointeur indexée par opcode dans le moteur initial ; la table compacte
+ajoute la lecture dépendante de l'indice avant celle de l'entrée handler/timing.
+La grande table charge aussi le timing ; les handlers configurables effectuent
+des extractions de champs pour les coûts mémoire et les skips. La chaîne de
+dépendances et ce travail supplémentaire sont des causes possibles. Le code
+statique ne permet pas de quantifier leur contribution, ni de conclure à une
+cause liée au cache. L'attribution demande encore les compteurs matériels sur
+une machine qui en autorise l'accès.
+
+Le protocole et les tentatives `perf stat` sont reproductibles sous Linux avec
+les trois binaires Release conservés (empreintes SHA-256 dans le relevé) :
+
+```sh
+python3 tests/bench/compare_dispatch.py \
+  --baseline /path/to/initial --large /path/to/large --compact /path/to/compact \
+  --firmware firmware/prebuilt/blink.hex --output /tmp/dispatch.json \
+  --cpu 0 --blocks 24 --seconds 30 --seed 1729 --perf --perf-repeats 20
+```
+
+Le script mesure le débit annoncé par la boucle d'émulation et conserve également
+les temps CPU et muraux du processus (démarrage compris). `--perf` collecte les
+événements ci-dessus, ou leur diagnostic d'échec ; il ne change aucune permission.
+Les variantes d'architecture de dispatch suggérées restent des expériences futures.
+
+### Temps de construction
 
 Sur trois séries de 100 opérations après échauffement, la création d'une puce passe
 de 5 538 à 463 µs et `setTiming()` de 4 833 à 21 µs (environ ×12 et ×231).
@@ -190,6 +252,10 @@ build/tests/siliconforge_mcu_bench
 ```
 
 Les échantillons sont dans [le relevé de comparaison](benchmarks/mcu-compact.json).
+L'inspection de la mémoire des timings passe par un ami réservé aux tests et au
+benchmark, sans accesseur public `timingTableBytes()`. Les 463 µs de création
+incluent le parsing et la configuration ; un cache du JSON intégré reste une piste
+ultérieure, sans gain mesuré ici.
 
 ## Limite des timings avec PC sur trois octets
 
