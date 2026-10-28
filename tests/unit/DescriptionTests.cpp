@@ -1,5 +1,6 @@
 #include <nlohmann/json.hpp>
 #include "../support/AvrAssembler.hpp"
+#include "../support/AvrCoreAccess.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <siliconforge/arch/avr/Device.hpp>
@@ -627,8 +628,8 @@ TEST_CASE("Compact opcode indices preserve dispatch and keep per-core timings in
     auto m = mcu::create("atmega328p");
     REQUIRE(m);
     const auto& cpu = static_cast<avr::Device&>(*m).avrCore();
-    CHECK(cpu.timingTableBytes() <= 4096);
-    CHECK(cpu.timingTableBytes() >= kinds.size() * sizeof(avr::InstructionEntry));
+    CHECK(testing::AvrCoreAccess::timingTableBytes(cpu) <= 4096);
+    CHECK(testing::AvrCoreAccess::timingTableBytes(cpu) >= kinds.size() * sizeof(avr::InstructionEntry));
 }
 
 TEST_CASE("Shared LPM timings retain the distinct implicit and explicit destination handlers", "[mcu][avr][decoder]") {
