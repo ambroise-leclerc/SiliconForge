@@ -29,10 +29,10 @@ inline constexpr u8 I = 1 << 7;
 
 /// What differs from one AVR device to another, as far as the core is concerned.
 struct AvrCoreConfig {
-    u32     flashBytes;           ///< Power of two.
-    Address ioEnd;                ///< Last extended I/O address (0xFF on the ATmega328P).
-    Address ramEnd;               ///< Last SRAM address, also the reset value of SP.
-    u8      vectorWords{2};       ///< Size of an interrupt vector slot (2 when vectors hold a JMP).
+    u32     flashBytes;          ///< Power of two.
+    Address ioEnd;               ///< Last extended I/O address (0xFF on the ATmega328P).
+    Address ramEnd;              ///< Last SRAM address, also the reset value of SP.
+    u8      vectorWords{2};      ///< Size of an interrupt vector slot (2 when vectors hold a JMP).
     u16     flashPageBytes{128};  ///< SPM page size.
     Address spmcsr{0};            ///< Data address of SPMCSR, 0 when self-programming is not available.
     Address smcr{0};              ///< Data address of SMCR (sleep enable in bit 0), 0 when absent.
@@ -60,24 +60,16 @@ public:
     void loadFlash(Address address, std::span<const u8> bytes);
     void eraseFlash();
 
-    RunResult run(Cycles budget) {
-        return run(budget, true);
-    }
+    RunResult run(Cycles budget) { return run(budget, true); }
     RunResult run(Cycles budget, bool honourBreakpoints);
     /// Executes one instruction, or serves one interrupt, or sleeps until the next event. Ignores breakpoints.
     RunResult step();
 
     // Architectural state ------------------------------------------------------------------------------------------
-    [[nodiscard]] u8& r(unsigned index) noexcept {
-        return regs[index];
-    }
-    [[nodiscard]] u8 r(unsigned index) const noexcept {
-        return regs[index];
-    }
-    [[nodiscard]] u16 pair(unsigned low) const noexcept {
-        return static_cast<u16>(regs[low] | regs[low + 1] << 8);
-    }
-    void setPair(unsigned low, u16 value) noexcept {
+    [[nodiscard]] u8& r(unsigned index) noexcept { return regs[index]; }
+    [[nodiscard]] u8  r(unsigned index) const noexcept { return regs[index]; }
+    [[nodiscard]] u16 pair(unsigned low) const noexcept { return static_cast<u16>(regs[low] | regs[low + 1] << 8); }
+    void              setPair(unsigned low, u16 value) noexcept {
         regs[low]     = static_cast<u8>(value);
         regs[low + 1] = static_cast<u8>(value >> 8);
     }
@@ -88,15 +80,9 @@ public:
     Cycles cycles{0};
     bool   sleeping{false};
 
-    [[nodiscard]] const std::vector<u16>& flash() const noexcept {
-        return flashWords;
-    }
-    [[nodiscard]] u32 pcMask() const noexcept {
-        return static_cast<u32>(flashWords.size() - 1);
-    }
-    [[nodiscard]] const AvrCoreConfig& config() const noexcept {
-        return cfg;
-    }
+    [[nodiscard]] const std::vector<u16>& flash() const noexcept { return flashWords; }
+    [[nodiscard]] u32 pcMask() const noexcept { return static_cast<u32>(flashWords.size() - 1); }
+    [[nodiscard]] const AvrCoreConfig& config() const noexcept { return cfg; }
 
     DataSpace&           data;
     Scheduler&           scheduler;
@@ -104,9 +90,7 @@ public:
     Debugger&            debugger;
 
     // Helpers used by the instruction handlers ---------------------------------------------------------------------
-    u16 fetch() noexcept {
-        return flashWords[pc++ & pcMask()];
-    }
+    u16  fetch() noexcept { return flashWords[pc++ & pcMask()]; }
     void push(u8 value) {
         data.write(sp, value);
         --sp;
@@ -123,15 +107,15 @@ public:
     }
     u32 popPc() {
         const auto upper = cfg.pcBytes == 3 ? pop() : u8{0};
-        const auto high  = pop();
-        const auto low   = pop();
+        const auto high = pop();
+        const auto low  = pop();
         return static_cast<u32>(upper << 16 | high << 8 | low) & pcMask();
     }
     [[nodiscard]] u8 flashByte(u32 byteAddress) const noexcept {
         const auto word = flashWords[(byteAddress >> 1) & pcMask()];
         return static_cast<u8>(byteAddress & 1 ? word >> 8 : word);
     }
-    void             executeSpm();
+    void executeSpm();
     [[nodiscard]] u8 memoryCycles(Address address, u32 timing) const noexcept {
         return static_cast<u8>(timing >> (address > cfg.ioEnd ? 24 : 0));
     }
@@ -145,11 +129,12 @@ private:
     void serviceInterrupt();
 
     std::vector<InstructionEntry> decoded;
-    AvrCoreConfig                 cfg;
-    u8*                           regs;
-    std::vector<u16>              flashWords;
-    std::vector<u16>              pageBuffer;
-    std::optional<u32>            resumeAt;  ///< PC of the breakpoint the last run stopped at, executed without stopping again.
+
+    AvrCoreConfig    cfg;
+    u8*              regs;
+    std::vector<u16> flashWords;
+    std::vector<u16> pageBuffer;
+    std::optional<u32> resumeAt;  ///< PC of the breakpoint the last run stopped at, executed without stopping again.
 };
 
 /// Number of 16-bit words of the instruction starting with `opcode` (JMP, CALL, LDS and STS take two).

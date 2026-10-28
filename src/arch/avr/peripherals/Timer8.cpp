@@ -5,33 +5,20 @@
 namespace siliconforge::avr {
 
 namespace {
-constexpr u8 tov    = 1 << 0;
-constexpr u8 ocfA   = 1 << 1;
-constexpr u8 ocfB   = 1 << 2;
+constexpr u8 tov  = 1 << 0;
+constexpr u8 ocfA = 1 << 1;
+constexpr u8 ocfB = 1 << 2;
 constexpr u8 ocf[2] = {ocfA, ocfB};
 
-constexpr u8 focA   = 1 << 7;
-constexpr u8 focB   = 1 << 6;
-constexpr u8 wgm2   = 1 << 3;
+constexpr u8 focA = 1 << 7;
+constexpr u8 focB = 1 << 6;
+constexpr u8 wgm2 = 1 << 3;
 constexpr u8 csMask = 0x07;
 }  // namespace
 
-Timer8::Timer8(DataSpace&           data,
-               Scheduler&           scheduler,
-               InterruptController& interrupts,
-               const Cycles&        clock,
-               Registers            registers,
-               Vectors              vectors,
-               std::array<u16, 8>   prescalers,
-               OutputPin            outputA,
-               OutputPin            outputB)
-    : data(data),
-      scheduler(scheduler),
-      interrupts(interrupts),
-      clock(clock),
-      regs(registers),
-      vectors(vectors),
-      prescalers(prescalers),
+Timer8::Timer8(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, const Cycles& clock, Registers registers, Vectors vectors,
+               std::array<u16, 8> prescalers, OutputPin outputA, OutputPin outputB)
+    : data(data), scheduler(scheduler), interrupts(interrupts), clock(clock), regs(registers), vectors(vectors), prescalers(prescalers),
       outputs{outputA, outputB} {
     const auto store = [this](Address address, u8 value, u8 mask) {
         auto& stored = this->data.raw(address);
@@ -57,44 +44,37 @@ Timer8::Timer8(DataSpace&           data,
                               }
                               reschedule();
                           }});
-    data.map(regs.tcnt,
-             {[this] {
-                  return counter();
-              },
-              [this](u8 value, u8 mask) {
-                  sync(this->clock);
-                  tcnt = static_cast<u8>((tcnt & ~mask) | (value & mask));
-                  reschedule();
-              }});
+    data.map(regs.tcnt, {[this] { return counter(); },
+                         [this](u8 value, u8 mask) {
+                             sync(this->clock);
+                             tcnt = static_cast<u8>((tcnt & ~mask) | (value & mask));
+                             reschedule();
+                         }});
     for (unsigned unit = 0; unit < 2; ++unit) {
         const auto address = unit == 0 ? regs.ocrA : regs.ocrB;
-        data.map(address,
-                 {[this, unit] {
-                      return ocrBuffer[unit];
-                  },
-                  [this, unit](u8 value, u8 mask) {
-                      sync(this->clock);
-                      ocrBuffer[unit] = static_cast<u8>((ocrBuffer[unit] & ~mask) | (value & mask));
-                      if (!pwm())
-                          ocr[unit] = ocrBuffer[unit];
-                      reschedule();
-                  }});
+        data.map(address, {[this, unit] { return ocrBuffer[unit]; },
+                           [this, unit](u8 value, u8 mask) {
+                               sync(this->clock);
+                               ocrBuffer[unit] = static_cast<u8>((ocrBuffer[unit] & ~mask) | (value & mask));
+                               if (!pwm())
+                                   ocr[unit] = ocrBuffer[unit];
+                               reschedule();
+                           }});
     }
     data.map(regs.timsk, {nullptr, [this, store](u8 value, u8 mask) {
                               store(regs.timsk, value, mask);
                               updateInterrupts();
                           }});
-    data.map(regs.tifr,
-             {[this] {
-                  sync(this->clock);
-                  return this->data.raw(regs.tifr);
-              },
-              [this](u8 value, u8 mask) {
-                  sync(this->clock);
-                  // Flags are cleared by writing a logic one to them.
-                  this->data.raw(regs.tifr) &= static_cast<u8>(~(value & mask));
-                  updateInterrupts();
-              }});
+    data.map(regs.tifr, {[this] {
+                             sync(this->clock);
+                             return this->data.raw(regs.tifr);
+                         },
+                         [this](u8 value, u8 mask) {
+                             sync(this->clock);
+                             // Flags are cleared by writing a logic one to them.
+                             this->data.raw(regs.tifr) &= static_cast<u8>(~(value & mask));
+                             updateInterrupts();
+                         }});
 
     interrupts.onAcknowledge(vectors.overflow, [this] {
         this->data.raw(regs.tifr) &= static_cast<u8>(~tov);
@@ -130,15 +110,11 @@ void Timer8::reset(bool preserveRegisters) {
 Timer8::Mode Timer8::mode() const noexcept {
     switch ((data.raw(regs.tccrA) & 0x03) | ((data.raw(regs.tccrB) & wgm2) >> 1)) {
         case 1:
-        case 5:
-            return Mode::PhaseCorrect;
-        case 2:
-            return Mode::Ctc;
+        case 5: return Mode::PhaseCorrect;
+        case 2: return Mode::Ctc;
         case 3:
-        case 7:
-            return Mode::FastPwm;
-        default:
-            return Mode::Normal;
+        case 7: return Mode::FastPwm;
+        default: return Mode::Normal;
     }
 }
 
@@ -147,9 +123,7 @@ u8 Timer8::top() const noexcept {
     return (wgm == 2 || wgm == 5 || wgm == 7) ? ocr[0] : u8{0xFF};
 }
 
-unsigned Timer8::prescaler() const noexcept {
-    return prescalers[data.raw(regs.tccrB) & csMask];
-}
+unsigned Timer8::prescaler() const noexcept { return prescalers[data.raw(regs.tccrB) & csMask]; }
 
 void Timer8::sync(Cycles now) {
     if (now <= lastSync)
@@ -267,7 +241,7 @@ Cycles Timer8::ticksToNextEvent() const {
 void Timer8::compareMatch(unsigned unit) {
     // Units 2 and 3 are the forced compares of A and B (FOCnx): same output action, no flag.
     const bool forced = unit >= 2;
-    unit             &= 1;
+    unit &= 1;
     if (!forced)
         setFlag(ocf[unit]);
 

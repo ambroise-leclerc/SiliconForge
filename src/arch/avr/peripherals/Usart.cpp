@@ -4,11 +4,11 @@ namespace siliconforge::avr {
 
 namespace {
 // UCSRnA
-constexpr u8 rxc       = 1 << 7;
-constexpr u8 txc       = 1 << 6;
-constexpr u8 udre      = 1 << 5;
-constexpr u8 dor       = 1 << 3;
-constexpr u8 u2x       = 1 << 1;
+constexpr u8 rxc  = 1 << 7;
+constexpr u8 txc  = 1 << 6;
+constexpr u8 udre = 1 << 5;
+constexpr u8 dor  = 1 << 3;
+constexpr u8 u2x  = 1 << 1;
 constexpr u8 readOnlyA = rxc | udre | (1 << 4) | dor | (1 << 2);
 // UCSRnB
 constexpr u8 rxcie = 1 << 7;
@@ -20,46 +20,29 @@ constexpr u8 ucsz2 = 1 << 2;
 
 }  // namespace
 
-Usart::Usart(DataSpace&           data,
-             Scheduler&           scheduler,
-             InterruptController& interrupts,
-             const Cycles&        clock,
-             SerialPort&          serial,
-             Registers            registers,
-             Vectors              vectors,
-             Pins                 pins,
-             std::array<u16, 2>   clockDividers,
-             std::size_t          receiveFifoDepth)
-    : data(data),
-      scheduler(scheduler),
-      interrupts(interrupts),
-      clock(clock),
-      serial(serial),
-      regs(registers),
-      vectors(vectors),
-      pins(pins),
-      clockDividers(clockDividers),
-      receiveFifoDepth(receiveFifoDepth) {
-    data.map(regs.udr,
-             {[this] {
-                  if (rxFifo.empty())
-                      return u8{0};
-                  const auto byte = rxFifo.front();
-                  rxFifo.pop_front();
-                  if (rxFifo.empty())
-                      this->data.raw(regs.ucsrA) &= static_cast<u8>(~rxc);
-                  updateInterrupts();
-                  return byte;
-              },
-              [this](u8 value, u8) {
-                  if (!(this->data.raw(regs.ucsrB) & txen))
-                      return;
-                  txBuffer                    = value;
-                  this->data.raw(regs.ucsrA) &= static_cast<u8>(~udre);
-                  if (!txShift)
-                      startTransmission(this->clock);
-                  updateInterrupts();
-              }});
+Usart::Usart(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, const Cycles& clock, SerialPort& serial, Registers registers,
+             Vectors vectors, Pins pins, std::array<u16, 2> clockDividers, std::size_t receiveFifoDepth)
+    : data(data), scheduler(scheduler), interrupts(interrupts), clock(clock), serial(serial), regs(registers), vectors(vectors), pins(pins),
+      clockDividers(clockDividers), receiveFifoDepth(receiveFifoDepth) {
+    data.map(regs.udr, {[this] {
+                            if (rxFifo.empty())
+                                return u8{0};
+                            const auto byte = rxFifo.front();
+                            rxFifo.pop_front();
+                            if (rxFifo.empty())
+                                this->data.raw(regs.ucsrA) &= static_cast<u8>(~rxc);
+                            updateInterrupts();
+                            return byte;
+                        },
+                        [this](u8 value, u8) {
+                            if (!(this->data.raw(regs.ucsrB) & txen))
+                                return;
+                            txBuffer = value;
+                            this->data.raw(regs.ucsrA) &= static_cast<u8>(~udre);
+                            if (!txShift)
+                                startTransmission(this->clock);
+                            updateInterrupts();
+                        }});
     data.map(regs.ucsrA, {nullptr, [this](u8 value, u8 mask) {
                               auto&      stored   = this->data.raw(regs.ucsrA);
                               const auto writable = static_cast<u8>(mask & ~readOnlyA & ~txc);
@@ -84,9 +67,7 @@ Usart::Usart(DataSpace&           data,
                               updateInterrupts();
                           }});
 
-    serial.setInputListener([this] {
-        scheduleReception(this->clock);
-    });
+    serial.setInputListener([this] { scheduleReception(this->clock); });
     interrupts.onAcknowledge(vectors.txComplete, [this] {
         this->data.raw(regs.ucsrA) &= static_cast<u8>(~txc);
         updateInterrupts();
@@ -131,9 +112,7 @@ void Usart::startTransmission(Cycles now) {
     txShift = txBuffer;
     txBuffer.reset();
     data.raw(regs.ucsrA) |= udre;
-    txEvent               = scheduler.schedule(now + frameCycles(), [this](Cycles at) {
-        transmissionComplete(at);
-    });
+    txEvent = scheduler.schedule(now + frameCycles(), [this](Cycles at) { transmissionComplete(at); });
 }
 
 void Usart::transmissionComplete(Cycles now) {
@@ -150,9 +129,7 @@ void Usart::transmissionComplete(Cycles now) {
 void Usart::scheduleReception(Cycles now) {
     if (rxEvent || !(data.raw(regs.ucsrB) & rxen) || !serial.hasPendingInput())
         return;
-    rxEvent = scheduler.schedule(now + frameCycles(), [this](Cycles at) {
-        receptionComplete(at);
-    });
+    rxEvent = scheduler.schedule(now + frameCycles(), [this](Cycles at) { receptionComplete(at); });
 }
 
 void Usart::receptionComplete(Cycles now) {

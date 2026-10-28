@@ -33,12 +33,8 @@ public:
     void refresh();
 
     [[nodiscard]] u8 input() const noexcept;
-    [[nodiscard]] u8 ddr() const noexcept {
-        return data.raw(regs.ddr);
-    }
-    [[nodiscard]] u8 port() const noexcept {
-        return data.raw(regs.port);
-    }
+    [[nodiscard]] u8 ddr() const noexcept { return data.raw(regs.ddr); }
+    [[nodiscard]] u8 port() const noexcept { return data.raw(regs.port); }
 
 private:
     void update(unsigned bit);
