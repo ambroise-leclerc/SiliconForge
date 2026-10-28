@@ -2,6 +2,7 @@ CPMAddPackage("gh:catchorg/Catch2@3.15.2")
 include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
 
 add_executable(siliconforge_tests
+    support/PublicHeaders.cpp
     unit/DescriptionTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp

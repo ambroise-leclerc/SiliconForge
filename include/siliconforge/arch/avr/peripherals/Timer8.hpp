@@ -29,15 +29,8 @@ public:
 
     /// `prescalers[cs]` gives the clock division for each CSn2:0 value, 0 meaning stopped (or external clock, which
     /// is not supported yet).
-    Timer8(DataSpace&           data,
-           Scheduler&           scheduler,
-           InterruptController& interrupts,
-           const Cycles&        clock,
-           Registers            registers,
-           Vectors              vectors,
-           std::array<u16, 8>   prescalers,
-           OutputPin            outputA,
-           OutputPin            outputB);
+    Timer8(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, const Cycles& clock, Registers registers, Vectors vectors,
+           std::array<u16, 8> prescalers, OutputPin outputA, OutputPin outputB);
 
     /// Keep JSON-provided register reset values when assembling a described device.
     void reset(bool preserveRegisters = false);
@@ -56,36 +49,34 @@ private:
     [[nodiscard]] Mode     mode() const noexcept;
     [[nodiscard]] u8       top() const noexcept;
     [[nodiscard]] unsigned prescaler() const noexcept;
-    [[nodiscard]] bool     pwm() const noexcept {
-        return mode() == Mode::FastPwm || mode() == Mode::PhaseCorrect;
-    }
+    [[nodiscard]] bool     pwm() const noexcept { return mode() == Mode::FastPwm || mode() == Mode::PhaseCorrect; }
 
-    void                 tick();
-    void                 advance(Cycles ticks);
-    void                 compareMatch(unsigned unit);
-    void                 atBottom();
-    void                 setFlag(u8 flag);
-    void                 updateInterrupts();
-    void                 updateOutputs();
-    void                 reschedule();
+    void tick();
+    void advance(Cycles ticks);
+    void compareMatch(unsigned unit);
+    void atBottom();
+    void setFlag(u8 flag);
+    void updateInterrupts();
+    void updateOutputs();
+    void reschedule();
     [[nodiscard]] Cycles ticksToNextEvent() const;
 
-    DataSpace&               data;
-    Scheduler&               scheduler;
-    InterruptController&     interrupts;
-    const Cycles&            clock;
-    Registers                regs;
-    Vectors                  vectors;
-    std::array<u16, 8>       prescalers;
+    DataSpace&           data;
+    Scheduler&           scheduler;
+    InterruptController& interrupts;
+    const Cycles&        clock;
+    Registers            regs;
+    Vectors              vectors;
+    std::array<u16, 8>   prescalers;
     std::array<OutputPin, 2> outputs;
 
-    u8                  tcnt{0};
-    bool                countingDown{false};
-    std::array<u8, 2>   ocr{};        ///< Active compare values.
-    std::array<u8, 2>   ocrBuffer{};  ///< Values written by firmware, copied to `ocr` at TOP/BOTTOM in PWM modes.
+    u8                 tcnt{0};
+    bool               countingDown{false};
+    std::array<u8, 2>  ocr{};         ///< Active compare values.
+    std::array<u8, 2>  ocrBuffer{};   ///< Values written by firmware, copied to `ocr` at TOP/BOTTOM in PWM modes.
     std::array<bool, 2> outputLevel{};
-    Cycles              lastSync{0};
-    Scheduler::EventId  event{0};
+    Cycles             lastSync{0};
+    Scheduler::EventId event{0};
 };
 
 }  // namespace siliconforge::avr

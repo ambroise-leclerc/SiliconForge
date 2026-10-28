@@ -1,0 +1,71 @@
+{
+  "cpu": 0,
+  "L2_per_core": "512 KiB",
+  "wall_MHz": {
+    "before": [
+      155.3,
+      165.3,
+      165.2,
+      164.3
+    ],
+    "after": [
+      152.5,
+      161.3,
+      148.7,
+      157.1
+    ]
+  },
+  "cpu_MHz_including_startup": {
+    "before": [
+      156.81585408284778,
+      165.38749773884282,
+      165.21529618283822,
+      164.37033320948476
+    ],
+    "after": [
+      152.19681838892694,
+      160.96633456181942,
+      151.74597975898317,
+      157.8183714393463
+    ]
+  },
+  "median_wall_MHz": {
+    "before": 164.75,
+    "after": 154.8
+  },
+  "delta_wall_percent": -6.039453717754162,
+  "median_cpu_MHz": {
+    "before": 164.79281469616149,
+    "after": 155.00759491413663
+  },
+  "delta_cpu_percent": -5.937892255840438,
+  "after_commit": "99d5849ef68f692d8e35a83c2d73285d98e732f8",
+  "baseline": "Executable saved before epic #3; runtime sources match develop before the JSON implementation",
+  "benchmark": {
+    "firmware": "firmware/prebuilt/blink.hex",
+    "simulated_seconds": 30,
+    "order": [
+      "before",
+      "after",
+      "after",
+      "before",
+      "before",
+      "after",
+      "after",
+      "before"
+    ],
+    "configuration": "Release, GCC 16.1.0",
+    "command": [
+      "--headless",
+      "--speed",
+      "max",
+      "--duration",
+      "30",
+      "firmware/prebuilt/blink.hex"
+    ]
+  },
+  "binary_sha256": {
+    "before": "38fa8de7cef77fb23158c476e5445731826a5410e80a1a104df2b51df91cec38",
+    "after": "53784259af41df40ed9b5a326536550b1c6184a4502eca1b294a033e10e447c4"
+  }
+}

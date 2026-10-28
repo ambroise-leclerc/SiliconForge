@@ -1,5 +1,5 @@
-#include <siliconforge/mcu/atmega328p/Atmega328p.hpp>
 #include <siliconforge/mcu/Registry.hpp>
+#include <siliconforge/mcu/atmega328p/Atmega328p.hpp>
 
 #include <algorithm>
 #include <cctype>
@@ -11,25 +11,20 @@ namespace siliconforge::mcu {
 
 namespace {
 struct Entry {
-    std::string_view                      name;
+    std::string_view                     name;
     std::function<std::unique_ptr<Mcu>()> factory;
 };
 
 // Integrated descriptions and the additional descriptions discovered at startup.
 std::vector<Entry>& entries() {
     static std::vector<Entry> list{
-        {"atmega328p",
-         [] {
-             return std::make_unique<Atmega328p>();
-         }},
+        {"atmega328p", [] { return std::make_unique<Atmega328p>(); }},
     };
     return list;
 }
 
 bool equalsIgnoringCase(std::string_view a, std::string_view b) {
-    return std::ranges::equal(a, b, [](char x, char y) {
-        return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y));
-    });
+    return std::ranges::equal(a, b, [](char x, char y) { return std::tolower(static_cast<unsigned char>(x)) == std::tolower(static_cast<unsigned char>(y)); });
 }
 }  // namespace
 
