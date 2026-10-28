@@ -17,12 +17,22 @@ siliconforge --mcu-path ./mes-puces --mcu atmega168 firmware.hex
 `--mcu-path` peut être répété. Les fichiers `.json` sont lus dans l'ordre alphabétique.
 Les descriptions invalides et les noms en double sont signalés ; le catalogue conserve
 le contenu validé au démarrage. `--help` découvre les puces quel que soit l'ordre des
-options. Les noms du catalogue sont insensibles à la casse.
+options. Les noms du catalogue sont insensibles à la casse. Si `--mcu-file` et
+`--mcu` sont fournis ensemble, le fichier est prioritaire et un avertissement le
+signale. Les erreurs de chargement du firmware sont affichées sans terminer
+brutalement le processus (diagnostic CLI ou erreur retournée au navigateur).
 
 Dans l'interface, choisir une puce dans la liste, utiliser **Load MCU…**, ou déposer un
 fichier JSON. Le remplacement met la simulation en pause et efface le firmware ; charger
 ensuite le firmware de la nouvelle puce. Une erreur laisse la puce courante intacte et
-s'affiche avec son JSON Pointer, par exemple `/peripherals/6/vector`.
+s'affiche avec son JSON Pointer, par exemple `/peripherals/6/vector`. La liste suit
+le nom de la puce active ; un fichier chargé apparaît comme entrée temporaire et
+n'est pas ajouté au catalogue de démarrage.
+
+Le serveur n'authentifie pas les commandes de simulation, dont `sf.loadMcu`.
+Avec `--address` sur une adresse accessible au réseau, les clients pouvant joindre
+le serveur peuvent remplacer la puce et charger du firmware. L'adresse par défaut
+`127.0.0.1` réserve l'accès à la machine locale.
 
 En C++ :
 
