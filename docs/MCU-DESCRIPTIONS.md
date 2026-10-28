@@ -128,3 +128,28 @@ Les constantes publiques historiques de `Atmega328p` sont conservées pour compa
 avec les consommateurs C++ ; un test vérifie leur accord avec le JSON embarqué. Elles
 ne paramètrent pas le modèle. `mcu::addPath` s'utilise uniquement à l'initialisation,
 avant tout accès concurrent au catalogue.
+
+Le chargeur AVR accepte uniquement les segments `Program` et `Eeprom`. Un segment
+`Data`, même situé dans la SRAM valide, est rejeté par `std::invalid_argument` avant
+modification du firmware courant : il ne sert pas à préinitialiser la SRAM. Les images
+ELF doivent donc porter leurs données d'initialisation dans la flash (adresse physique),
+comme les exécutables AVR usuels dont le code de démarrage initialise la SRAM.
+
+Les registres du cœur déclarés dans `cpu`, y compris les contrôles facultatifs SPMCSR
+et SMCR, sont réservés : un périphérique ne peut pas les remapper. L'indice du bandgap
+ADC doit être supérieur ou égal au nombre de canaux externes afin de rester accessible.
+
+Les consommateurs C++ de `builtinDescription()` ou du contenu JSON doivent inclure
+`<nlohmann/json.hpp>` explicitement. Les en-têtes publics MCU ne fournissent que les
+déclarations anticipées JSON ; un test de compilation vérifie cette indépendance.
+Un `AvrCore` construit directement doit recevoir `setTiming()` avant `run()` ou `step()`
+(sinon `std::logic_error`). `Device` effectue ce chargement lors de sa construction.
+
+`available()` retourne les identifiants de catalogue en minuscules, utilisés par les
+options CLI et la liste de sélection de l'IHM. `Mcu::name()` conserve la casse du JSON
+et sert au nom affiché dans l'en-tête de l'IHM. Cette distinction est testée.
+
+La table privée du cœur contient 65 536 entrées (pointeur et timings empaquetés), soit
+environ 1 Mio par puce sur une plateforme 64 bits, contre 512 Kio auparavant. Les
+mesures de vitesse restent propres au firmware et au cache de la machine ; elles ne
+garantissent pas l'absence de régression pour tous les ensembles d'instructions actifs.

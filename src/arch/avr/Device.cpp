@@ -249,9 +249,9 @@ void Device::makeAdc(const Json& p) {
 }
 void Device::load(const ProgramImage& image) {
     for (const auto& segment : image.segments) {
-        const auto limit = segment.space == MemorySpace::Program  ? core.config().flashBytes
-                           : segment.space == MemorySpace::Eeprom ? eeprom.size()
-                                                                  : data.ramEndAddress() + 1;
+        if (segment.space != MemorySpace::Program && segment.space != MemorySpace::Eeprom)
+            throw std::invalid_argument("AVR firmware images support only Program and Eeprom segments; Data segments are not supported");
+        const auto limit = segment.space == MemorySpace::Program ? core.config().flashBytes : eeprom.size();
         if (segment.address > limit || segment.bytes.size() > limit - segment.address)
             throw std::out_of_range("Firmware segment exceeds MCU memory");
     }

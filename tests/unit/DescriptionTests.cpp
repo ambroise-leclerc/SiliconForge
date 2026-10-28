@@ -1,3 +1,4 @@
+#include <nlohmann/json.hpp>
 #include "../support/AvrAssembler.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -488,14 +489,15 @@ TEST_CASE("Catalog discovery reports duplicates, invalid files and missing direc
     }
     SECTION("validated catalog content is stable") {
         auto       d    = mcu::builtinDescription("atmega328p");
-        const auto name = directory.path.filename().string();
-        d["name"]       = name;
+        const auto name = "catalog-" + directory.path.filename().string();
+        auto displayName = name;
+        displayName[0] = 'C';
+        d["name"] = displayName;
         const auto good = directory.path / "a-valid.json";
         {
             std::ofstream out{good};
             out << d.dump();
         }
-        d["name"]  = std::string(name);  // Case-insensitive duplicate of the newly discovered entry.
         auto upper = name;
         std::ranges::transform(upper, upper.begin(), [](unsigned char c) {
             return static_cast<char>(std::toupper(c));
@@ -529,7 +531,9 @@ TEST_CASE("Catalog discovery reports duplicates, invalid files and missing direc
         CHECK_FALSE(errors[1].second.message.empty());
         CHECK(errors[2].first.filename() == "d-invalid.json");
         CHECK(errors[2].second.path == "/clockHz");
-        CHECK(mcu::available().size() == count + 1);
+        const auto names = mcu::available();
+        CHECK(names.size() == count + 1);
+        CHECK(std::ranges::find(names, name) != names.end());
         REQUIRE(mcu::create(upper));
         {
             std::ofstream out{good};
@@ -537,6 +541,68 @@ TEST_CASE("Catalog discovery reports duplicates, invalid files and missing direc
         }
         auto stored = mcu::create(name);
         REQUIRE(stored);
-        CHECK(stored->name() == name);  // Stored JSON, not a later reread of the file.
+        CHECK(stored->name() == displayName);  // Stored JSON, not a later reread of the file.
+    }
+}
+
+TEST_CASE("CPU control registers cannot be mapped by peripherals", "[mcu][validation]") {
+    auto d = mcu::builtinDescription("atmega328p");
+    SECTION("SPMCSR as an ADC register") {
+        peripheral(d, "avr.adc")["registers"]["low"] = "SPMCSR";
+        expectError(d, peripheralPath(d, "avr.adc") + "/registers/low", "multiple peripherals");
+    }
+    SECTION("SMCR as an ADC register") {
+        peripheral(d, "avr.adc")["registers"]["low"] = "SMCR";
+        expectError(d, peripheralPath(d, "avr.adc") + "/registers/low", "multiple peripherals");
+    }
+    SECTION("CPU control as GPIO pull-up control") {
+        peripheral(d, "avr.gpio")["mcucr"] = "SPMCSR";
+        expectError(d, peripheralPath(d, "avr.gpio") + "/mcucr", "multiple peripherals");
+    }
+    SECTION("absent optional CPU controls reserve no registers") {
+        d["cpu"].erase("spmcsr");
+        d["cpu"].erase("smcr");
+        peripheral(d, "avr.adc")["registers"]["low"] = "SPMCSR";
+        CHECK(mcu::validate(d));
+    }
+}
+
+TEST_CASE("Data firmware segments are rejected without changing MCU state", "[mcu][firmware]") {
+    auto m = mcu::create("atmega328p");
+    REQUIRE(m);
+    m->load(test::AvrAssembler{}.org(16 * 1024).image());
+    m->step();
+    ProgramImage image;
+    image.segments = {{MemorySpace::Program, 0, {0xAB, 0xCD}}, {MemorySpace::Data, 256, {0x42}}};
+    const auto flash = m->readMemory(MemorySpace::Program, 0, 4);
+    const auto ram = m->readMemory(MemorySpace::Data, 256, 1);
+    const auto cycles = m->cycles();
+    CHECK_THROWS_AS(m->load(image), std::invalid_argument);
+    CHECK(m->readMemory(MemorySpace::Program, 0, 4) == flash);
+    CHECK(m->readMemory(MemorySpace::Data, 256, 1) == ram);
+    CHECK(m->cycles() == cycles);
+}
+
+TEST_CASE("The ADC bandgap must not overlap an external channel", "[mcu][adc][validation]") {
+    auto d = mcu::builtinDescription("atmega328p");
+    auto& adc = peripheral(d, "avr.adc");
+    SECTION("first external channel") {
+        adc["bandgapChannel"] = 0;
+        expectError(d, peripheralPath(d, "avr.adc") + "/bandgapChannel", "overlaps an external ADC channel");
+    }
+    SECTION("last external channel") {
+        adc["bandgapChannel"] = adc["channels"].size() - 1;
+        expectError(d, peripheralPath(d, "avr.adc") + "/bandgapChannel", "overlaps an external ADC channel");
+    }
+    SECTION("first unused mux value selects bandgap") {
+        const auto channel = adc["channels"].size();
+        adc["bandgapChannel"] = channel;
+        auto m = device(d);
+        m->load(test::AvrAssembler{}.org(16 * 1024).image());
+        auto& data = dynamic_cast<avr::Device&>(*m).dataSpace();
+        data.write(0x7C, static_cast<u8>(0x40 | channel));
+        data.write(0x7A, 0xC1);
+        m->run(26); // 13 ADC clocks at /2.
+        CHECK((data.read(0x78) | data.read(0x79) << 8) == 225); // 1.1 V at 5 V reference.
     }
 }

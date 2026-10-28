@@ -50,7 +50,9 @@ struct InstructionEntry {
 };
 
 /// AVRe+ CPU core (megaAVR with MUL and MOVW, 16-bit program counter), precise to the cycle at instruction
-/// granularity: every instruction accounts for its documented number of cycles, taken branches and skips included.
+/// granularity: every instruction accounts for its configured number of cycles, taken branches and skips included.
+/// Call setTiming() before run() or step(); either throws std::logic_error if timings are not configured.
+/// Each core owns 65,536 InstructionEntry records (about 1 MiB on 64-bit platforms).
 class AvrCore {
 public:
     AvrCore(const AvrCoreConfig& config, DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, Debugger& debugger);

@@ -131,8 +131,7 @@ std::expected<void, LoadError> validate(const Json& d) {
             if (!gpios.contains(v.get<std::string>()))
                 fail(path, "Unknown GPIO port: " + v.get<std::string>());
         };
-        for (const char* key : {"spl", "sph", "sreg"})
-            assignedRegisters.insert(d.at("cpu").at(key).get<std::string>());
+        assignedRegisters = cpuRegisters;
         std::set<std::string> assignedVectors;
         unsigned              adcCount = 0, eepromCount = 0;
         for (std::size_t i = 0; i < d.at("peripherals").size(); ++i) {
@@ -156,8 +155,11 @@ std::expected<void, LoadError> validate(const Json& d) {
             if (p.contains("vectors"))
                 for (const auto& [key, value] : p.at("vectors").items())
                     vectorRef(value, path + "/vectors/" + key);
-            if (p.contains("mcucr"))
+            if (p.contains("mcucr")) {
                 registerRef(p.at("mcucr"), path + "/mcucr");
+                if (cpuRegisters.contains(p.at("mcucr").get<std::string>()))
+                    fail(path + "/mcucr", "Register mapped by multiple peripherals");
+            }
             if (p.contains("port"))
                 gpioRef(p.at("port"), path + "/port");
             if (p.contains("outputs"))
@@ -166,6 +168,8 @@ std::expected<void, LoadError> validate(const Json& d) {
             if (p.at("type") == "avr.adc") {
                 if (++adcCount > 1)
                     fail(path + "/type", "Only one ADC instance is supported by this AVR model");
+                if (p.at("bandgapChannel").get<std::size_t>() < p.at("channels").size())
+                    fail(path + "/bandgapChannel", "Bandgap channel overlaps an external ADC channel");
                 for (const auto& n : p.at("channels"))
                     if (!pinNames.contains(n.get<std::string>()))
                         fail(path + "/channels", "ADC channel is not wired to GPIO");
