@@ -6,8 +6,15 @@ set_property(TARGET nlohmann_json PROPERTY SYSTEM TRUE)
 CPMAddPackage(NAME nlohmann_json_schema_validator VERSION 2.4.0
     URL https://github.com/pboettch/json-schema-validator/archive/refs/tags/2.4.0.tar.gz
     OPTIONS "JSON_VALIDATOR_BUILD_TESTS OFF" "JSON_VALIDATOR_BUILD_EXAMPLES OFF" "JSON_VALIDATOR_INSTALL OFF")
-file(READ "${PROJECT_SOURCE_DIR}/mcus/atmega328p.json" SILICONFORGE_ATMEGA328P_JSON)
-file(READ "${PROJECT_SOURCE_DIR}/schemas/mcu.schema.json" SILICONFORGE_MCU_SCHEMA)
+function(siliconforge_embed_bytes path variable)
+    file(READ "${path}" _hex HEX)
+    # Eight bytes per source line; no individual string literal and no oversized source line.
+    string(REGEX REPLACE "................" "\\0\n" _lines "${_hex}")
+    string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _bytes "${_lines}")
+    set(${variable} "${_bytes}" PARENT_SCOPE)
+endfunction()
+siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/mcus/atmega328p.json" SILICONFORGE_ATMEGA328P_BYTES)
+siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/schemas/mcu.schema.json" SILICONFORGE_MCU_SCHEMA_BYTES)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${PROJECT_SOURCE_DIR}/mcus/atmega328p.json" "${PROJECT_SOURCE_DIR}/schemas/mcu.schema.json")
 configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedDescriptions.hpp.in"

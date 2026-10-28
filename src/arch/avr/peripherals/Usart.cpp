@@ -18,7 +18,6 @@ constexpr u8 rxen  = 1 << 4;
 constexpr u8 txen  = 1 << 3;
 constexpr u8 ucsz2 = 1 << 2;
 
-
 }  // namespace
 
 Usart::Usart(DataSpace&           data,

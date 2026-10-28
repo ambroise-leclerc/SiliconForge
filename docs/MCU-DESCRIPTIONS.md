@@ -126,3 +126,21 @@ AVRe/AVRxm/AVRxt sélectionnent une table de timings, sans ajouter les instructi
 spécifiques de ces variantes. Le cœur possède encore les pointeurs de données AVR
 16 bits et une flash de 128 Kio maximum. Changer le JSON ne suffit pas à émuler un
 nouveau type de périphérique ou une instruction absente du décodeur.
+
+## Contrats et compatibilité
+
+`cpu.spmcsr` et `cpu.smcr` sont facultatifs. Les omettre désactive respectivement
+l'auto-programmation SPM et le contrôleur de sommeil (adresse sentinelle zéro du cœur).
+Un champ présent doit toujours référencer un registre déclaré ; `null` et les références
+inconnues ne sont pas acceptés.
+
+Deux différences intentionnelles avec l'ancien modèle sont couvertes par des tests :
+effacer ADEN annule une conversion ADC en cours, efface ADSC et rétablit le délai de
+première conversion au prochain démarrage ; un segment de firmware dépassant la mémoire
+de la puce provoque `std::out_of_range`, avant toute modification du firmware courant,
+au lieu d'être tronqué ou replié par le masque de flash.
+
+Les constantes publiques historiques de `Atmega328p` sont conservées pour compatibilité
+avec les consommateurs C++ ; un test vérifie leur accord avec le JSON embarqué. Elles
+ne paramètrent pas le modèle. `mcu::addPath` s'utilise uniquement à l'initialisation,
+avant tout accès concurrent au catalogue.

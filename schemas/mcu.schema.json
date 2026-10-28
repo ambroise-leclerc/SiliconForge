@@ -218,8 +218,6 @@
       "required": [
         "vectorWords",
         "pcBytes",
-        "spmcsr",
-        "smcr",
         "spl",
         "sph",
         "sreg",
