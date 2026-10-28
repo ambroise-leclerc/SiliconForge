@@ -1,10 +1,10 @@
 #pragma once
 
 #include <siliconforge/core/Debugger.hpp>
+#include <siliconforge/core/loader/ProgramImage.hpp>
 #include <siliconforge/core/Pin.hpp>
 #include <siliconforge/core/SerialPort.hpp>
 #include <siliconforge/core/Types.hpp>
-#include <siliconforge/core/loader/ProgramImage.hpp>
 
 #include <chrono>
 #include <span>
@@ -33,6 +33,11 @@ public:
     [[nodiscard]] virtual std::string_view architecture() const noexcept = 0;
     [[nodiscard]] virtual u64              clockHz() const noexcept      = 0;
 
+    /// Board view metadata serialized as JSON, from the loaded chip description.
+    [[nodiscard]] virtual std::string_view chipJson() const noexcept {
+        return "null";
+    }
+
     /// Loads a firmware in program memory (and EEPROM if present), then resets.
     virtual void load(const ProgramImage& image) = 0;
     /// Power-on reset: clears the volatile state, keeps the program memory and the external pin levels.
@@ -46,11 +51,11 @@ public:
     [[nodiscard]] virtual Cycles  cycles() const noexcept         = 0;
     [[nodiscard]] virtual Address programCounter() const noexcept = 0;  ///< Byte address.
 
-    [[nodiscard]] virtual std::span<Pin>       pins() noexcept               = 0;
-    [[nodiscard]] virtual std::span<SerialPort> serialPorts() noexcept       = 0;
-    [[nodiscard]] virtual std::vector<RegisterValue> registers() const = 0;
-    [[nodiscard]] virtual std::vector<u8> readMemory(MemorySpace space, Address address, std::size_t size) const = 0;
-    [[nodiscard]] virtual Debugger&       debugger() noexcept = 0;
+    [[nodiscard]] virtual std::span<Pin>             pins() noexcept                                                        = 0;
+    [[nodiscard]] virtual std::span<SerialPort>      serialPorts() noexcept                                                 = 0;
+    [[nodiscard]] virtual std::vector<RegisterValue> registers() const                                                      = 0;
+    [[nodiscard]] virtual std::vector<u8>            readMemory(MemorySpace space, Address address, std::size_t size) const = 0;
+    [[nodiscard]] virtual Debugger&                  debugger() noexcept                                                    = 0;
     /// Symbol of the function containing a program address, when the firmware carried symbols.
     [[nodiscard]] virtual std::string symbolAt(Address address) const = 0;
 
