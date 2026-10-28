@@ -47,9 +47,9 @@
     <section class="panel board" aria-label="Board">
       <h2 class="board-header">
         <span class="tabs" role="tablist">
-          <button role="tab" data-view="breadboard">Breadboard</button>
-          <button role="tab" data-view="pinout">Pinout</button>
-          <button role="tab" data-view="pins">Pins</button>
+          <button role="tab" id="tab-breadboard" aria-controls="breadboard" aria-selected="false" data-view="breadboard">Breadboard</button>
+          <button role="tab" id="tab-pinout" aria-controls="pinout" aria-selected="false" data-view="pinout">Pinout</button>
+          <button role="tab" id="tab-pins" aria-controls="view-pins" aria-selected="false" data-view="pins">Pins</button>
         </span>
         <span class="leds">
           <span class="led" id="led-l"><span class="lamp"></span>L <small>D13</small></span>
@@ -57,13 +57,13 @@
           <span class="led rx" id="led-rx"><span class="lamp"></span>RX</span>
         </span>
       </h2>
-      <div class="view" data-view="breadboard" id="breadboard">
+      <div class="view" data-view="breadboard" id="breadboard" role="tabpanel" aria-labelledby="tab-breadboard">
         <p class="hint">Press the button (D2), turn the potentiometer (A0), click a chip pin to drive it.</p>
       </div>
-      <div class="view" data-view="pinout" id="pinout">
+      <div class="view" data-view="pinout" id="pinout" role="tabpanel" aria-labelledby="tab-pinout">
         <p class="hint">Click a port to drive it: released → high → low → released. Live levels in the dots.</p>
       </div>
-      <div class="view" data-view="pins">
+      <div class="view" data-view="pins" id="view-pins" role="tabpanel" aria-labelledby="tab-pins">
         <h3>Digital</h3>
         <div class="pins" id="digital"></div>
         <h3>Analog</h3>

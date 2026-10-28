@@ -167,8 +167,11 @@
   }
 
   function selectView(name) {
-    for (const element of document.querySelectorAll("[data-view]"))
-      element.classList.toggle("selected", element.dataset.view === name);
+    for (const element of document.querySelectorAll("[data-view]")) {
+      const selected = element.dataset.view === name;
+      element.classList.toggle("selected", selected);
+      if (element.getAttribute("role") === "tab") element.setAttribute("aria-selected", selected);
+    }
     try { localStorage.setItem("siliconforge.view", name); } catch { /* Storage may be unavailable */ }
   }
 

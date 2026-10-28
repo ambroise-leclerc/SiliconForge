@@ -166,7 +166,7 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx) => {
       const group = el("g", {class: "bb-button", "data-pin": pin}, svg);
       leads(a, b, group);
       el("rect", {x: centre.x - 12, y: centre.y - 12, width: 24, height: 24, rx: 3, class: "bb-button-body"}, group);
-      const cap = el("circle", {cx: centre.x, cy: centre.y, r: 7, class: "bb-button-cap"}, group);
+      el("circle", {cx: centre.x, cy: centre.y, r: 7, class: "bb-button-cap"}, group);
       el("title", {}, group, `Push button on ${pin} (to ground)`);
       let pressed = false;
       const press = (down) => {
@@ -181,7 +181,6 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx) => {
       });
       group.addEventListener("pointerup", () => press(false));
       group.addEventListener("pointercancel", () => press(false));
-      updaters.push(() => cap.classList.toggle("down", pressed));
     },
 
     potentiometer({legs: legHoles, pin, offset = [0, -26]}) {
