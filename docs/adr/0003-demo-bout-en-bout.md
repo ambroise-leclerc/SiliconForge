@@ -1,6 +1,6 @@
 # ADR 0003 — Démo de bout en bout auto-testée : le blink réel
 
-- Statut : proposée
+- Statut : acceptée
 - Date : 2026-10-28
 - Épique : [#2](https://github.com/ambroise-leclerc/SiliconForge/issues/2)
 

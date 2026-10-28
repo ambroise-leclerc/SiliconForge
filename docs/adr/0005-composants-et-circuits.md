@@ -1,6 +1,6 @@
 # ADR 0005 — Composants et circuits décrits en JSON
 
-- Statut : proposée
+- Statut : acceptée
 - Date : 2026-10-28
 - Épique : [#4](https://github.com/ambroise-leclerc/SiliconForge/issues/4)
 

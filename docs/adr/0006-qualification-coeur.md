@@ -1,6 +1,6 @@
 # ADR 0006 — Qualification de la simulation du cœur CPU
 
-- Statut : proposée
+- Statut : acceptée
 - Date : 2026-10-28
 - Épique : [#5](https://github.com/ambroise-leclerc/SiliconForge/issues/5)
 

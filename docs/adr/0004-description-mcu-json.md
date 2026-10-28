@@ -1,6 +1,6 @@
 # ADR 0004 — Description normalisée des MCU en JSON
 
-- Statut : proposée
+- Statut : acceptée
 - Date : 2026-10-28
 - Épique : [#3](https://github.com/ambroise-leclerc/SiliconForge/issues/3)
 
