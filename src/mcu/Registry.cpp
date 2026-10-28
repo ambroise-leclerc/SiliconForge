@@ -39,9 +39,21 @@ std::vector<std::pair<std::filesystem::path, LoadError>> addPath(const std::file
         return errors;
     }
     std::vector<std::filesystem::path> paths;
-    for (const auto& f : files)
-        if (f.is_regular_file() && f.path().extension() == ".json")
-            paths.push_back(f.path());
+    const std::filesystem::directory_iterator end;
+    while (files != end) {
+        const auto path = files->path();
+        if (files->is_regular_file(ec) && path.extension() == ".json")
+            paths.push_back(path);
+        if (ec) {
+            errors.emplace_back(path, LoadError{"", ec.message()});
+            ec.clear();
+        }
+        files.increment(ec);
+        if (ec) {
+            errors.emplace_back(directory, LoadError{"", ec.message()});
+            break;
+        }
+    }
     std::ranges::sort(paths);
     for (const auto& path : paths) {
         std::ifstream stream{path};
