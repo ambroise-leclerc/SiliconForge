@@ -11,6 +11,7 @@
 #include <cctype>
 #include <fstream>
 #include <set>
+#include <map>
 #include <stdexcept>
 
 using namespace siliconforge;
@@ -605,4 +606,45 @@ TEST_CASE("The ADC bandgap must not overlap an external channel", "[mcu][adc][va
         m->run(26); // 13 ADC clocks at /2.
         CHECK((data.read(0x78) | data.read(0x79) << 8) == 225); // 1.1 V at 5 V reference.
     }
+}
+
+TEST_CASE("Compact opcode indices preserve dispatch and keep per-core timings in L1", "[mcu][avr][decoder]") {
+    const auto&                                                         indices  = avr::instructionIndices();
+    const auto&                                                         handlers = avr::instructionTable();
+    std::map<u16, std::pair<avr::InstructionHandler, std::string_view>> kinds;
+    for (u32 op = 0; op < indices.size(); ++op) {
+        const auto expected       = std::pair{handlers[op], avr::mnemonic(static_cast<u16>(op))};
+        const auto [it, inserted] = kinds.emplace(indices[op], expected);
+        CHECK(it->second == expected);
+    }
+    CHECK(sizeof(indices) == 128 * 1024);
+    auto m = mcu::create("atmega328p");
+    REQUIRE(m);
+    const auto& cpu = static_cast<avr::Device&>(*m).avrCore();
+    CHECK(cpu.timingTableBytes() <= 4096);
+    CHECK(cpu.timingTableBytes() >= kinds.size() * sizeof(avr::InstructionEntry));
+}
+
+TEST_CASE("Shared LPM timings retain the distinct implicit and explicit destination handlers", "[mcu][avr][decoder]") {
+    auto d                       = mcu::builtinDescription("atmega328p");
+    d["timing"]["lpm"]["cycles"] = 5;
+    auto         m               = device(d);
+    ProgramImage image;
+    image.segments = {
+        {MemorySpace::Program,  0, {0xC8, 0x95, 0x14, 0x91}},
+        {MemorySpace::Program, 16,                   {0x42}}
+    };
+    m->load(image);  // LPM (R0); LPM R17,Z.
+    auto& cpu = static_cast<avr::Device&>(*m).avrCore();
+    cpu.setPair(30, 16);
+    CHECK(avr::instructionIndices()[0x95C8] != avr::instructionIndices()[0x9114]);
+    CHECK(m->step().elapsed == 5);
+    CHECK(cpu.r(0) == 0x42);
+    CHECK(cpu.r(17) == 0);
+    auto invalidTiming = d.at("timing");
+    invalidTiming["lpm"]["cycles"] = 9;
+    invalidTiming.erase("wdr");
+    CHECK_THROWS(cpu.setTiming(invalidTiming));  // A failed reconfiguration leaves the previous timings intact.
+    CHECK(m->step().elapsed == 5);
+    CHECK(cpu.r(17) == 0x42);
 }
