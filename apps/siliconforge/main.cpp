@@ -170,7 +170,8 @@ webfront::WebFrontConfig webConfig(const Options& options) {
 /// Serves the interface until the window is closed or, without a window, until the program is stopped.
 template <typename App>
 void serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
-    app::WebBridge<App> bridge{web, simulation, firmwareName};
+    app::WebBridge<App> bridge{web, simulation, firmwareName,
+                               options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu}};
     if (options.firmware)
         simulation.run();
     std::println("SiliconForge: http://{}:{}/", options.address == "0.0.0.0" ? "localhost" : options.address, web.port());

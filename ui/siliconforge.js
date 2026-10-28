@@ -206,6 +206,7 @@
         }
         chipRevision = s.chipRevision;
         chipRetryAt = 0;
+        showMcuError(null);
         for (const view of views) view.update(state);
       }).catch((error) => {
         if (request !== chipRequest) return;
@@ -220,21 +221,21 @@
 
   function syncMcuSelection(s) {
     const select = $("mcu-select");
-    const name = s.mcu.toLowerCase();
-    const known = [...select.options].find((option) => !option.dataset.loaded && option.value === name);
+    const known = s.mcuId === null ? null : [...select.options].find((option) => !option.dataset.loaded && option.value === s.mcuId);
     let loaded = select.querySelector("option[data-loaded]");
     if (known) {
       loaded?.remove();
-      select.value = known.value;
+      if (select.value !== known.value) select.value = known.value;
     } else {
       if (!loaded) {
-        loaded = new Option(s.mcu, "__loaded__");
+        loaded = new Option(`${s.mcu} (loaded)`, "__loaded__");
         loaded.dataset.loaded = "true";
         loaded.disabled = true;
         select.add(loaded);
       }
-      loaded.textContent = s.mcu;
-      select.value = loaded.value;
+      const label = `${s.mcu} (loaded)`;
+      if (loaded.textContent !== label) loaded.textContent = label;
+      if (select.value !== loaded.value) select.value = loaded.value;
     }
   }
 
