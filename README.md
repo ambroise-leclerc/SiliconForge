@@ -118,6 +118,17 @@ Adding a chip of a known family is a new `mcu/<chip>`; adding an architecture (A
 
 ## Roadmap
 
+The main directions are recorded as architecture decisions and tracked as epics:
+
+| Direction | Decision | Epic |
+| --- | --- | --- |
+| Self-tested end-to-end demo: the firmware really blinks the LED on screen | [ADR 0003](docs/adr/0003-demo-bout-en-bout.md) | [#2](https://github.com/ambroise-leclerc/SiliconForge/issues/2) |
+| Standard JSON description of an MCU (instruction cycles, peripherals, ADC timing), loaded at run time | [ADR 0004](docs/adr/0004-description-mcu-json.md) | [#3](https://github.com/ambroise-leclerc/SiliconForge/issues/3) |
+| Components and circuits described in JSON (LEDs, resistors, potentiometers, then 7-segment displays and screens) | [ADR 0005](docs/adr/0005-composants-et-circuits.md) | [#4](https://github.com/ambroise-leclerc/SiliconForge/issues/4) |
+| Qualification of the CPU core (decoding coverage, differential tests, cycle checks) | [ADR 0006](docs/adr/0006-qualification-coeur.md) | [#5](https://github.com/ambroise-leclerc/SiliconForge/issues/5) |
+
+Also planned:
+
 - Timer1/Timer2, external and pin-change interrupts, SPI, TWI, watchdog
 - Simulated displays (SSD1306, ST7735...) and UI tests of the interfaces they show
 - `wf test` UI suites run by CTest; firmware served as embedded WebFront assets
