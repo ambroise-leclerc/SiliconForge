@@ -4,12 +4,19 @@
 
 SiliconForge runs the very binaries your toolchain produces (`.hex` or `.elf`) on an emulated MCU, precise to the
 clock cycle, with simulated peripherals and I/O. Its interface is served by [WebFront](https://github.com/ambroise-leclerc/WebFront):
-the board, its pins, the serial monitor and the CPU state live in a browser page, locally or over the network.
+the chip on a breadboard with a few components, its pinout, the serial monitor and the CPU state live in a native
+window, or in a browser page, locally or over the network.
 
 Because the emulated MCU is deterministic and scriptable, firmware becomes testable like any other software:
 C++ tests drive it through a test bench, and UI tests drive it through the same page a developer uses.
 
-![SiliconForge running the uart_echo firmware](docs/images/siliconforge.png)
+![SiliconForge running the blink firmware on its breadboard view](docs/images/siliconforge.png)
+
+The **breadboard** view wires LEDs, a push button and a potentiometer to the chip: the LED on D13 blinks with the
+firmware, the one on D6 shows its PWM duty cycle, the button and the potentiometer drive D2 and A0. The **pinout**
+view shows every pin with its port, functions and Arduino name, and its live level:
+
+![Pinout view](docs/images/pinout.png)
 
 ## Status
 
@@ -30,28 +37,34 @@ Emulation speed: about 170 MHz of simulated clock on a desktop CPU in Release bu
 
 ## Quick start
 
-Requirements: a C++26 compiler (GCC 16), CMake 3.31+, Ninja. Dependencies (WebFront, Catch2) are fetched by CPM.
+Requirements: a C++26 compiler (GCC 16) and CMake 3.31+. Dependencies (WebFront, Catch2) are fetched by CPM. For a
+native window on Linux, install WebKitGTK 6.0 (`sudo apt install libwebkitgtk-6.0-dev` on Ubuntu/Debian,
+`webkitgtk6.0-devel` on Fedora); without it, the interface opens in the system browser.
 
 ```bash
-cmake --preset release
-cmake --build --preset release
-build/release/apps/siliconforge/siliconforge firmware/prebuilt/uart_echo.hex
+mkdir build && cd build
+cmake ..            # Release by default
+cmake --build . -j
+apps/siliconforge/siliconforge ../firmware/prebuilt/blink.hex
 ```
 
-The interface opens in your browser (`http://127.0.0.1:9002/`). Other uses:
+Other uses:
 
 ```bash
-# Serve the interface to other machines without opening a browser
+# The system browser instead of a window
+siliconforge --browser firmware.hex
+
+# Serve the interface to other machines (http://<host>:9002/) without opening anything
 siliconforge --address 0.0.0.0 --no-browser firmware.elf
 
 # Headless: run 5 simulated seconds as fast as possible, serial output on stdout
 siliconforge --headless --speed max --duration 5 firmware.hex
 ```
 
-Run the tests:
+Run the tests from the build directory:
 
 ```bash
-cmake --preset dev && cmake --build --preset dev && ctest --preset dev
+ctest --output-on-failure
 ```
 
 ## Testing firmware

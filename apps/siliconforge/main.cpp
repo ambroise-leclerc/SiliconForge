@@ -21,11 +21,21 @@ using namespace siliconforge;
 
 namespace {
 
+#if defined(WEBFRONT_EMBED_WEBKITGTK) || defined(WEBFRONT_EMBED_WEBVIEW2) || defined(WEBFRONT_EMBED_WKWEBVIEW)
+constexpr bool nativeWindowBuilt = true;
+using NativeWebFront             = webfront::WebFrontWithFrontend<webfront::frontend::NativeWebViewFrontend>;
+#else
+constexpr bool nativeWindowBuilt = false;
+#endif
+
+/// Where the interface is displayed.
+enum class Display { Window, Browser, None };
+
 struct Options {
     std::string                  mcu{"atmega328p"};
     std::optional<std::filesystem::path> firmware;
     bool                         headless{false};
-    bool                         openBrowser{true};
+    Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
     double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
     double                       speed{1.0};   ///< 0 = as fast as possible.
     std::string                  address{"127.0.0.1"};
@@ -36,7 +46,8 @@ struct Options {
 void printUsage() {
     std::println(R"(Usage: siliconforge [options] [firmware.hex|firmware.elf]
 
-Runs a firmware on an emulated microcontroller and serves its interface on http://<address>:<port>/.
+Runs a firmware on an emulated microcontroller and shows its interface in a window{}. The interface is also served
+on http://<address>:<port>/.
 
 Options:
   --mcu <name>        Microcontroller to emulate (default atmega328p)
@@ -45,9 +56,11 @@ Options:
   --speed <factor>    1 = real time (default), 0 or "max" = as fast as possible
   --address <ip>      Address to listen on (default 127.0.0.1; 0.0.0.0 to serve other machines)
   --port <port>       HTTP port (default 9002, 0 for any free port)
-  --no-browser        Serve the interface without opening a browser
+  --browser           Show the interface in the system browser instead of a window
+  --no-browser        Serve the interface without opening a window or a browser
   --ui <directory>    Interface files (default: the ui/ directory of the sources)
-  --help              This help)");
+  --help              This help)",
+                 nativeWindowBuilt ? "" : " (this build has no native window engine: the system browser)");
     std::print("Available microcontrollers:");
     for (auto name : mcu::available())
         std::print(" {}", name);
@@ -75,8 +88,10 @@ std::optional<Options> parseOptions(int argc, char** argv) {
             return std::nullopt;
         if (argument == "--headless") {
             options.headless = true;
+        } else if (argument == "--browser") {
+            options.display = Display::Browser;
         } else if (argument == "--no-browser") {
-            options.openBrowser = false;
+            options.display = Display::None;
         } else if (argument == "--mcu" || argument == "--address" || argument == "--port" || argument == "--ui") {
             const auto text = value();
             if (!text)
@@ -134,6 +149,23 @@ int runHeadless(Mcu& mcu, const Options& options) {
     return reason == StopReason::BudgetReached ? 0 : 2;
 }
 
+webfront::WebFrontConfig webConfig(const Options& options) {
+    return {.address = options.address, .port = options.port, .documentRoot = options.ui};
+}
+
+/// Serves the interface until the window is closed or, without a window, until the program is stopped.
+template <typename App>
+void serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
+    app::WebBridge<App> bridge{web, simulation, firmwareName};
+    if (options.firmware)
+        simulation.run();
+    std::println("SiliconForge: http://{}:{}/", options.address == "0.0.0.0" ? "localhost" : options.address, web.port());
+    if (options.display == Display::None)
+        web.run();
+    else
+        web.show("index.html");
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -169,16 +201,23 @@ int main(int argc, char** argv) {
     try {
         app::Simulation simulation{std::move(device)};
         simulation.setSpeed(options->speed);
-        webfront::WebFront                   web{webfront::WebFrontConfig{.address = options->address, .port = options->port, .documentRoot = options->ui}};
-        app::WebBridge<webfront::WebFront>   bridge{web, simulation, firmwareName};
-        if (options->firmware)
-            simulation.run();
-        std::println("SiliconForge: http://{}:{}/", options->address == "0.0.0.0" ? "localhost" : options->address, web.port());
-        if (options->openBrowser) {
-            web.show("index.html");
-        } else {
-            web.run();
+#if defined(WEBFRONT_EMBED_WEBKITGTK) || defined(WEBFRONT_EMBED_WEBVIEW2) || defined(WEBFRONT_EMBED_WKWEBVIEW)
+        if (options->display == Display::Window) {
+            std::optional<NativeWebFront> window;
+            try {
+                window.emplace(webConfig(*options));
+            } catch (const std::exception& error) {
+                // Typically no graphical session (no DISPLAY or WAYLAND_DISPLAY): fall back to the browser.
+                std::println(stderr, "siliconforge: no native window ({}), using the system browser", error.what());
+            }
+            if (window) {
+                serve(*window, simulation, *options, firmwareName);
+                return 0;
+            }
         }
+#endif
+        webfront::WebFront web{webConfig(*options)};
+        serve(web, simulation, *options, firmwareName);
     } catch (const std::exception& error) {
         std::println(stderr, "siliconforge: {}", error.what());
         return 1;

@@ -34,6 +34,8 @@ describe("SiliconForge board page", () => {
     await sf().setPin("D2", 1);
     await sf().waitForPin("D2", sf().pinState.high, 2000);
     await sf().waitFor(() => document.querySelector('.pin[data-pin="PD2"]').dataset.state === "1", 2000);
+    await sf().waitFor(() => document.querySelector('.bb-leg[data-pin="PD2"]').dataset.state === "1", 2000);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 2000);
     await sf().setPin("D2", null);
     await sf().waitForPin("D2", sf().pinState.floating, 2000);
   });
@@ -41,5 +43,41 @@ describe("SiliconForge board page", () => {
   it("shows USART0 transmit pin as an output once the transmitter is enabled", async () => {
     await sf().waitForSerial("ready", 3000);
     expect(sf().pin("D1").output).toBeTrue();
+  });
+
+  it("pulls D2 low while the breadboard push button is pressed", async () => {
+    const button = document.querySelector('.bb-button[data-pin="D2"]');
+    button.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true}));
+    await sf().waitForPin("D2", sf().pinState.low, 2000);
+    button.dispatchEvent(new PointerEvent("pointerup", {bubbles: true}));
+    await sf().waitForPin("D2", sf().pinState.floating, 2000);
+  });
+
+  it("applies the potentiometer voltage to A0", async () => {
+    const pot = document.querySelector('.bb-pot[data-pin="A0"]');
+    for (let i = 0; i < 25; ++i) pot.dispatchEvent(new WheelEvent("wheel", {deltaY: -1, cancelable: true}));
+    expect(pot.querySelector(".bb-value").textContent).toBe("2.50 V");
+  });
+
+  it("lights the pinout level dot of a high pin", async () => {
+    const dot = () => getComputedStyle(document.querySelector('.po-io[data-pin="PD2"] .po-level')).fill;
+    await sf().setPin("D2", 0);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "0", 2000);
+    const low = dot();
+    await sf().setPin("D2", 1);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 2000);
+    expect(dot()).not.toBe(low);
+    await sf().setPin("D2", null);
+  });
+
+  it("keeps the potentiometer and the A0 slider on the same voltage", async () => {
+    const pot = document.querySelector('.bb-pot[data-pin="A0"]');
+    const slider = document.querySelector('.pin[data-pin="PC0"] input[type="range"]');
+    slider.value = "4";
+    slider.dispatchEvent(new Event("input"));
+    await sf().waitFor(() => pot.querySelector(".bb-value").textContent === "4.00 V", 2000);
+    pot.dispatchEvent(new WheelEvent("wheel", {deltaY: -1, cancelable: true}));
+    expect(pot.querySelector(".bb-value").textContent).toBe("4.10 V");
+    await sf().waitFor(() => Number(slider.value).toFixed(2) === "4.10", 2000);
   });
 });
