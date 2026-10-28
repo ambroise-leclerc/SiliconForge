@@ -13,6 +13,10 @@
 #include <string_view>
 #include <vector>
 
+namespace siliconforge::testing {
+struct AvrCoreAccess;
+}  // namespace siliconforge::testing
+
 namespace siliconforge::avr {
 
 /// Status register bits.
@@ -85,8 +89,6 @@ public:
     [[nodiscard]] const std::vector<u16>& flash() const noexcept { return flashWords; }
     [[nodiscard]] u32 pcMask() const noexcept { return static_cast<u32>(flashWords.size() - 1); }
     [[nodiscard]] const AvrCoreConfig& config() const noexcept { return cfg; }
-    /// Storage owned by this core for configured handlers/timings (excludes the shared opcode indices).
-    [[nodiscard]] std::size_t timingTableBytes() const noexcept { return decoded.capacity() * sizeof(InstructionEntry); }
 
     DataSpace&           data;
     Scheduler&           scheduler;
@@ -130,6 +132,7 @@ public:
     std::optional<StopReason> stopRequest;
 
 private:
+    friend struct siliconforge::testing::AvrCoreAccess;
     void serviceInterrupt();
 
     std::vector<InstructionEntry> decoded;

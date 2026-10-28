@@ -1,4 +1,5 @@
 // Manual benchmark, excluded from the default build. Warm timings measure repeated device creation and table updates.
+#include "../support/AvrCoreAccess.hpp"
 #include <nlohmann/json.hpp>
 #include <siliconforge/arch/avr/Device.hpp>
 #include <siliconforge/mcu/Registry.hpp>
@@ -27,5 +28,5 @@ int main() {
                  iterations,
                  creation,
                  timing,
-                 cpu.timingTableBytes());
+                 siliconforge::testing::AvrCoreAccess::timingTableBytes(cpu));
 }
