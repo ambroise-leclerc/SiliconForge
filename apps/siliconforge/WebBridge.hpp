@@ -8,12 +8,15 @@
 
 #include <webfront/WebFront.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
 #include <format>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -30,7 +33,8 @@ class WebBridge {
 public:
     using UI = typename App::UI;
 
-    WebBridge(App& app, Simulation& simulation, std::string firmware) : app(app), simulation(simulation), firmwareName(std::move(firmware)) {
+    WebBridge(App& app, Simulation& simulation, std::string firmware, std::optional<std::string_view> catalogName = std::nullopt)
+        : app(app), simulation(simulation), firmwareName(std::move(firmware)), mcuId(catalogName ? catalogId(*catalogName) : std::nullopt) {
         simulation.access([this](Mcu& mcu) {
             observe(mcu);
         });
@@ -97,18 +101,28 @@ private:
     };
 
     void observe(Mcu& mcu) {
-        activity.assign(mcu.pins().size(), Activity{});
+        std::vector<Activity> prepared(mcu.pins().size());
         for (std::size_t index = 0; index < mcu.pins().size(); ++index)
             mcu.pins()[index].subscribe([this, index](const Pin& p, Cycles at) {
                 activity[index].change(p.state() == PinState::High, at);
             });
+        activity = std::move(prepared);
         ++chipRevision;
     }
-    void replace(std::unique_ptr<Mcu> next) {
-        simulation.replace(std::move(next), [this](Mcu& mcu) {
-            observe(mcu);
+
+    static std::optional<std::string> catalogId(std::string_view requested) {
+        for (auto id : mcu::available())
+            if (std::ranges::equal(id, requested, [](unsigned char a, unsigned char b) { return std::tolower(a) == std::tolower(b); }))
+                return std::string{id};
+        return std::nullopt;
+    }
+
+    void replace(std::unique_ptr<Mcu> next, std::optional<std::string> id = std::nullopt) {
+        simulation.replace(std::move(next), [this, &id](Mcu& mcu) {
             // Always acquire the simulation lock before clientsMutex, as pushState does.
             std::scoped_lock lock{clientsMutex};
+            observe(mcu);  // Publishes observers only after all allocations and subscriptions succeed.
+            mcuId.swap(id);
             firmwareName.clear();
             resetSerialOffsetsLocked();
         });
@@ -129,7 +143,7 @@ private:
             auto device = mcu::create(name);
             if (!device)
                 return "Unknown MCU: " + name;
-            replace(std::move(device));
+            replace(std::move(device), catalogId(name));
             return {};
         });
         app.cppFunction("sf.loadMcu", [this](std::string text) -> std::string {
@@ -214,8 +228,7 @@ private:
         nlohmann::json state;
         std::string serialOutput;
         std::uint64_t epoch{};
-        const auto reason = simulation.stopReason();
-        simulation.access([&](Mcu& mcu) {
+        simulation.snapshot([&](Mcu& mcu, std::optional<StopReason> reason) {
             std::scoped_lock lock{clientsMutex};
             if (clients.empty())
                 return;
@@ -225,6 +238,7 @@ private:
             const auto now = mcu.cycles();
             state = {
                 {"mcu", mcu.name()},
+                {"mcuId", mcuId ? nlohmann::json(*mcuId) : nlohmann::json(nullptr)},
                 {"arch", mcu.architecture()},
                 {"clockHz", mcu.clockHz()},
                 {"cycles", now},
@@ -264,9 +278,20 @@ private:
             auto offset = client.serialOffset > serialOutput.size() ? 0 : client.serialOffset;
             // Strings crossing the bridge are limited to 64 KiB: a large burst is sent over several frames.
             const auto chunk = std::string_view{serialOutput}.substr(offset, 16 * 1024);
-            state["serial"] = chunk;
+            // Serial is a byte stream: map each byte to U+00XX, preserving the legacy browser contract.
+            // This also preserves bytes when a UTF-8 sequence straddles two chunks.
+            std::string text;
+            text.reserve(chunk.size() * 2);
+            for (const unsigned char byte : chunk) {
+                if (byte >= 0x80) {
+                    text += static_cast<char>(0xC0 | (byte >> 6));
+                    text += static_cast<char>(0x80 | (byte & 0x3F));
+                } else
+                    text += static_cast<char>(byte);
+            }
+            state["serial"] = std::move(text);
             try {
-                // Names, ELF symbols, paths and serial bytes may contain invalid UTF-8.
+                // Names, ELF symbols and paths may contain invalid UTF-8; serial has already been transcoded.
                 const auto json = state.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
                 client.ui.jsFunction("siliconForge.onState")(json);
             } catch (const std::exception&) {
@@ -281,6 +306,7 @@ private:
     App&                     app;
     Simulation&              simulation;
     std::string              firmwareName;
+    std::optional<std::string> mcuId;  // Catalog ID, or null for a directly loaded description; simulation lock.
     std::vector<Activity>    activity;
     unsigned                 chipRevision{0};
     std::uint64_t            serialEpoch{0};  // Protected by clientsMutex.

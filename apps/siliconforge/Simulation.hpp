@@ -37,12 +37,21 @@ public:
         return std::forward<Function>(function)(*device);
     }
 
+    /// Runs function(Mcu&, optional<StopReason>) with both values protected by the simulation lock.
+    template <typename Function>
+    decltype(auto) snapshot(Function&& function) {
+        std::scoped_lock lock{mutex};
+        return std::forward<Function>(function)(*device, lastStop);
+    }
+
+    /// Prepares next under the lock, then commits it. A failed initializer keeps the current MCU and run state.
+    /// The initializer must prepare any external state before publishing it.
     template <typename Initialize>
     void replace(std::unique_ptr<Mcu> next, Initialize&& initialize) {
         std::scoped_lock lock{mutex};
+        initialize(*next);
         running = false;
         device  = std::move(next);
-        initialize(*device);
         lastStop.reset();
         paceFrom(std::chrono::steady_clock::now());
     }

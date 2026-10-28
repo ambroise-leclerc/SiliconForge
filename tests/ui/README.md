@@ -46,5 +46,7 @@ command works from any working directory.
 
 The test uploads an ATmega168 description, checks the selected MCU, dynamic
 breadboard and pinout, runs `blink`, verifies a localized validation error, retries
-a failed chip request, checks generic pin labels, and returns to the built-in chip.
+a failed chip request and clears its error, checks generic pin labels, distinguishes
+a modified file sharing a catalog name, verifies exact server IDs and avoids repeated
+selection writes, then returns to the built-in chip.
 The CTest count reported for the C++ tests does not include this scenario.

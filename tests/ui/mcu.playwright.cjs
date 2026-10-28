@@ -24,6 +24,50 @@ const root = path.resolve(__dirname, "../..");
     assert.equal(chip.pins.length, 28);
 
     const description = JSON.parse(fs.readFileSync(path.join(root, "mcus/atmega328p.json"), "utf8"));
+    // A file may deliberately reuse a catalog display name with different parameters.
+    const sameName = structuredClone(description);
+    sameName.clockHz = 8000000;
+    await page.evaluate((text) => siliconForge.loadMcu(text), JSON.stringify(sameName));
+    await page.waitForFunction(() => siliconForge.state.clockHz === 8000000 && siliconForge.state.mcuId === null);
+    await page.waitForFunction(() => document.querySelector("#mcu-select").value === "__loaded__");
+    assert.equal(await page.locator("#mcu-select option:checked").textContent(), "ATmega328P (loaded)");
+    await page.evaluate(() => siliconForge.selectMcu("AtMega328P"));
+    await page.waitForFunction(() => siliconForge.state.clockHz === 16000000 && siliconForge.state.mcuId === "atmega328p");
+    await page.waitForFunction(() => document.querySelector("#mcu-select").value === "atmega328p");
+
+    // Repeated frames must not write select.value while a user is browsing the dropdown.
+    const assignments = await page.evaluate(async () => {
+      const select = document.querySelector("#mcu-select");
+      const value = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+      let writes = 0;
+      Object.defineProperty(select, "value", {
+        configurable: true,
+        get() { return value.get.call(this); },
+        set(next) { ++writes; value.set.call(this, next); },
+      });
+      try {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return writes;
+      } finally {
+        delete select.value;
+      }
+    });
+    assert.equal(assignments, 0);
+    // Exact server IDs, including mixed case, are independent of display names.
+    assert.equal(await page.evaluate(() => {
+      const select = document.querySelector("#mcu-select");
+      const option = new Option("Catalog entry", "MiXeD");
+      const original = siliconForge.state;
+      select.add(option);
+      try {
+        siliconForge.onState(JSON.stringify({...original, mcu: "Unrelated display name", mcuId: "MiXeD", serial: ""}));
+        return select.value;
+      } finally {
+        siliconForge.onState(JSON.stringify({...original, serial: ""}));
+        option.remove();
+      }
+    }), "MiXeD");
+
     description.name = "ATmega168";
     description.memories.flash.size = 16384;
     description.memories.sram.size = 1024;
@@ -35,7 +79,7 @@ const root = path.resolve(__dirname, "../..");
       buffer: Buffer.from(JSON.stringify(description)),
     });
     await page.waitForFunction(() => siliconForge.state.mcu === "ATmega168");
-    await page.waitForFunction(() => document.querySelector("#mcu-select").selectedOptions[0]?.text === "ATmega168");
+    await page.waitForFunction(() => document.querySelector("#mcu-select").selectedOptions[0]?.text === "ATmega168 (loaded)");
     await page.waitForFunction(() => document.querySelector("#breadboard .bb-chip-name")?.textContent === "atmega168");
     await page.click("#tab-pinout");
     await page.waitForSelector('#pinout svg[aria-label="ATmega168 pinout"]');
@@ -76,9 +120,11 @@ const root = path.resolve(__dirname, "../..");
       };
     });
     await page.evaluate((text) => siliconForge.loadMcu(text), JSON.stringify(bare));
+    await page.waitForFunction(() => document.querySelector("#mcu-error").textContent === "test: transient chip failure");
     await page.waitForSelector('#pinout svg[aria-label="BareAVR pinout"]');
+    await page.waitForFunction(() => document.querySelector("#mcu-error").hidden);
     await page.waitForFunction(() => !document.querySelector("#breadboard svg"));
-    await page.waitForFunction(() => document.querySelector("#mcu-select").selectedOptions[0]?.text === "BareAVR");
+    await page.waitForFunction(() => document.querySelector("#mcu-select").selectedOptions[0]?.text === "BareAVR (loaded)");
     assert.ok(await page.evaluate(() => window.chipAttempts >= 2));
     const pinLabels = await page.locator("#digital .pin .label").allTextContents();
     assert.ok(pinLabels.includes("AVCC") && pinLabels.includes("AREF"));
