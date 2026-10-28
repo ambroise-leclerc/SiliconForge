@@ -35,7 +35,8 @@ struct Options {
     std::string                  mcu{"atmega328p"};
     std::optional<std::filesystem::path> firmware;
     bool                         headless{false};
-    bool                                 help{false};
+    bool                         help{false};
+    bool                         explicitMcu{false};
     std::optional<std::filesystem::path> mcuFile;
     std::vector<std::filesystem::path>   mcuPaths;
     Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
@@ -104,9 +105,10 @@ std::optional<Options> parseOptions(int argc, char** argv) {
             const auto text = value();
             if (!text)
                 return std::nullopt;
-            if (argument == "--mcu")
+            if (argument == "--mcu") {
                 options.mcu = *text;
-            else if (argument == "--address")
+                options.explicitMcu = true;
+            } else if (argument == "--address")
                 options.address = *text;
             else if (argument == "--port")
                 options.port = *text;
@@ -195,6 +197,8 @@ int main(int argc, char** argv) {
     }
     std::unique_ptr<Mcu> device;
     if (options->mcuFile) {
+        if (options->explicitMcu)
+            std::println(stderr, "Warning: --mcu-file overrides --mcu '{}'", options->mcu);
         auto result = mcu::load(*options->mcuFile);
         if (!result) {
             std::println(stderr, "{}{}: {}", options->mcuFile->string(), result.error().path, result.error().message);
