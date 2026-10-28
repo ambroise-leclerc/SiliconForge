@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Simulation.hpp"
+
+#include <nlohmann/json.hpp>
 #include <siliconforge/core/loader/ProgramImage.hpp>
 #include <siliconforge/mcu/Registry.hpp>
 #include <webfront/WebFront.hpp>
