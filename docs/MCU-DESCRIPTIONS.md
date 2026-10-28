@@ -153,3 +153,12 @@ La table privée du cœur contient 65 536 entrées (pointeur et timings empaquet
 environ 1 Mio par puce sur une plateforme 64 bits, contre 512 Kio auparavant. Les
 mesures de vitesse restent propres au firmware et au cache de la machine ; elles ne
 garantissent pas l'absence de régression pour tous les ensembles d'instructions actifs.
+
+Revérification sur un cœur avec 512 Kio de L2, en Release GCC 16.1, affinité CPU fixe,
+huit exécutions dans l'ordre avant/après/après/avant répété, 30 secondes simulées de
+`blink` par exécution : médianes de 164,75 MHz avant et 154,8 MHz après, soit **−6,0 %**.
+Le temps CPU (démarrage compris) donne également environ −5,9 %. Ce résultat dépasse
+l'objectif de ±3 % de l'ADR ; la mesure initiale de +0,2 % ne permet donc pas de conclure
+à une absence générale de régression. L'écart n'est pas attribué au seul cache L2.
+Les échantillons et les empreintes des exécutables sont conservés dans
+[le relevé du benchmark](benchmarks/mcu-json-l2-512k.json).
