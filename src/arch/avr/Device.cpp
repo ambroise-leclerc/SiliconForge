@@ -10,6 +10,7 @@ AvrCoreConfig config(const Json& d) {
     const auto& m       = d.at("memories");
     const auto& c       = d.at("cpu");
     const auto  address = [&](const char* key) {
+        if (!c.contains(key)) return Address{0};
         return d.at("registers").at(c.at(key).get<std::string>()).at("address").get<Address>();
     };
     return {.flashBytes      = m.at("flash").at("size"),
