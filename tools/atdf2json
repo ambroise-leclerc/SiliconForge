@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Import authoritative ATDF fields; optionally retain hand-authored simulation data with --base."""
+import argparse
+import copy
+import json
+import re
+import sys
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+
+def number(value):
+    return int(value, 0)
+
+
+def convert(root, package=None, base=None):
+    # Ignore XML namespaces, including vendor-specific ATDF wrappers.
+    for element in root.iter():
+        element.tag = element.tag.rsplit('}', 1)[-1]
+    device = root.find('./devices/device')
+    if device is None:
+        raise ValueError('ATDF contains no device')
+    if device.get('architecture') not in ('AVR8', 'AVR8X'):
+        raise ValueError('Only AVR ATDF descriptions are supported')
+    result = copy.deepcopy(base) if base else {
+        'formatVersion': 1, 'architecture': 'avr', 'core': None,
+        'clockHz': None, 'supplyVoltage': None, 'cpu': {}, 'timing': {},
+        'peripherals': [], 'memories': {}, 'registers': {},
+    }
+    result['name'] = device.get('name')
+    segments = device.findall('./address-spaces/address-space/memory-segment')
+    for key, name in [('flash', 'FLASH'), ('sram', 'IRAM'), ('io', 'MAPPED_IO'),
+                      ('registers', 'REGISTERS'), ('eeprom', 'EEPROM')]:
+        segment = next((s for s in segments if s.get('name') == name), None)
+        if segment is None:
+            raise ValueError(f'ATDF has no {name} memory segment')
+        value = {'start': number(segment.get('start')), 'size': number(segment.get('size'))}
+        if segment.get('pagesize'):
+            value['pageSize'] = number(segment.get('pagesize'))
+        result['memories'][key] = value
+    registers = {}
+    # Follow device instance references: offsets are relative to the referenced register group.
+    for module in device.findall('./peripherals/module'):
+        definition = root.find(f"./modules/module[@name='{module.get('name')}']")
+        if definition is None:
+            continue
+        for instance in module.findall('instance'):
+            for reference in instance.findall('register-group'):
+                if reference.get('address-space') != 'data':
+                    continue
+                group = definition.find(f"register-group[@name='{reference.get('name-in-module')}']")
+                if group is None:
+                    raise ValueError(f"Unresolved register group {reference.get('name-in-module')}")
+                offset = number(reference.get('offset', '0'))
+                for register in group.findall('register'):
+                    size = number(register.get('size', '1'))
+                    name = register.get('name')
+                    for byte in range(size):
+                        suffix = '' if size == 1 else ('L' if byte == 0 else 'H' if byte == 1 else str(byte))
+                        byte_name = name + suffix
+                        # These byte aliases are the names used by AVR toolchains.
+                        if name == 'ADC':
+                            byte_name = 'ADCL' if byte == 0 else 'ADCH'
+                        old = result.get('registers', {}).get(byte_name, {})
+                        value = {'address': offset + number(register.get('offset')) + byte,
+                                 'reset': old.get('reset', 0), 'bits': {}}
+                        if register.get('initval'):
+                            value['reset'] = (number(register.get('initval')) >> (8 * byte)) & 255
+                        for bit in register.findall('bitfield'):
+                            mask = (number(bit.get('mask')) >> (8 * byte)) & 255
+                            if mask:
+                                value['bits'][bit.get('name')] = mask
+                        registers[byte_name] = value
+    result['registers'] = dict(sorted(registers.items()))
+    result['vectors'] = {v.get('name').upper(): number(v.get('index'))
+                         for v in device.findall('./interrupts/interrupt')}
+    pinouts = root.findall('./pinouts/pinout')
+    if not pinouts:
+        raise ValueError('ATDF contains no pinout')
+    selected = next((p for p in pinouts if p.get('name') == package), None) if package else pinouts[0]
+    if selected is None:
+        raise ValueError(f'Unknown package {package}; available: ' + ', '.join(p.get('name') for p in pinouts))
+    old_package = result.get('package', {})
+    old_pins = {p['n']: p for p in old_package.get('pins', [])}
+    functions = {}
+    for module in device.findall('./peripherals/module'):
+        for instance in module.findall('instance'):
+            for signal in instance.findall('./signals/signal'):
+                group, index = signal.get('group'), signal.get('index', '')
+                if group == 'P':
+                    continue
+                if module.get('name', '').startswith('TC'):
+                    timer = re.sub(r'\D', '', instance.get('name', ''))
+                    function = 'OC' + timer + group[-1] if group in ('OCA', 'OCB') else group + timer if group in ('T', 'ICP') else group
+                else:
+                    function = group + index
+                functions.setdefault(signal.get('pad'), set()).add(function)
+    pins = []
+    for pin in selected.findall('pin'):
+        n, pad = number(pin.get('position')), pin.get('pad')
+        port = pad if re.fullmatch(r'P[A-Z]\d+', pad) else None
+        old = old_pins.get(n, {})
+        # Board labels, display colours and layout slots are not supplied by ATDF.
+        same_pad = old.get('port') == port and (port is not None or old.get('labels', [''])[0].split(':')[0] == pad)
+        pins.append({'n': n, 'port': port, 'label': old.get('label', '') if same_pad else '',
+                     'labels': old.get('labels', [pad]) if same_pad else [pad],
+                     'functions': sorted(functions.get(pad, []))})
+    result['package'] = {'name': selected.get('name'), 'pins': sorted(pins, key=lambda p: p['n']),
+                         'slotKinds': old_package.get('slotKinds', ['port', 'digital', 'function', 'ide', 'pwm', 'function'])}
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('atdf', type=Path)
+    parser.add_argument('--package', help='ATDF pinout name, e.g. PDIP28')
+    parser.add_argument('--base', type=Path, help='Retain fields absent from ATDF (timings, factories, reset values, board labels)')
+    parser.add_argument('-o', '--output', type=Path)
+    args = parser.parse_args()
+    try:
+        base = json.loads(args.base.read_text()) if args.base else None
+        result = convert(ET.parse(args.atdf).getroot(), args.package, base)
+        text = json.dumps(result, indent=2, ensure_ascii=False) + '\n'
+        if args.output:
+            args.output.write_text(text)
+        else:
+            sys.stdout.write(text)
+        if not base:
+            print('Skeleton only: complete core, clock, supply, CPU, timing, reset values and peripheral factories before loading.', file=sys.stderr)
+    except (OSError, ValueError, ET.ParseError) as error:
+        parser.exit(1, f'atdf2json: {error}\n')
+
+
+if __name__ == '__main__':
+    main()

@@ -119,6 +119,41 @@ la couleur « serial ». `sf.chip()` sert ces données aux vues Pinout et Breadb
 Le champ facultatif `breadboard` conserve le circuit de démonstration existant ; une
 puce sans circuit affiche quand même son brochage et ses broches interactives.
 
+## Ajouter une puce AVR depuis un ATDF
+
+Le convertisseur Python 3 n'a aucune dépendance externe :
+
+```sh
+tools/atdf2json ATmega168.atdf --package PDIP28 -o squelette.json
+# Compléter les champs manquants puis valider en chargeant la description.
+```
+
+Sans `--base`, les champs absents de l'ATDF sont laissés vides ou à `null` : le résultat
+est un **squelette à compléter**, pas une puce supposée fonctionnelle. L'ATDF fournit
+les mémoires, registres, masques de bits, vecteurs et fonctions/brochage ; il ne fournit
+pas la table de cycles, les connexions aux fabriques d'émulation, l'horloge choisie,
+les étiquettes Arduino, le circuit ni toujours les resets.
+
+Pour conserver ces compléments manuels en réimportant les données du constructeur :
+
+```sh
+tools/atdf2json ATmega328P.atdf --package PDIP28 \
+  --base mcus/atmega328p.json -o reimporte.json
+```
+
+La description livrée a été vérifiée avec `atdf/ATmega328P.atdf` du pack
+`Microchip.ATmega_DFP.3.1.264.atpack`, disponible sur
+[le dépôt officiel des packs Microchip](https://packs.download.microchip.com/).
+Cette commande reproduit son contenu. Les références d'instances sont résolues vers
+les groupes de registres du module, les offsets d'instance sont ajoutés, et les registres
+multioctets sont divisés en octets (`UBRR0L/H`, `ADCL/H`, `SPL/H`). Les resets absents de
+l'ATDF sont conservés depuis la base. Les numéros physiques et fonctions sont toujours
+réimportés ; les couleurs et étiquettes de carte sont conservées pour la même broche.
+
+Pour dériver un ATmega168 du modèle livré : changer `name`, réduire les tailles flash,
+SRAM et EEPROM, et adapter `SPH.reset` au nouveau sommet de SRAM (4 pour 1 Kio).
+Les tests exécutent `blink.hex` sur cette variante sans nouveau C++.
+
 ## Limites du modèle
 
 Le schéma décrit les paramètres des sémantiques actuellement implémentées : les noms

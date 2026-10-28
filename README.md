@@ -37,7 +37,7 @@ Emulation speed: about 170 MHz of simulated clock on a desktop CPU in Release bu
 
 ## Quick start
 
-Requirements: a C++26 compiler (GCC 16) and CMake 3.31+. Dependencies (WebFront, Catch2) are fetched by CPM. For a
+Requirements: a C++26 compiler (GCC 16), CMake 3.31+ and Python 3 for the tests and ATDF importer. Dependencies (WebFront, Catch2) are fetched by CPM. For a
 native window on Linux, install WebKitGTK 6.0 (`sudo apt install libwebkitgtk-6.0-dev` on Ubuntu/Debian,
 `webkitgtk6.0-devel` on Fedora); without it, the interface opens in the system browser.
 
@@ -66,6 +66,13 @@ Run the tests from the build directory:
 ```bash
 ctest --output-on-failure
 ```
+
+## MCU descriptions
+
+Chip parameters, instruction timings, peripherals and package pinouts come from versioned JSON.
+Load a description without recompiling with `--mcu-file chip.json`, or discover a directory
+with `--mcu-path directory`. The interface also accepts MCU JSON files through **Load MCU…** or drag and drop.
+See [the format and ATDF import guide](docs/MCU-DESCRIPTIONS.md).
 
 ## Testing firmware
 
@@ -112,7 +119,7 @@ ui/                  Web interface
 firmware/            Test firmware (avr-gcc) and their prebuilt binaries
 ```
 
-Adding a chip of a known family is a new `mcu/<chip>`; adding an architecture (ARM Cortex-M, RISC-V...) is a new
+Adding a chip of a known family is a JSON description in `mcus/`; adding an architecture (ARM Cortex-M, RISC-V...) is a new
 `arch/<family>`, with no change to the core, the application or the interface. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [architecture decisions](docs/adr).
 
