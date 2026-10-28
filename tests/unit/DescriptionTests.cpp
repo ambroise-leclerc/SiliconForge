@@ -79,7 +79,13 @@ TEST_CASE("The shipped MCU file validates against the versioned JSON Schema", "[
     REQUIRE(result.has_value());
     CHECK((*result)->name() == "ATmega328P");
     CHECK((*result)->pins().size() == 22);
-    CHECK(Json::parse((*result)->chipJson()).at("pins").size() == 28);
+    const auto chip = Json::parse((*result)->chipJson());
+    CHECK(chip.at("pins").size() == 28);
+    const auto clockPin = std::ranges::find_if(chip.at("pins"), [](const Json& pin) { return pin.at("port") == "PB0"; });
+    REQUIRE(clockPin != chip.at("pins").end());
+    const auto functions = clockPin->at("functions").get<std::vector<std::string>>();
+    CHECK(std::ranges::find(functions, std::string{"CLKO"}) != functions.end());
+    CHECK(std::ranges::find(functions, std::string{"CLK0"}) == functions.end());
     std::ifstream input{std::filesystem::path{SILICONFORGE_MCU_DIR} / "atmega328p.json"};
     CHECK(Json::parse(input) == mcu::builtinDescription("atmega328p"));
 }
