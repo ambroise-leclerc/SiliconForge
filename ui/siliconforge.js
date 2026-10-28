@@ -16,6 +16,7 @@
   let previousRegisters = new Map();
   let lastRate = null;  // Cycles and wall time of the last speed measurement
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
+  const voltages = new Map();  // Pin name -> voltage applied from this page, shared by every control of that pin
   const waiters = new Set();
 
   // Automation API ------------------------------------------------------------------------------------------------
@@ -39,7 +40,12 @@
     setSpeed: (factor) => call("sf.setSpeed", factor),
     send: (text) => call("sf.serialSend", text),
     setPin: (name, level) => call("sf.setPin", name, level === undefined || level === null ? -1 : Number(level)),
-    setVoltage: (name, volts) => call("sf.setVoltage", name, volts),
+    setVoltage: (name, volts) => {
+      voltages.set(api.pin(name)?.name ?? name, volts);
+      return call("sf.setVoltage", name, volts);
+    },
+    /** Voltage last applied to an analog input from this page (0 if none). */
+    voltage: (name) => voltages.get(api.pin(name)?.name ?? name) ?? 0,
     load: async (name, bytes) => {
       const error = await call("sf.loadFirmware", name, bytes);
       if (error) throw new Error(error);
@@ -150,6 +156,7 @@
     forced: (name) => (forced.has(name) ? (forced.get(name) ? "high" : "low") : ""),
     setPin: (name, level) => api.setPin(name, level),
     setVoltage: (name, volts) => api.setVoltage(name, volts),
+    voltage: (name) => api.voltage(name),
   };
   let views = null;
 
@@ -192,6 +199,11 @@
       element.dataset.pwm = pwm;
       element.style.setProperty("--duty", `${(pin.duty * 100).toFixed(1)}%`);
       element.dataset.forced = forced.has(pin.name) ? (forced.get(pin.name) ? "high" : "low") : "";
+      const slider = element.querySelector("input[type=range]");
+      if (slider && document.activeElement !== slider) {
+        slider.value = api.voltage(pin.name);
+        slider.title = `${api.voltage(pin.name).toFixed(2)} V`;
+      }
       element.querySelector(".mode").textContent = pin.output
         ? (pwm ? `OUT ${Math.round(pin.duty * 100)}%` : "OUT")
         : pin.pullUp ? "IN pull-up" : "IN";

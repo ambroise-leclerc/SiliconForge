@@ -227,7 +227,7 @@ button.small { padding: 1px 8px; font-size: 12px; float: right; }
 .po-ide rect { fill: #f2c4d5; }
 .po-io { cursor: pointer; }
 .po-io:hover rect { stroke: var(--accent); stroke-width: 2; }
-.po-level { --duty: 0; fill: color-mix(in srgb, #ff9d00 calc(var(--duty) * 100%), #3b3f45); stroke: rgb(0 0 0 / .4); }
+.po-level { fill: color-mix(in srgb, #ff9d00 calc(var(--duty, 0) * 100%), #3b3f45); stroke: rgb(0 0 0 / .4); }
 .po-io[data-state="2"] .po-level { fill: #ffffff; stroke-dasharray: 2 1.5; }
 .po-io[data-output="true"] rect { stroke: #1a1a1a; stroke-width: 1.8; }
 .po-io[data-forced="high"] rect, .po-io[data-forced="low"] rect { stroke: #2f6fd8; stroke-width: 2.2; }

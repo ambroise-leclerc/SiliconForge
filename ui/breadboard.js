@@ -195,18 +195,22 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx) => {
       el("rect", {x: centre.x + 24, y: centre.y - 9, width: 44, height: 16, rx: 3, class: "bb-value-box"}, group);
       const value = el("text", {x: centre.x + 46, y: centre.y + 3, class: "bb-value", "text-anchor": "middle"}, group, "0.00 V");
       el("title", {}, group, `Potentiometer on ${pin}: drag up or down, or use the wheel`);
-      let volts = 0;
-      const set = (next) => {
-        volts = Math.min(5, Math.max(0, next));
+      // The voltage is shared with the other controls of the pin (the slider of the Pins view).
+      const show = (volts) => {
         knob.setAttribute("transform", `rotate(${-135 + volts * 54} ${centre.x} ${centre.y - 2})`);
         value.textContent = `${volts.toFixed(2)} V`;
+      };
+      const set = (next) => {
+        const volts = Math.min(5, Math.max(0, next));
+        show(volts);
         ctx.setVoltage(pin, volts);
       };
-      knob.setAttribute("transform", `rotate(-135 ${centre.x} ${centre.y - 2})`);
+      show(0);
+      updaters.push(() => show(ctx.voltage(pin)));
       let drag = null;
       group.addEventListener("pointerdown", (event) => {
         capture(group, event);
-        drag = {y: event.clientY, volts};
+        drag = {y: event.clientY, volts: ctx.voltage(pin)};
       });
       group.addEventListener("pointermove", (event) => {
         if (drag) set(drag.volts + (drag.y - event.clientY) / 40);
@@ -214,7 +218,7 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx) => {
       group.addEventListener("pointerup", () => (drag = null));
       group.addEventListener("wheel", (event) => {
         event.preventDefault();
-        set(volts + (event.deltaY < 0 ? 0.1 : -0.1));
+        set(ctx.voltage(pin) + (event.deltaY < 0 ? 0.1 : -0.1));
       }, {passive: false});
     },
   };
