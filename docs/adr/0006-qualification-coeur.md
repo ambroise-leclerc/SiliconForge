@@ -26,7 +26,7 @@ publie son résultat.
 1. **Couverture du décodage.** Chacun des 65 536 opcodes est classé (instruction valide avec sa variante de cœur,
    alias, réservé). Un rapport indique les instructions et les cas exercés par les tests. Un opcode réservé arrête
    l'exécution (`StopReason::InvalidOpcode`).
-2. **Tests différentiels contre simavr.** Des séquences d'instructions aléatoires, générées avec une graine
+2. **Tests différentiels contre simavr**, simulateur AVR de référence, indépendant et largement utilisé. Des séquences d'instructions aléatoires, générées avec une graine
    reproductible, s'exécutent sur SiliconForge et sur simavr. Après chaque instruction, on compare registres, SREG, SP,
    mémoire et cycles. Toute divergence est réduite automatiquement à la plus petite séquence qui la reproduit. Les
    écarts imputables à la référence sont listés et justifiés.

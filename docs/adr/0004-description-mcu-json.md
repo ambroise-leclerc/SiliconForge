@@ -44,7 +44,9 @@ recompiler. Il est aussi impossible de relire ou de comparer ces caractéristiqu
 5. **Import depuis les formats constructeurs.** Un convertisseur produit le squelette JSON à partir des fichiers ATDF
    de Microchip (registres, bits, vecteurs, brochages). CMSIS-SVD jouera ce rôle pour ARM. Les timings, absents de ces
    formats, sont ajoutés à la main et vérifiés par la qualification ([ADR 0006](0006-qualification-coeur.md)).
-6. **Bibliothèque JSON** obtenue par CPM ; nlohmann/json est le choix par défaut, à confirmer dans la story #12.
+6. **Bibliothèque JSON : nlohmann/json**, obtenue par CPM. Elle est mûre, sans dépendance, et le chargement n'a lieu
+   qu'une fois au démarrage : sa vitesse ne compte pas. Ses JSON Pointer (`/peripherals/2/vector`) donnent directement
+   le chemin des erreurs.
 7. **Non-régression** : `atmega328p.json` doit reproduire exactement le comportement actuel, et tous les tests existants
    passent sans modification.
 
