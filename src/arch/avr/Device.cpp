@@ -1,7 +1,9 @@
 #include <siliconforge/arch/avr/Device.hpp>
+#include <nlohmann/json.hpp>
 
 #include <algorithm>
 #include <format>
+#include <set>
 
 namespace siliconforge::avr {
 namespace {
@@ -10,7 +12,8 @@ AvrCoreConfig config(const Json& d) {
     const auto& m       = d.at("memories");
     const auto& c       = d.at("cpu");
     const auto  address = [&](const char* key) {
-        if (!c.contains(key)) return Address{0};
+        if (!c.contains(key))
+            return Address{0};
         return d.at("registers").at(c.at(key).get<std::string>()).at("address").get<Address>();
     };
     return {.flashBytes      = m.at("flash").at("size"),
@@ -30,31 +33,32 @@ AvrCoreConfig config(const Json& d) {
 }  // namespace
 
 Device::Device(Json d, u64 clockOverride)
-    : description(std::move(d)),
-      deviceName(description.at("name")),
-      clock(clockOverride ? clockOverride : description.at("clockHz").get<u64>()),
-      supplyVoltage(description.at("supplyVoltage")),
-      data(config(description).ioEnd, config(description).ramEnd),
-      core(config(description), data, scheduler, interrupts, debug),
-      eeprom(description.at("memories").at("eeprom").at("size"), 0xFF) {
-    auto view    = description.at("package");
+    : description(std::make_unique<Json>(std::move(d))),
+      coreConfig(config(*description)),
+      deviceName(description->at("name")),
+      clock(clockOverride ? clockOverride : description->at("clockHz").get<u64>()),
+      supplyVoltage(description->at("supplyVoltage")),
+      data(coreConfig.ioEnd, coreConfig.ramEnd),
+      core(coreConfig, data, scheduler, interrupts, debug),
+      eeprom(description->at("memories").at("eeprom").at("size"), 0xFF) {
+    auto view    = description->at("package");
     view["name"] = deviceName;
-    if (description.contains("breadboard"))
-        view["breadboard"] = description.at("breadboard");
+    if (description->contains("breadboard"))
+        view["breadboard"] = description->at("breadboard");
     chip = view.dump();
-    for (const auto& p : description.at("peripherals"))
+    for (const auto& p : description->at("peripherals"))
         if (p.at("type") == "avr.gpio")
             for (const auto& n : p.at("pins")) {
                 std::string label;
-                for (const auto& physical : description.at("package").at("pins"))
+                for (const auto& physical : description->at("package").at("pins"))
                     if (physical.at("port") == n)
                         label = physical.at("label");
                 pinList.emplace_back(n.get<std::string>(), label, &core.cycles);
             }
-    for (const auto& p : description.at("peripherals"))
+    for (const auto& p : description->at("peripherals"))
         if (p.at("type") == "avr.usart")
             serialList.emplace_back(p.at("name").get<std::string>());
-    core.setTiming(description.at("timing"));
+    core.setTiming(description->at("timing"));
     // Named architecture factories. GPIO is wired first so other peripherals may refer to it, regardless of JSON order.
     using Factory = void (Device::*)(const Json&);
     static const std::map<std::string, Factory> factories{
@@ -64,37 +68,45 @@ Device::Device(Json d, u64 clockOverride)
         {"avr.eeprom", &Device::makeEeprom},
         {   "avr.adc",    &Device::makeAdc}
     };
-    for (const auto& p : description.at("peripherals"))
-        if (p.at("type") == "avr.gpio")
-            makeGpio(p);
-    for (const auto& p : description.at("peripherals"))
+    std::set<Address> gpioControls;
+    for (const auto& p : description->at("peripherals")) {
+        if (p.at("type") != "avr.gpio")
+            continue;
+        makeGpio(p);
+        gpioControls.insert(description->at("registers").at(p.at("mcucr").get<std::string>()).at("address").get<Address>());
+    }
+    for (const auto mcucr : gpioControls) {
+        data.map(mcucr, {nullptr, [this, mcucr](u8 v, u8 mask) {
+                             auto& stored = data.raw(mcucr);
+                             stored       = static_cast<u8>((stored & ~mask) | (v & mask));
+                             for (auto& [name, gpio] : ports)
+                                 gpio->refresh();
+                         }});
+    }
+    for (const auto& p : description->at("peripherals"))
         if (p.at("type") != "avr.gpio")
             (this->*factories.at(p.at("type")))(p);
     reset();
 }
 
+Device::~Device() = default;
+
 Address Device::reg(const Json& p, std::string_view key) const {
-    return description.at("registers").at(p.at("registers").at(key).get<std::string>()).at("address");
+    return description->at("registers").at(p.at("registers").at(key).get<std::string>()).at("address");
 }
 unsigned Device::vector(const Json& p, std::string_view key) const {
-    return description.at("vectors").at(p.at(key).get<std::string>());
+    return description->at("vectors").at(p.at(key).get<std::string>());
 }
 void Device::makeGpio(const Json& p) {
     std::array<Pin*, 8> pins{};
     for (std::size_t i = 0; i < p.at("pins").size(); ++i)
         pins[i] = pin(p.at("pins")[i].get<std::string>());
-    const auto mcucr = description.at("registers").at(p.at("mcucr").get<std::string>()).at("address").get<Address>();
+    const auto mcucr = description->at("registers").at(p.at("mcucr").get<std::string>()).at("address").get<Address>();
     auto       port  = std::make_unique<GpioPort>(data, GpioPort::Registers{reg(p, "pin"), reg(p, "ddr"), reg(p, "port")}, pins, mcucr);
     resetters.emplace_back([ptr = port.get()] {
         ptr->reset(true);
     });
     ports.emplace(p.at("name"), std::move(port));
-    data.map(mcucr, {nullptr, [this, mcucr](u8 v, u8 mask) {
-                         auto& stored = data.raw(mcucr);
-                         stored       = static_cast<u8>((stored & ~mask) | (v & mask));
-                         for (auto& [name, gpio] : ports)
-                             gpio->refresh();
-                     }});
 }
 void Device::makeTimer(const Json& p) {
     const auto output = [&](unsigned i) {
@@ -259,12 +271,12 @@ void Device::reset() {
     interrupts.clear();
     data.clear();
     core.reset();
-    for (const auto& r : description.at("registers"))
+    for (const auto& r : description->at("registers"))
         data.raw(r.at("address")) = r.at("reset");
     // Core registers have live read/write handlers; their reset values also come from the description.
-    const auto& c = description.at("cpu");
+    const auto& c = description->at("cpu");
     for (const char* key : {"spl", "sph", "sreg"}) {
-        const auto& r = description.at("registers").at(c.at(key).get<std::string>());
+        const auto& r = description->at("registers").at(c.at(key).get<std::string>());
         data.write(r.at("address"), r.at("reset"));
     }
     for (auto& port : serialList)

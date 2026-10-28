@@ -1,6 +1,6 @@
 #pragma once
 
-#include <nlohmann/json.hpp>
+#include <nlohmann/json_fwd.hpp>
 #include <siliconforge/arch/avr/AvrCore.hpp>
 #include <siliconforge/arch/avr/peripherals/Gpio.hpp>
 #include <siliconforge/arch/avr/peripherals/Timer8.hpp>
@@ -16,6 +16,7 @@ namespace siliconforge::avr {
 class Device : public Mcu {
 public:
     explicit Device(nlohmann::json description, u64 clockOverride = 0);
+    ~Device() override;
     [[nodiscard]] std::string_view name() const noexcept override {
         return deviceName;
     }
@@ -28,6 +29,7 @@ public:
     [[nodiscard]] u64 clockHz() const noexcept override {
         return clock;
     }
+    /// Rejects out-of-range segments with std::out_of_range before changing any device state.
     void      load(const ProgramImage& image) override;
     void      reset() override;
     RunResult run(Cycles budget) override {
@@ -72,7 +74,8 @@ private:
     void                                             makeUsart(const nlohmann::json& p);
     void                                             makeEeprom(const nlohmann::json& p);
     void                                             makeAdc(const nlohmann::json& p);
-    nlohmann::json                                   description;
+    std::unique_ptr<nlohmann::json>                  description;
+    AvrCoreConfig                                   coreConfig;
     std::string                                      deviceName;
     std::string                                      chip;
     u64                                              clock;

@@ -1,6 +1,12 @@
 #pragma once
 #include <string_view>
 namespace siliconforge::mcu::embedded {
-inline constexpr std::string_view atmega328p = R"sfjson(@SILICONFORGE_ATMEGA328P_JSON@)sfjson";
-inline constexpr std::string_view schema = R"sfjson(@SILICONFORGE_MCU_SCHEMA@)sfjson";
+inline constexpr unsigned char atmega328pBytes[] = {
+@SILICONFORGE_ATMEGA328P_BYTES@
+};
+inline constexpr unsigned char schemaBytes[] = {
+@SILICONFORGE_MCU_SCHEMA_BYTES@
+};
+inline const std::string_view atmega328p{reinterpret_cast<const char*>(atmega328pBytes), sizeof(atmega328pBytes)};
+inline const std::string_view schema{reinterpret_cast<const char*>(schemaBytes), sizeof(schemaBytes)};
 }
