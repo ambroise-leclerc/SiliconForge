@@ -90,6 +90,7 @@ std::expected<void, LoadError> validate(const Json& d) {
         };
         std::set<std::string> cpuRegisters;
         for (const char* key : {"spmcsr", "smcr", "spl", "sph", "sreg"}) {
+            if (!d.at("cpu").contains(key)) continue;
             registerRef(d.at("cpu").at(key), std::string("/cpu/") + key);
             if (!cpuRegisters.insert(d.at("cpu").at(key).get<std::string>()).second)
                 fail(std::string("/cpu/") + key, "CPU registers must be distinct");
