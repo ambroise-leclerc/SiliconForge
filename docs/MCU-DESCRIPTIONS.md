@@ -94,8 +94,9 @@ pour obtenir du JSON) :
 
 Le fichier complet valide est `mcus/atmega328p.json`, à utiliser comme point de départ.
 `cpu` contient les registres du cœur, `pcBytes` (2 ou 3), `vectorWords`, les cycles d'entrée
-en interruption et de réveil. Les tables sont compilées en 65 536 entrées au chargement ;
-aucune recherche de mnémonique ou de JSON n'a lieu dans la boucle d'exécution.
+en interruption et de réveil. Les 65 536 opcodes sont décodés une fois par processus en indices `u16` ;
+chaque puce configure ensuite son petit tableau de handlers et de timings. Aucune recherche
+de mnémonique ou de JSON n'a lieu dans la boucle d'exécution.
 
 Les fabriques AVR enregistrées sont :
 
@@ -165,12 +166,18 @@ Un `AvrCore` construit directement doit recevoir `setTiming()` avant `run()` ou 
 options CLI et la liste de sélection de l'IHM. `Mcu::name()` conserve la casse du JSON
 et sert au nom affiché dans l'en-tête de l'IHM. Cette distinction est testée.
 
-La table privée du cœur contient 65 536 entrées (pointeur et timings empaquetés), soit
-environ 1 Mio par puce sur une plateforme 64 bits, contre 512 Kio auparavant. Les
+La table de 65 536 indices `u16` occupe 128 Kio, partagés par tous les cœurs. Le petit
+catalogue partagé distingue 87 handlers (notamment LPM implicite et explicite, de même
+mnémonique). Chaque puce conserve 87 paires handler/timing, soit 1 392 octets sur la
+plateforme 64 bits mesurée. Les accès JSON sont calculés une fois par mnémonique lors
+de `setTiming()`, puis réutilisés pour les handlers partageant ce mnémonique.
+L’ancienne API de diagnostic `instructionTable()` est conservée ; sa table de pointeurs
+de 512 Kio n’est initialisée que si un consommateur la demande et n’est pas utilisée
+par la boucle d’émulation. Les
 mesures de vitesse restent propres au firmware et au cache de la machine ; elles ne
 garantissent pas l'absence de régression pour tous les ensembles d'instructions actifs.
 
-Revérification sur un cœur avec 512 Kio de L2, en Release GCC 16.1, affinité CPU fixe,
+Mesure historique de l’ancienne table privée de 1 Mio : sur un cœur avec 512 Kio de L2, en Release GCC 16.1, affinité CPU fixe,
 huit exécutions dans l'ordre avant/après/après/avant répété, 30 secondes simulées de
 `blink` par exécution : médianes de 164,75 MHz avant et 154,8 MHz après, soit **−6,0 %**.
 Le temps CPU (démarrage compris) donne également environ −5,9 %. Ce résultat dépasse
@@ -178,3 +185,32 @@ l'objectif de ±3 % de l'ADR ; la mesure initiale de +0,2 % ne permet donc pas d
 à une absence générale de régression. L'écart n'est pas attribué au seul cache L2.
 Les échantillons et les empreintes des exécutables sont conservés dans
 [le relevé du benchmark](benchmarks/mcu-json-l2-512k.json).
+
+## Mesures de la table compacte
+
+La comparaison alternée entre le moteur initial, l'ancienne table privée de 1 Mio et
+la table compacte (même CPU, L2 de 512 Kio, GCC 16.1 Release, `blink`, 30 s simulées)
+donne des médianes de 165,7 / 159,85 / 156,85 MHz. La table compacte économise la mémoire
+et le temps de construction mais n'atteint pas encore l'objectif d'exécution de ±3 % :
+l'écart mesuré face au moteur initial reste **−5,34 %**. L'indirection supplémentaire
+n'est donc pas présentée comme une correction démontrée du débit. Les valeurs demeurent
+sensibles au firmware et à la machine.
+
+Sur trois séries de 100 opérations après échauffement, la création d'une puce passe
+de 5 538 à 463 µs et `setTiming()` de 4 833 à 21 µs (environ ×12 et ×231).
+Le benchmark manuel est disponible sans alourdir la construction normale :
+
+```sh
+cmake --build build --target siliconforge_mcu_bench
+build/tests/siliconforge_mcu_bench
+```
+
+Les échantillons sont dans [le relevé de comparaison](benchmarks/mcu-compact.json).
+
+## Limite des timings avec PC sur trois octets
+
+`pc3Bytes` remplace uniquement `cycles` lorsque `cpu.pcBytes` vaut 3. Les champs
+`taken`, `skipOneWord`, `skipTwoWords` et `sram`, lorsqu'ils sont présents, conservent
+leur valeur JSON ; ils ne possèdent pas de variante spécifique au PC sur trois octets.
+Les cas absents héritent du coût de base sélectionné. Un futur MCU nécessitant des
+variantes de ces cas demandera une extension versionnée du format.

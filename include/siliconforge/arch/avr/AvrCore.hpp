@@ -52,7 +52,7 @@ struct InstructionEntry {
 /// AVRe+ CPU core (megaAVR with MUL and MOVW, 16-bit program counter), precise to the cycle at instruction
 /// granularity: every instruction accounts for its configured number of cycles, taken branches and skips included.
 /// Call setTiming() before run() or step(); either throws std::logic_error if timings are not configured.
-/// Each core owns 65,536 InstructionEntry records (about 1 MiB on 64-bit platforms).
+/// Opcode indices occupy 128 KiB shared by all cores; each core owns only the small handler/timing table.
 class AvrCore {
 public:
     AvrCore(const AvrCoreConfig& config, DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, Debugger& debugger);
@@ -85,6 +85,8 @@ public:
     [[nodiscard]] const std::vector<u16>& flash() const noexcept { return flashWords; }
     [[nodiscard]] u32 pcMask() const noexcept { return static_cast<u32>(flashWords.size() - 1); }
     [[nodiscard]] const AvrCoreConfig& config() const noexcept { return cfg; }
+    /// Storage owned by this core for configured handlers/timings (excludes the shared opcode indices).
+    [[nodiscard]] std::size_t timingTableBytes() const noexcept { return decoded.capacity() * sizeof(InstructionEntry); }
 
     DataSpace&           data;
     Scheduler&           scheduler;
@@ -147,6 +149,9 @@ private:
 /// Handlers execute one fetched instruction and return its configured cycle count.
 /// Decoding table indexed by the 16-bit opcode, built once.
 [[nodiscard]] const std::array<InstructionHandler, 65536>& instructionTable();
+
+/// Shared opcode-to-handler-kind indices, independent of the device timings.
+[[nodiscard]] const std::array<u16, 65536>& instructionIndices();
 
 /// Mnemonic of an opcode (without operands), for traces and tests.
 [[nodiscard]] std::string_view mnemonic(u16 opcode);

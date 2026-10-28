@@ -19,6 +19,7 @@ namespace siliconforge::mcu {
 [[nodiscard]] std::vector<std::string_view> available();
 
 /// Adds JSON descriptions from a directory. Invalid files are returned with their localized error.
+/// Filesystem errors, including entry inspection and iterator increments, use the same error list.
 /// Startup only: call before concurrent create()/available() calls. The catalog is not synchronized.
 [[nodiscard]] std::vector<std::pair<std::filesystem::path, LoadError>> addPath(const std::filesystem::path& directory);
 
