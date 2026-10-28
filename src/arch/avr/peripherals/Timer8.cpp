@@ -90,19 +90,21 @@ Timer8::Timer8(DataSpace& data, Scheduler& scheduler, InterruptController& inter
     });
 }
 
-void Timer8::reset() {
+void Timer8::reset(bool preserveRegisters) {
     if (event)
         scheduler.cancel(std::exchange(event, 0));
-    for (const auto address : {regs.tccrA, regs.tccrB, regs.timsk, regs.tifr})
-        data.raw(address) = 0;
-    tcnt         = 0;
+    if (!preserveRegisters)
+        for (const auto address : {regs.tccrA, regs.tccrB, regs.timsk, regs.tifr})
+            data.raw(address) = 0;
+    tcnt         = preserveRegisters ? data.raw(regs.tcnt) : 0;
     countingDown = false;
-    ocr          = {};
-    ocrBuffer    = {};
+    ocr          = preserveRegisters ? std::array<u8, 2>{data.raw(regs.ocrA), data.raw(regs.ocrB)} : std::array<u8, 2>{};
+    ocrBuffer    = ocr;
     outputLevel  = {};
     lastSync     = clock;
     updateOutputs();
     updateInterrupts();
+    reschedule();
 }
 
 Timer8::Mode Timer8::mode() const noexcept {

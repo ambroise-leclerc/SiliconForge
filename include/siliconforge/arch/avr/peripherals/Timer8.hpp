@@ -32,7 +32,8 @@ public:
     Timer8(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, const Cycles& clock, Registers registers, Vectors vectors,
            std::array<u16, 8> prescalers, OutputPin outputA, OutputPin outputB);
 
-    void reset();
+    /// Keep JSON-provided register reset values when assembling a described device.
+    void reset(bool preserveRegisters = false);
 
     /// Brings the counter up to `now`.
     void sync(Cycles now);

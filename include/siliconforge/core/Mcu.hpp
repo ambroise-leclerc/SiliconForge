@@ -33,6 +33,11 @@ public:
     [[nodiscard]] virtual std::string_view architecture() const noexcept = 0;
     [[nodiscard]] virtual u64              clockHz() const noexcept      = 0;
 
+    /// Board view metadata serialized as JSON, from the loaded chip description.
+    [[nodiscard]] virtual std::string_view chipJson() const noexcept {
+        return "null";
+    }
+
     /// Loads a firmware in program memory (and EEPROM if present), then resets.
     virtual void load(const ProgramImage& image) = 0;
     /// Power-on reset: clears the volatile state, keeps the program memory and the external pin levels.

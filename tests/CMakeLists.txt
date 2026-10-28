@@ -2,6 +2,8 @@ CPMAddPackage("gh:catchorg/Catch2@3.15.2")
 include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
 
 add_executable(siliconforge_tests
+    support/PublicHeaders.cpp
+    unit/DescriptionTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp
     unit/AvrInstructionTests.cpp
@@ -12,5 +14,9 @@ add_executable(siliconforge_tests
     unit/EepromAdcTests.cpp
     integration/FirmwareTests.cpp)
 target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge_options Catch2::Catch2WithMain)
-target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_FIRMWARE_DIR="${PROJECT_SOURCE_DIR}/firmware/prebuilt")
+target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_MCU_DIR="${PROJECT_SOURCE_DIR}/mcus" SILICONFORGE_FIRMWARE_DIR="${PROJECT_SOURCE_DIR}/firmware/prebuilt")
 catch_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast)
+
+# Explicit opt-in target for profiling; not part of CTest or the default build.
+add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
+target_link_libraries(siliconforge_mcu_bench PRIVATE SiliconForge::mcu SiliconForge_options)

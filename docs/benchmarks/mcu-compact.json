@@ -1,0 +1,125 @@
+{
+  "execution": {
+    "order": [
+      "baseline",
+      "large",
+      "compact",
+      "compact",
+      "large",
+      "baseline",
+      "baseline",
+      "large",
+      "compact",
+      "compact",
+      "large",
+      "baseline"
+    ],
+    "MHz": {
+      "baseline": [
+        157.8,
+        165.6,
+        165.8,
+        166.8
+      ],
+      "large": [
+        160.9,
+        148.5,
+        160.7,
+        159.0
+      ],
+      "compact": [
+        158.4,
+        157.2,
+        138.9,
+        156.5
+      ]
+    },
+    "median_MHz": {
+      "baseline": 165.7,
+      "large": 159.85,
+      "compact": 156.85
+    },
+    "compact_vs_baseline_percent": -5.340977670488833,
+    "compact_vs_large_percent": -1.8767594619956252
+  },
+  "construction": {
+    "samples": {
+      "large": [
+        {
+          "iterations": 100,
+          "create_us": 5608.19,
+          "setTiming_us": 4917.494,
+          "per_core_timing_bytes": 1048576
+        },
+        {
+          "iterations": 100,
+          "create_us": 5538.118,
+          "setTiming_us": 4833.144,
+          "per_core_timing_bytes": 1048576
+        },
+        {
+          "iterations": 100,
+          "create_us": 5416.068,
+          "setTiming_us": 4826.703,
+          "per_core_timing_bytes": 1048576
+        }
+      ],
+      "compact": [
+        {
+          "iterations": 100,
+          "create_us": 462.742,
+          "setTiming_us": 20.962,
+          "per_core_timing_bytes": 1392
+        },
+        {
+          "iterations": 100,
+          "create_us": 453.573,
+          "setTiming_us": 20.513,
+          "per_core_timing_bytes": 1392
+        },
+        {
+          "iterations": 100,
+          "create_us": 467.383,
+          "setTiming_us": 21.136,
+          "per_core_timing_bytes": 1392
+        }
+      ]
+    },
+    "medians": {
+      "large": {
+        "create_us": 5538.118,
+        "setTiming_us": 4833.144,
+        "per_core_timing_bytes": 1048576
+      },
+      "compact": {
+        "create_us": 462.742,
+        "setTiming_us": 20.962,
+        "per_core_timing_bytes": 1392
+      }
+    },
+    "create_speedup": 11.968046989467133,
+    "setTiming_speedup": 230.56693063638969
+  },
+  "configuration": {
+    "compiler": "GCC 16.1.0",
+    "build": "Release -O3",
+    "cpu": 0,
+    "L2_per_core": "512 KiB",
+    "execution_firmware": "firmware/prebuilt/blink.hex",
+    "simulated_seconds_per_execution": 30,
+    "compact_source_commit": "1054528",
+    "large_core_source_commit": "65bcb3b",
+    "construction_method": "100 warm creations and 100 warm setTiming calls per sample; old AvrCore.cpp/Instructions.cpp objects from 65bcb3b linked with otherwise identical current libraries and headers"
+  },
+  "dispatch_storage": {
+    "shared_opcode_indices_bytes": 131072,
+    "configured_handler_kinds": 87,
+    "per_core_timing_bytes": 1392,
+    "legacy_diagnostic_table": "instructionTable() initializes a separate 512 KiB pointer table only if explicitly requested; not used by emulation"
+  },
+  "binary_sha256": {
+    "baseline": "38fa8de7cef77fb23158c476e5445731826a5410e80a1a104df2b51df91cec38",
+    "large": "56c490498347a7bb5553d54774cddf6eb6c82ddc3118328fc70d84510a8d593f",
+    "compact": "108bf1e17af0aaddf71e8cbff5383b9a259a9e82335dfa922b8810a0b5fcb672"
+  }
+}

@@ -1,26 +1,17 @@
 #include <siliconforge/arch/avr/AvrCore.hpp>
 
 #include <algorithm>
+#include <stdexcept>
 
 namespace siliconforge::avr {
-
-namespace {
-constexpr Address spl = 0x5D;
-constexpr Address sph = 0x5E;
-constexpr Address sregAddress = 0x5F;
-
-// Cycles of the interrupt response (PC push and jump to the vector), and their increase when waking from sleep.
-constexpr Cycles interruptResponse = 4;
-constexpr Cycles wakeUpPenalty     = 4;
-}  // namespace
 
 AvrCore::AvrCore(const AvrCoreConfig& config, DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, Debugger& debugger)
     : data(data), scheduler(scheduler), interrupts(interrupts), debugger(debugger), cfg(config), regs(data.registers()),
       flashWords(config.flashBytes / 2, 0xFFFF), pageBuffer(config.flashPageBytes / 2, 0xFFFF) {
-    data.map(spl, {[this] { return static_cast<u8>(sp); }, [this](u8 value, u8 mask) { sp = static_cast<u16>((sp & ~mask) | (value & mask)); }});
-    data.map(sph, {[this] { return static_cast<u8>(sp >> 8); },
+    data.map(cfg.spl, {[this] { return static_cast<u8>(sp); }, [this](u8 value, u8 mask) { sp = static_cast<u16>((sp & ~mask) | (value & mask)); }});
+    data.map(cfg.sph, {[this] { return static_cast<u8>(sp >> 8); },
                    [this](u8 value, u8 mask) { sp = static_cast<u16>((sp & ~(mask << 8)) | ((value & mask) << 8)); }});
-    data.map(sregAddress, {[this] { return sreg; }, [this](u8 value, u8 mask) { sreg = static_cast<u8>((sreg & ~mask) | (value & mask)); }});
+    data.map(cfg.sreg, {[this] { return sreg; }, [this](u8 value, u8 mask) { sreg = static_cast<u8>((sreg & ~mask) | (value & mask)); }});
     data.attach(&debugger);
 }
 
@@ -47,7 +38,10 @@ void AvrCore::loadFlash(Address address, std::span<const u8> bytes) {
 void AvrCore::eraseFlash() { std::ranges::fill(flashWords, u16{0xFFFF}); }
 
 RunResult AvrCore::run(Cycles budget, bool honourBreakpoints) {
-    const auto& table = instructionTable();
+    if (decoded.empty())
+        throw std::logic_error("AVR instruction timings are not configured");
+    const auto* indices = instructionIndices().data();
+    const auto* table = decoded.data();
     const auto  start = cycles;
     const auto  end   = cycles + budget;
 
@@ -77,7 +71,8 @@ RunResult AvrCore::run(Cycles budget, bool honourBreakpoints) {
 
         interruptDelay    = false;
         const auto opcode = fetch();
-        cycles += table[opcode](*this, opcode);
+        const auto& entry  = table[indices[opcode]];
+        cycles            += entry.handler(*this, opcode, entry.timing);
 
         if (stopRequest) [[unlikely]]
             return {*std::exchange(stopRequest, std::nullopt), cycles - start};
@@ -105,12 +100,12 @@ void AvrCore::serviceInterrupt() {
     interrupts.acknowledge(vector);
     if (sleeping) {
         sleeping = false;
-        cycles += wakeUpPenalty;
+        cycles += cfg.wakeUpCycles;
     }
     pushPc(pc);
     sreg &= static_cast<u8>(~sreg::I);
     pc = (vector * cfg.vectorWords) & pcMask();
-    cycles += interruptResponse;
+    cycles += cfg.interruptCycles;
 }
 
 void AvrCore::executeSpm() {

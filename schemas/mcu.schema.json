@@ -1,0 +1,2437 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://siliconforge.dev/schemas/mcu-v1.schema.json",
+  "title": "SiliconForge MCU description v1",
+  "type": "object",
+  "properties": {
+    "formatVersion": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "architecture": {
+      "const": "avr"
+    },
+    "core": {
+      "enum": [
+        "avr:AVRe",
+        "avr:AVRe+",
+        "avr:AVRxm",
+        "avr:AVRxt"
+      ]
+    },
+    "clockHz": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000000000
+    },
+    "supplyVoltage": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100
+    },
+    "memories": {
+      "type": "object",
+      "properties": {
+        "flash": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "start",
+            "size",
+            "pageSize"
+          ],
+          "additionalProperties": false
+        },
+        "sram": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "start",
+            "size"
+          ],
+          "additionalProperties": false
+        },
+        "eeprom": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "start",
+            "size"
+          ],
+          "additionalProperties": false
+        },
+        "registers": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "start",
+            "size"
+          ],
+          "additionalProperties": false
+        },
+        "io": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 131072
+            },
+            "pageSize": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 4096
+            }
+          },
+          "required": [
+            "start",
+            "size"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "flash",
+        "sram",
+        "eeprom",
+        "registers",
+        "io"
+      ],
+      "additionalProperties": false
+    },
+    "cpu": {
+      "type": "object",
+      "properties": {
+        "vectorWords": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4
+        },
+        "pcBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3
+        },
+        "spmcsr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "smcr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "spl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sph": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sreg": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interruptCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        },
+        "wakeUpCycles": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255
+        }
+      },
+      "required": [
+        "vectorWords",
+        "pcBytes",
+        "spl",
+        "sph",
+        "sreg",
+        "interruptCycles",
+        "wakeUpCycles"
+      ],
+      "additionalProperties": false
+    },
+    "timing": {
+      "type": "object",
+      "properties": {
+        "adc": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "add": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "adiw": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "and": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "andi": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "asr": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "bclr": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "bld": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "brbc": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "taken": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "taken"
+          ],
+          "additionalProperties": false
+        },
+        "brbs": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "taken": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "taken"
+          ],
+          "additionalProperties": false
+        },
+        "break": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "bset": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "bst": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "call": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "pc3Bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "pc3Bytes"
+          ],
+          "additionalProperties": false
+        },
+        "cbi": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "com": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "cp": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "cpc": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "cpi": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "cpse": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipOneWord": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipTwoWords": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "skipOneWord",
+            "skipTwoWords"
+          ],
+          "additionalProperties": false
+        },
+        "dec": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "eor": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "fmul": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "fmuls": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "fmulsu": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "icall": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "pc3Bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "pc3Bytes"
+          ],
+          "additionalProperties": false
+        },
+        "ijmp": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "in": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "inc": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "jmp": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "ld -x": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ld -y": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ld -z": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ld x": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ld x+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ld y+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ld z+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ldd y": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ldd z": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "ldi": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "lds": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "lpm": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "lpm z+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "lsr": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "mov": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "movw": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "mul": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "muls": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "mulsu": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "neg": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "nop": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "or": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "ori": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "out": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "pop": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "push": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "rcall": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "pc3Bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "pc3Bytes"
+          ],
+          "additionalProperties": false
+        },
+        "ret": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "pc3Bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "pc3Bytes"
+          ],
+          "additionalProperties": false
+        },
+        "reti": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "pc3Bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "pc3Bytes"
+          ],
+          "additionalProperties": false
+        },
+        "rjmp": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "ror": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "sbc": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "sbci": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "sbi": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "sbic": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipOneWord": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipTwoWords": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "skipOneWord",
+            "skipTwoWords"
+          ],
+          "additionalProperties": false
+        },
+        "sbis": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipOneWord": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipTwoWords": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "skipOneWord",
+            "skipTwoWords"
+          ],
+          "additionalProperties": false
+        },
+        "sbiw": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "sbrc": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipOneWord": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipTwoWords": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "skipOneWord",
+            "skipTwoWords"
+          ],
+          "additionalProperties": false
+        },
+        "sbrs": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipOneWord": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "skipTwoWords": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "skipOneWord",
+            "skipTwoWords"
+          ],
+          "additionalProperties": false
+        },
+        "sleep": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "spm": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "st -x": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "st -y": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "st -z": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "st x": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "st x+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "st y+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "st z+": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "std y": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "std z": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "sts": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            },
+            "sram": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles",
+            "sram"
+          ],
+          "additionalProperties": false
+        },
+        "sub": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "subi": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "swap": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "wdr": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "adc",
+        "add",
+        "adiw",
+        "and",
+        "andi",
+        "asr",
+        "bclr",
+        "bld",
+        "brbc",
+        "brbs",
+        "break",
+        "bset",
+        "bst",
+        "call",
+        "cbi",
+        "com",
+        "cp",
+        "cpc",
+        "cpi",
+        "cpse",
+        "dec",
+        "eor",
+        "fmul",
+        "fmuls",
+        "fmulsu",
+        "icall",
+        "ijmp",
+        "in",
+        "inc",
+        "jmp",
+        "ld -x",
+        "ld -y",
+        "ld -z",
+        "ld x",
+        "ld x+",
+        "ld y+",
+        "ld z+",
+        "ldd y",
+        "ldd z",
+        "ldi",
+        "lds",
+        "lpm",
+        "lpm z+",
+        "lsr",
+        "mov",
+        "movw",
+        "mul",
+        "muls",
+        "mulsu",
+        "neg",
+        "nop",
+        "or",
+        "ori",
+        "out",
+        "pop",
+        "push",
+        "rcall",
+        "ret",
+        "reti",
+        "rjmp",
+        "ror",
+        "sbc",
+        "sbci",
+        "sbi",
+        "sbic",
+        "sbis",
+        "sbiw",
+        "sbrc",
+        "sbrs",
+        "sleep",
+        "spm",
+        "st -x",
+        "st -y",
+        "st -z",
+        "st x",
+        "st x+",
+        "st y+",
+        "st z+",
+        "std y",
+        "std z",
+        "sts",
+        "sub",
+        "subi",
+        "swap",
+        "wdr"
+      ],
+      "additionalProperties": false
+    },
+    "vectors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 63
+      }
+    },
+    "registers": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "address": {
+            "type": "integer",
+            "minimum": 32,
+            "maximum": 65535
+          },
+          "reset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "bits": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          }
+        },
+        "required": [
+          "address",
+          "reset",
+          "bits"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "peripherals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "avr.gpio",
+              "avr.timer8",
+              "avr.usart",
+              "avr.eeprom",
+              "avr.adc"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "type",
+          "name"
+        ],
+        "additionalProperties": true,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.gpio"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.gpio"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "pin": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ddr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "port": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "pin",
+                    "ddr",
+                    "port"
+                  ],
+                  "additionalProperties": false
+                },
+                "mcucr": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "pins": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^P[A-Z][0-7]$"
+                  },
+                  "minItems": 1,
+                  "maxItems": 8
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "mcucr",
+                "pins"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.timer8"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.timer8"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "tccrA": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "tccrB": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "tcnt": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ocrA": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ocrB": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "timsk": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "tifr": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "tccrA",
+                    "tccrB",
+                    "tcnt",
+                    "ocrA",
+                    "ocrB",
+                    "timsk",
+                    "tifr"
+                  ],
+                  "additionalProperties": false
+                },
+                "vectors": {
+                  "type": "object",
+                  "properties": {
+                    "compareA": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "compareB": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "overflow": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "compareA",
+                    "compareB",
+                    "overflow"
+                  ],
+                  "additionalProperties": false
+                },
+                "prescalers": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 65535
+                  },
+                  "minItems": 8,
+                  "maxItems": 8
+                },
+                "outputs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "port": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "bit": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 7
+                      }
+                    },
+                    "required": [
+                      "port",
+                      "bit"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "vectors",
+                "prescalers",
+                "outputs"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.usart"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.usart"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "udr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ucsrA": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ucsrB": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ucsrC": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ubrrL": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "ubrrH": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "udr",
+                    "ucsrA",
+                    "ucsrB",
+                    "ucsrC",
+                    "ubrrL",
+                    "ubrrH"
+                  ],
+                  "additionalProperties": false
+                },
+                "vectors": {
+                  "type": "object",
+                  "properties": {
+                    "rxComplete": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "dataEmpty": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "txComplete": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "rxComplete",
+                    "dataEmpty",
+                    "txComplete"
+                  ],
+                  "additionalProperties": false
+                },
+                "port": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "rx": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "tx": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "clockDividers": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "minItems": 2,
+                  "maxItems": 2
+                },
+                "receiveFifoDepth": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 256
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "vectors",
+                "port",
+                "rx",
+                "tx",
+                "clockDividers",
+                "receiveFifoDepth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.eeprom"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.eeprom"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "control": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "data": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "addressLow": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "addressHigh": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "control",
+                    "data",
+                    "addressLow",
+                    "addressHigh"
+                  ],
+                  "additionalProperties": false
+                },
+                "vector": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "writeTimeNs": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1000000000
+                },
+                "readCycles": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 255
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "vector",
+                "writeTimeNs",
+                "readCycles"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.adc"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.adc"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "control": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "mux": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "low": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "high": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "control",
+                    "mux",
+                    "low",
+                    "high"
+                  ],
+                  "additionalProperties": false
+                },
+                "vector": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "prescalers": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  },
+                  "minItems": 8,
+                  "maxItems": 8
+                },
+                "conversionCycles": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                "firstConversionCycles": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1024
+                },
+                "modelFirstConversion": {
+                  "type": "boolean"
+                },
+                "channels": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "minItems": 1,
+                  "maxItems": 8
+                },
+                "bandgapChannel": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 15
+                },
+                "bandgapVoltage": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 100
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "vector",
+                "prescalers",
+                "conversionCycles",
+                "firstConversionCycles",
+                "modelFirstConversion",
+                "channels",
+                "bandgapChannel",
+                "bandgapVoltage"
+              ],
+              "additionalProperties": false
+            }
+          }
+        ]
+      },
+      "minItems": 0,
+      "maxItems": 64
+    },
+    "package": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 256
+              },
+              "port": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^P[A-Z][0-7]$"
+              },
+              "label": {
+                "type": "string"
+              },
+              "labels": {
+                "type": "array",
+                "items": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "minItems": 1,
+                "maxItems": 6
+              },
+              "functions": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "n",
+              "port",
+              "label",
+              "labels"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 2,
+          "maxItems": 256
+        },
+        "slotKinds": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "maxItems": 6
+        }
+      },
+      "required": [
+        "name",
+        "pins",
+        "slotKinds"
+      ],
+      "additionalProperties": false
+    },
+    "breadboard": {
+      "type": "object",
+      "properties": {
+        "columns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "chipColumn": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "columns",
+        "chipColumn",
+        "components"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "formatVersion",
+    "name",
+    "architecture",
+    "core",
+    "clockHz",
+    "supplyVoltage",
+    "memories",
+    "cpu",
+    "timing",
+    "vectors",
+    "registers",
+    "peripherals",
+    "package"
+  ],
+  "additionalProperties": false
+}

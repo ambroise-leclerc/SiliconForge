@@ -26,9 +26,11 @@ GpioPort::GpioPort(DataSpace& data, Registers registers, std::array<Pin*, 8> pin
                          }});
 }
 
-void GpioPort::reset() {
-    data.raw(regs.ddr)  = 0;
-    data.raw(regs.port) = 0;
+void GpioPort::reset(bool preserveRegisters) {
+    if (!preserveRegisters) {
+        data.raw(regs.ddr)  = 0;
+        data.raw(regs.port) = 0;
+    }
     levelOverrides.fill(std::nullopt);
     outputOverrides.fill(std::nullopt);
     refresh();

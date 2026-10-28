@@ -18,12 +18,12 @@ constexpr u8 rxen  = 1 << 4;
 constexpr u8 txen  = 1 << 3;
 constexpr u8 ucsz2 = 1 << 2;
 
-constexpr std::size_t receiveFifoDepth = 2;
 }  // namespace
 
 Usart::Usart(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, const Cycles& clock, SerialPort& serial, Registers registers,
-             Vectors vectors, Pins pins)
-    : data(data), scheduler(scheduler), interrupts(interrupts), clock(clock), serial(serial), regs(registers), vectors(vectors), pins(pins) {
+             Vectors vectors, Pins pins, std::array<u16, 2> clockDividers, std::size_t receiveFifoDepth)
+    : data(data), scheduler(scheduler), interrupts(interrupts), clock(clock), serial(serial), regs(registers), vectors(vectors), pins(pins),
+      clockDividers(clockDividers), receiveFifoDepth(receiveFifoDepth) {
     data.map(regs.udr, {[this] {
                             if (rxFifo.empty())
                                 return u8{0};
@@ -74,25 +74,27 @@ Usart::Usart(DataSpace& data, Scheduler& scheduler, InterruptController& interru
     });
 }
 
-void Usart::reset() {
+void Usart::reset(bool preserveRegisters) {
     for (auto* event : {&txEvent, &rxEvent})
         if (*event)
             scheduler.cancel(std::exchange(*event, 0));
     txBuffer.reset();
     txShift.reset();
     rxFifo.clear();
-    data.raw(regs.ucsrA) = udre;
-    data.raw(regs.ucsrB) = 0;
-    data.raw(regs.ucsrC) = 0x06;  // Asynchronous, 8 data bits, no parity, 1 stop bit.
-    data.raw(regs.ubrrL) = 0;
-    data.raw(regs.ubrrH) = 0;
+    if (!preserveRegisters) {
+        data.raw(regs.ucsrA) = udre;
+        data.raw(regs.ucsrB) = 0;
+        data.raw(regs.ucsrC) = 0x06;  // Asynchronous, 8 data bits, no parity, 1 stop bit.
+        data.raw(regs.ubrrL) = 0;
+        data.raw(regs.ubrrH) = 0;
+    }
     updatePins();
     updateInterrupts();
 }
 
 Cycles Usart::frameCycles() const noexcept {
     const auto ubrr      = static_cast<Cycles>(data.raw(regs.ubrrL) | (data.raw(regs.ubrrH) & 0x0F) << 8);
-    const auto bitCycles = ((data.raw(regs.ucsrA) & u2x) ? 8 : 16) * (ubrr + 1);
+    const auto bitCycles = clockDividers[(data.raw(regs.ucsrA) & u2x) ? 1 : 0] * (ubrr + 1);
     const auto ucsrC     = data.raw(regs.ucsrC);
     const auto size      = ((ucsrC >> 1) & 0x03) | (data.raw(regs.ucsrB) & ucsz2);
     const auto dataBits  = size == 7 ? 9u : 5u + (size & 0x03);
@@ -103,7 +105,7 @@ Cycles Usart::frameCycles() const noexcept {
 
 u64 Usart::baudRate(u64 clockHz) const noexcept {
     const auto ubrr = static_cast<u64>(data.raw(regs.ubrrL) | (data.raw(regs.ubrrH) & 0x0F) << 8);
-    return clockHz / (((data.raw(regs.ucsrA) & u2x) ? 8 : 16) * (ubrr + 1));
+    return clockHz / (clockDividers[(data.raw(regs.ucsrA) & u2x) ? 1 : 0] * (ubrr + 1));
 }
 
 void Usart::startTransmission(Cycles now) {
