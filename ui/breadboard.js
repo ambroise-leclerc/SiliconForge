@@ -1,5 +1,5 @@
 // Breadboard view: the chip on a breadboard with a few components wired to it (LEDs, a push button, a
-// potentiometer), all driven by the emulated pins. The circuit comes from the chip description (atmega328p.js).
+// potentiometer), all driven by the emulated pins. The circuit comes from the runtime chip description (sf.chip()).
 "use strict";
 
 window.SiliconForgeViews = window.SiliconForgeViews || {};

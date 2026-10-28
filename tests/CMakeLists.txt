@@ -28,3 +28,9 @@ set_tests_properties(McuDescriptionTools PROPERTIES TIMEOUT 30 LABELS fast)
 # Explicit opt-in target for profiling; not part of CTest or the default build.
 add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
 target_link_libraries(siliconforge_mcu_bench PRIVATE SiliconForge::mcu SiliconForge_options)
+
+if(SILICONFORGE_BUILD_APP)
+    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp)
+    target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::mcu SiliconForge_options WebFront::WebFront Catch2::Catch2WithMain)
+    catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
+endif()

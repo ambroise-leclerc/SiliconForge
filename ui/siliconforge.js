@@ -110,6 +110,7 @@
     }
     $("run").textContent = s.running ? "Pause" : "Run";
     $("chip").textContent = `${s.mcu} · ${s.clockHz / 1e6} MHz`;
+    syncMcuSelection(s);
     $("firmware").textContent = s.firmware || "no firmware";
     $("time").textContent = formatTime(s.cycles / s.clockHz);
     $("cycles").textContent = `${s.cycles.toLocaleString()} cycles`;
@@ -177,20 +178,24 @@
 
   let chipRevision = null;
   let chipRequest = 0;
+  let pendingChipRevision = null;
+  let chipRetryAt = 0;
   function renderViews(s) {
-    if (chipRevision !== s.chipRevision) {
-      chipRevision = s.chipRevision;
+    if (chipRevision !== s.chipRevision && pendingChipRevision !== s.chipRevision && performance.now() >= chipRetryAt) {
+      pendingChipRevision = s.chipRevision;
       const request = ++chipRequest;
       views = [];
-      forced.clear(); voltages.clear();
-      $("digital").replaceChildren(); $("analog").replaceChildren();
+      forced.clear();
+      voltages.clear();
+      $("digital").replaceChildren();
+      $("analog").replaceChildren();
       for (const name of ["breadboard", "pinout"]) {
         const container = $(name);
         container.querySelectorAll("svg").forEach((svg) => svg.remove());
         container.querySelector(".hint").textContent = "Loading chip description…";
       }
       api.chip().then((chip) => {
-        if (request !== chipRequest) return;
+        if (request !== chipRequest || state?.chipRevision !== s.chipRevision) return;
         for (const name of ["breadboard", "pinout"]) {
           const container = $(name);
           const available = chip && (name !== "breadboard" || chip.breadboard);
@@ -199,10 +204,38 @@
             : `No ${name} configuration for ${s.mcu}: see the Pins tab.`;
           if (available && window.SiliconForgeViews?.[name]) views.push(window.SiliconForgeViews[name](container, chip, viewContext));
         }
+        chipRevision = s.chipRevision;
+        chipRetryAt = 0;
         for (const view of views) view.update(state);
-      }).catch((error) => showMcuError(error));
+      }).catch((error) => {
+        if (request !== chipRequest) return;
+        chipRetryAt = performance.now() + 1000;
+        showMcuError(error);
+      }).finally(() => {
+        if (request === chipRequest) pendingChipRevision = null;
+      });
     }
     for (const view of views || []) view.update(s);
+  }
+
+  function syncMcuSelection(s) {
+    const select = $("mcu-select");
+    const name = s.mcu.toLowerCase();
+    const known = [...select.options].find((option) => !option.dataset.loaded && option.value === name);
+    let loaded = select.querySelector("option[data-loaded]");
+    if (known) {
+      loaded?.remove();
+      select.value = known.value;
+    } else {
+      if (!loaded) {
+        loaded = new Option(s.mcu, "__loaded__");
+        loaded.dataset.loaded = "true";
+        loaded.disabled = true;
+        select.add(loaded);
+      }
+      loaded.textContent = s.mcu;
+      select.value = loaded.value;
+    }
   }
 
   function showMcuError(error) {
@@ -223,9 +256,11 @@
     const digital = $("digital");
     const analog = $("analog");
     if (!digital.childElementCount) {
-      const order = (pin) => Number(pin.label.slice(1));
-      pins.filter((p) => !p.label.startsWith("A")).sort((a, b) => order(a) - order(b)).forEach((p) => digital.append(pinElement(p, false)));
-      pins.filter((p) => p.label.startsWith("A")).sort((a, b) => order(a) - order(b)).forEach((p) => analog.append(pinElement(p, true)));
+      const analogLabel = (pin) => /^A\d+$/.test(pin.label);
+      const labels = new Intl.Collator(undefined, {numeric: true});
+      const order = (a, b) => labels.compare(a.label || a.name, b.label || b.name);
+      pins.filter((p) => !analogLabel(p)).sort(order).forEach((p) => digital.append(pinElement(p, false)));
+      pins.filter(analogLabel).sort(order).forEach((p) => analog.append(pinElement(p, true)));
     }
     for (const pin of pins) {
       const element = document.querySelector(`.pin[data-pin="${CSS.escape(pin.name)}"]`);
@@ -353,6 +388,7 @@
     api.mcus().then((names) => {
       const placeholder = new Option("Choose MCU…", ""); placeholder.disabled = true; placeholder.selected = true;
       $("mcu-select").replaceChildren(placeholder, ...names.map((name) => new Option(name, name)));
+      if (state) syncMcuSelection(state);
     }).catch(showMcuError);
   }, (error) => {
     $("status").textContent = `disconnected: ${error.message ?? error}`;

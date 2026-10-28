@@ -7,7 +7,7 @@
 ## Contexte
 
 La vue breadboard (PR #1) branche sur la puce une LED, des résistances, un bouton, un potentiomètre et un quartz.
-Le circuit est décrit dans `ui/atmega328p.js` (section `breadboard`) et chaque type de composant est un constructeur
+Le circuit est décrit dans la description JSON du MCU (section `breadboard`, transmise par `sf.chip()`) et chaque type de composant est un constructeur
 codé dans `ui/breadboard.js`. Le comportement vit dans la page : la luminosité de la LED vient du rapport cyclique de
 la broche, et le bouton force directement D2.
 

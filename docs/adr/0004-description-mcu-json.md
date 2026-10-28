@@ -39,8 +39,8 @@ recompiler. Il est aussi impossible de relire ou de comparer ces caractéristiqu
 3. **Chargement dynamique.** `mcu::create(name)` construit les puces intégrées à partir de leur JSON, embarqué dans le
    binaire. `siliconforge --mcu-file x.json`, un répertoire de puces (`--mcu-path`) et l'interface permettent d'en
    charger d'autres sans recompiler. Les erreurs indiquent le chemin JSON fautif (`/peripherals/2/vector`).
-4. **Une seule source pour l'interface.** Le brochage est envoyé à la page à partir du JSON ; `ui/atmega328p.js` ne le
-   duplique plus.
+4. **Une seule source pour l'interface.** Le brochage est envoyé à la page à partir du JSON ; le fichier statique
+   `ui/atmega328p.js` est supprimé.
 5. **Import depuis les formats constructeurs.** Un convertisseur produit le squelette JSON à partir des fichiers ATDF
    de Microchip (registres, bits, vecteurs, brochages). CMSIS-SVD jouera ce rôle pour ARM. Les timings, absents de ces
    formats, sont ajoutés à la main et vérifiés par la qualification ([ADR 0006](0006-qualification-coeur.md)).
