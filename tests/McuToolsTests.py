@@ -42,6 +42,18 @@ class AtDFTests(unittest.TestCase):
         self.assertEqual(d['package']['pins'][0]['functions'], ['TXD'])
         self.assertIsNone(d['clockHz'])  # No fabricated timing defaults.
 
+    def test_cpu_clock_output_is_clko_not_clk_zero(self):
+        root = ET.fromstring(ATDF)
+        module = ET.SubElement(root.find('./devices/device/peripherals'), 'module', name='CPU')
+        instance = ET.SubElement(module, 'instance', name='CPU')
+        signals = ET.SubElement(instance, 'signals')
+        ET.SubElement(signals, 'signal', group='CLK', index='0', pad='PD1')
+        ET.SubElement(signals, 'signal', group='CLK', index='1', pad='PD0')
+        dip = CONVERT(root, 'DIP2')
+        self.assertEqual(dip['package']['pins'][0]['functions'], ['CLKO', 'TXD'])
+        other = CONVERT(root, 'OTHER')
+        self.assertEqual(other['package']['pins'][0]['functions'], ['CLK1'])
+
     def test_base_only_preserves_fields_not_available_in_atdf(self):
         base = CONVERT(ET.fromstring(ATDF), 'DIP2')
         base['timing'] = {'nop': {'cycles': 9}}

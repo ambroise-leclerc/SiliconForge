@@ -89,7 +89,9 @@ def convert(root, package=None, base=None):
                 group, index = signal.get('group'), signal.get('index', '')
                 if group == 'P':
                     continue
-                if module.get('name', '').startswith('TC'):
+                if module.get('name') == 'CPU' and group == 'CLK' and index == '0':
+                    function = 'CLKO'  # ATDF models the clock-output signal as CLK with index 0.
+                elif module.get('name', '').startswith('TC'):
                     timer = re.sub(r'\D', '', instance.get('name', ''))
                     function = 'OC' + timer + group[-1] if group in ('OCA', 'OCB') else group + timer if group in ('T', 'ICP') else group
                 else:
