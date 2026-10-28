@@ -81,11 +81,12 @@ class CliTests(unittest.TestCase):
             for args in [('--mcu-file', str(chip)), ('--mcu-path', temp, '--mcu', 'ATMEGA168')]:
                 subprocess.run([str(APP), *args, '--headless', '--speed', 'max', '--duration', '0.1',
                                 str(ROOT / 'firmware/prebuilt/blink.hex')], capture_output=True, check=True)
-            d['peripherals'][6]['vector'] = 'missing'
+            adc_index = next(i for i, p in enumerate(d['peripherals']) if p['type'] == 'avr.adc')
+            d['peripherals'][adc_index]['vector'] = 'missing'
             chip.write_text(json.dumps(d))
             result = subprocess.run([str(APP), '--mcu-file', str(chip)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 1)
-            self.assertIn('/peripherals/6/vector', result.stderr)
+            self.assertIn(f'/peripherals/{adc_index}/vector', result.stderr)
 
 
 if __name__ == '__main__':
