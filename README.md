@@ -62,7 +62,8 @@ dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
 
 Le projet se compile actuellement depuis les sources. Il faut **CMake 3.31+** et un compilateur avec bibliothèque
 standard compatible **C++26** (GCC 16 sur la CI Linux, Apple Clang 21 pour les captures macOS). Les dépendances
-sont téléchargées automatiquement lors de la configuration.
+sont téléchargées automatiquement lors de la configuration. **Python 3** est requis pour les tests et pour
+l’importeur ATDF.
 
 Sous Linux, installez aussi WebKitGTK 6.0 pour la fenêtre native : `sudo apt install libwebkitgtk-6.0-dev` sur
 Debian/Ubuntu, ou `webkitgtk6.0-devel` sur Fedora. Sans moteur natif disponible, l’application ouvre le navigateur
@@ -97,6 +98,13 @@ fournissent des exemples. Pour exécuter les tests du projet :
 ```bash
 ctest --test-dir build --output-on-failure
 ```
+
+## Décrire un microcontrôleur
+
+Les paramètres de la puce, les temps d’instruction, les périphériques et les brochages viennent de fichiers JSON
+versionnés. `--mcu-file puce.json` charge une description sans recompiler, et `--mcu-path répertoire` en découvre
+tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…** ou par glisser-déposer. Le
+[guide du format et de l’import ATDF](docs/MCU-DESCRIPTIONS.md) détaille la procédure.
 
 ## Pour aller plus loin
 
