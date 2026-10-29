@@ -10,7 +10,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = Path(sys.argv.pop()) if len(sys.argv) > 1 else None
+# CTest passes the application as the last argument; unittest options and test names are left alone.
+APP = Path(sys.argv.pop()) if len(sys.argv) > 1 and Path(sys.argv[-1]).is_file() else None
 CONVERT = runpy.run_path(str(ROOT / 'tools/atdf2json'))['convert']
 # Synthetic fixture: offset register groups, a 16-bit register, vector and signal, two packages.
 ATDF = '''<avr-tools-device-file><devices><device name="TestAVR" architecture="AVR8">
@@ -68,6 +69,19 @@ class AtDFTests(unittest.TestCase):
         other = CONVERT(ET.fromstring(ATDF), 'OTHER', base)
         self.assertEqual(other['package']['pins'][0]['label'], '')
 
+    def test_missing_required_attributes_are_reported(self):
+        for old, new, message in [('<register name="BAUD" offset="4"', '<register name="BAUD"', "'offset'"),
+                                  ('<pin position="1" pad="PD1"/>', '<pin position="1"/>', "'pad'")]:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                CONVERT(ET.fromstring(ATDF.replace(old, new, 1)), 'DIP2')
+
+    def test_conflicting_register_definitions_are_rejected(self):
+        root = ET.fromstring(ATDF)
+        instance = root.find('./devices/device/peripherals/module/instance')
+        ET.SubElement(instance, 'register-group', {'name-in-module': 'USART', 'offset': '0x40', 'address-space': 'data'})
+        with self.assertRaisesRegex(ValueError, 'several addresses'):
+            CONVERT(root, 'DIP2')
+
     def test_bad_package_is_explicit(self):
         with self.assertRaisesRegex(ValueError, 'Unknown package'):
             CONVERT(ET.fromstring(ATDF), 'missing')
@@ -75,6 +89,11 @@ class AtDFTests(unittest.TestCase):
 
 @unittest.skipIf(APP is None, 'application not built')
 class CliTests(unittest.TestCase):
+    def run_app(self, *args):
+        result = subprocess.run([str(APP), *args], capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        return result
+
     def test_discovery_help_load_and_invalid_description(self):
         with tempfile.TemporaryDirectory(prefix='siliconforge-mcus-') as temp:
             directory = Path(temp)
@@ -87,12 +106,11 @@ class CliTests(unittest.TestCase):
             chip = directory / 'atmega168.json'
             chip.write_text(json.dumps(d))
             for args in [('--help', '--mcu-path', temp), ('--mcu-path', temp, '--help')]:
-                help_result = subprocess.run([str(APP), *args], capture_output=True, text=True, check=True)
+                help_result = self.run_app(*args)
                 self.assertIn('atmega328p atmega168', help_result.stdout)
                 self.assertIn('--mcu-file', help_result.stdout)
             for args in [('--mcu-file', str(chip)), ('--mcu-path', temp, '--mcu', 'ATMEGA168')]:
-                subprocess.run([str(APP), *args, '--headless', '--speed', 'max', '--duration', '0.1',
-                                str(ROOT / 'firmware/prebuilt/blink.hex')], capture_output=True, check=True)
+                self.run_app(*args, '--headless', '--speed', 'max', '--duration', '0.1', str(ROOT / 'firmware/prebuilt/blink.hex'))
             adc_index = next(i for i, p in enumerate(d['peripherals']) if p['type'] == 'avr.adc')
             d['peripherals'][adc_index]['vector'] = 'missing'
             chip.write_text(json.dumps(d))

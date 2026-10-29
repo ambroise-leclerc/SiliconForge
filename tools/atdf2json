@@ -13,6 +13,13 @@ def number(value):
     return int(value, 0)
 
 
+def required(element, attribute):
+    value = element.get(attribute)
+    if value is None:
+        raise ValueError(f"<{element.tag}> lacks required attribute '{attribute}'")
+    return value
+
+
 def convert(root, package=None, base=None):
     # Ignore XML namespaces, including vendor-specific ATDF wrappers.
     for element in root.iter():
@@ -34,7 +41,7 @@ def convert(root, package=None, base=None):
         segment = next((s for s in segments if s.get('name') == name), None)
         if segment is None:
             raise ValueError(f'ATDF has no {name} memory segment')
-        value = {'start': number(segment.get('start')), 'size': number(segment.get('size'))}
+        value = {'start': number(required(segment, 'start')), 'size': number(required(segment, 'size'))}
         if segment.get('pagesize'):
             value['pageSize'] = number(segment.get('pagesize'))
         result['memories'][key] = value
@@ -54,25 +61,24 @@ def convert(root, package=None, base=None):
                 offset = number(reference.get('offset', '0'))
                 for register in group.findall('register'):
                     size = number(register.get('size', '1'))
-                    name = register.get('name')
+                    name = required(register, 'name')
                     for byte in range(size):
                         suffix = '' if size == 1 else ('L' if byte == 0 else 'H' if byte == 1 else str(byte))
                         byte_name = name + suffix
-                        # These byte aliases are the names used by AVR toolchains.
-                        if name == 'ADC':
-                            byte_name = 'ADCL' if byte == 0 else 'ADCH'
                         old = result.get('registers', {}).get(byte_name, {})
-                        value = {'address': offset + number(register.get('offset')) + byte,
+                        value = {'address': offset + number(required(register, 'offset')) + byte,
                                  'reset': old.get('reset', 0), 'bits': {}}
                         if register.get('initval'):
                             value['reset'] = (number(register.get('initval')) >> (8 * byte)) & 255
                         for bit in register.findall('bitfield'):
                             mask = (number(bit.get('mask')) >> (8 * byte)) & 255
                             if mask:
-                                value['bits'][bit.get('name')] = mask
+                                value['bits'][required(bit, 'name')] = mask
+                        if byte_name in registers and registers[byte_name]['address'] != value['address']:
+                            raise ValueError(f'Register {byte_name} is defined at several addresses')
                         registers[byte_name] = value
     result['registers'] = dict(sorted(registers.items()))
-    result['vectors'] = {v.get('name').upper(): number(v.get('index'))
+    result['vectors'] = {required(v, 'name').upper(): number(required(v, 'index'))
                          for v in device.findall('./interrupts/interrupt')}
     pinouts = root.findall('./pinouts/pinout')
     if not pinouts:
@@ -96,10 +102,10 @@ def convert(root, package=None, base=None):
                     function = 'OC' + timer + group[-1] if group in ('OCA', 'OCB') else group + timer if group in ('T', 'ICP') else group
                 else:
                     function = group + index
-                functions.setdefault(signal.get('pad'), set()).add(function)
+                functions.setdefault(required(signal, 'pad'), set()).add(function)
     pins = []
     for pin in selected.findall('pin'):
-        n, pad = number(pin.get('position')), pin.get('pad')
+        n, pad = number(required(pin, 'position')), required(pin, 'pad')
         port = pad if re.fullmatch(r'P[A-Z]\d+', pad) else None
         old = old_pins.get(n, {})
         # Board labels, display colours and layout slots are not supplied by ATDF.
@@ -129,7 +135,7 @@ def main():
             sys.stdout.write(text)
         if not base:
             print('Skeleton only: complete core, clock, supply, CPU, timing, reset values and peripheral factories before loading.', file=sys.stderr)
-    except (OSError, ValueError, ET.ParseError) as error:
+    except (OSError, ValueError, ET.ParseError) as error:  # Includes json.JSONDecodeError.
         parser.exit(1, f'atdf2json: {error}\n')
 
 
