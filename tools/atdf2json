@@ -74,8 +74,14 @@ def convert(root, package=None, base=None):
                             mask = (number(bit.get('mask')) >> (8 * byte)) & 255
                             if mask:
                                 value['bits'][required(bit, 'name')] = mask
-                        if byte_name in registers and registers[byte_name]['address'] != value['address']:
-                            raise ValueError(f'Register {byte_name} is defined at several addresses')
+                        previous = registers.get(byte_name)
+                        if previous:
+                            if previous['address'] != value['address']:
+                                raise ValueError(f'Register {byte_name} is defined at several addresses')
+                            # ATDF may split one register's bits across modules (e.g. GTCCR, TIMSK).
+                            value['bits'] = {**previous['bits'], **value['bits']}
+                            if not register.get('initval'):
+                                value['reset'] = previous['reset']
                         registers[byte_name] = value
     result['registers'] = dict(sorted(registers.items()))
     result['vectors'] = {required(v, 'name').upper(): number(required(v, 'index'))
@@ -99,7 +105,7 @@ def convert(root, package=None, base=None):
                     function = 'CLKO'  # ATDF models the clock-output signal as CLK with index 0.
                 elif module.get('name', '').startswith('TC'):
                     timer = re.sub(r'\D', '', instance.get('name', ''))
-                    function = 'OC' + timer + group[-1] if group in ('OCA', 'OCB') else group + timer if group in ('T', 'ICP') else group
+                    function = 'OC' + timer + group[-1] if re.fullmatch(r'OC[A-Z]', group) else group + timer if group in ('T', 'ICP') else group
                 else:
                     function = group + index
                 functions.setdefault(required(signal, 'pad'), set()).add(function)

@@ -75,6 +75,25 @@ class AtDFTests(unittest.TestCase):
             with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
                 CONVERT(ET.fromstring(ATDF.replace(old, new, 1)), 'DIP2')
 
+    def test_bits_split_across_modules_are_merged(self):
+        root = ET.fromstring(ATDF)
+        module = ET.SubElement(root.find('./devices/device/peripherals'), 'module', name='EXTRA')
+        ET.SubElement(ET.SubElement(module, 'instance', name='EXTRA'), 'register-group',
+                      {'name-in-module': 'EXTRA', 'offset': '0x20', 'address-space': 'data'})
+        definition = ET.SubElement(ET.SubElement(root.find('modules'), 'module', name='EXTRA'), 'register-group', name='EXTRA')
+        register = ET.SubElement(definition, 'register', name='BAUD', offset='4', size='2')
+        ET.SubElement(register, 'bitfield', name='OTHER', mask='0x1000')
+        d = CONVERT(root, 'DIP2')
+        self.assertEqual(d['registers']['BAUDH']['bits'], {'VALUE': 15, 'OTHER': 16})
+        self.assertEqual(d['registers']['BAUDH']['reset'], 18)
+
+    def test_every_timer_compare_output_is_numbered(self):
+        root = ET.fromstring(ATDF)
+        module = ET.SubElement(root.find('./devices/device/peripherals'), 'module', name='TC16')
+        signals = ET.SubElement(ET.SubElement(module, 'instance', name='TC3'), 'signals')
+        ET.SubElement(signals, 'signal', group='OCC', pad='PD1')
+        self.assertEqual(CONVERT(root, 'DIP2')['package']['pins'][0]['functions'], ['OC3C', 'TXD'])
+
     def test_conflicting_register_definitions_are_rejected(self):
         root = ET.fromstring(ATDF)
         instance = root.find('./devices/device/peripherals/module/instance')
