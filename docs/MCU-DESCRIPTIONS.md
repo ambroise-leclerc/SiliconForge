@@ -6,7 +6,43 @@ répertoire source. Le chargeur utilise nlohmann/json et le validateur JSON Sche
 (pboettch), obtenus par CPM. Le schéma est strict ; les références entre registres,
 vecteurs, GPIO et périphériques sont ensuite vérifiées en C++.
 
-## Chargement C++
+## Charger une puce
+
+```sh
+siliconforge --mcu-file ma-puce.json firmware.hex
+siliconforge --mcu-path ./mes-puces --help
+siliconforge --mcu-path ./mes-puces --mcu atmega168 firmware.hex
+```
+
+`--mcu-path` peut être répété. Les fichiers `.json` sont lus dans l'ordre alphabétique.
+Les descriptions invalides et les noms en double sont signalés ; le catalogue conserve
+le contenu validé au démarrage. `--help` découvre les puces quel que soit l'ordre des
+options. Les noms du catalogue sont insensibles à la casse. Si `--mcu-file` et
+`--mcu` sont fournis ensemble, le fichier est prioritaire et un avertissement le
+signale. Les erreurs de chargement du firmware sont affichées sans terminer
+brutalement le processus (diagnostic CLI ou erreur retournée au navigateur).
+
+Dans l'interface, choisir une puce dans la liste, utiliser **Load MCU…**, ou déposer un
+fichier JSON. Le remplacement met la simulation en pause et efface le firmware ainsi que les points
+d'arrêt du débogueur ; charger
+ensuite le firmware de la nouvelle puce. Une erreur laisse la puce courante intacte et
+s'affiche avec son JSON Pointer, par exemple `/peripherals/6/vector`. La liste suit
+l'identifiant de catalogue `state.mcuId`, indépendamment du nom affiché. Un fichier
+chargé directement a un identifiant nul et apparaît comme entrée temporaire « (loaded) »,
+même s'il reprend le nom d'une puce intégrée ; il n'est pas ajouté au catalogue de démarrage.
+Le sélecteur n'est modifié que si sa valeur ou son étiquette change.
+
+Le serveur n'authentifie pas les commandes de simulation, dont `sf.loadMcu`.
+Avec `--address` sur une adresse accessible au réseau, les clients pouvant joindre
+le serveur peuvent remplacer la puce et charger du firmware. L'adresse par défaut
+`127.0.0.1` réserve l'accès à la machine locale.
+
+Le flux série conserve le contrat historique octet par octet : chaque octet devient
+un caractère U+00XX (Latin-1), échappé en ASCII dans les trames JSON. Le navigateur
+peut retrouver les octets avec `charCodeAt` ; il ne décode pas automatiquement l'UTF-8.
+Ce contrat conserve tous les octets, y compris aux frontières des trames de 16 Kio.
+Le remplacement des séquences UTF-8 invalides concerne les noms, symboles et chemins.
+La raison d'arrêt est capturée sous le même verrou que la puce.
 
 En C++ :
 
@@ -100,7 +136,7 @@ le registre. Les adresses et valeurs de reset viennent du JSON.
 `package` décrit le boîtier (numérotation consécutive et paire), les broches physiques,
 `port` (ou `null` pour l'alimentation), les `functions`, l'étiquette de carte `label` et
 les `labels` de présentation avec leurs `slotKinds`. Une étiquette `TXD:serial` choisit
-la couleur « serial ». `Mcu::chipJson()` expose ces métadonnées aux consommateurs du modèle.
+la couleur « serial ». `sf.chip()` sert ces données aux vues Pinout et Breadboard.
 Le champ facultatif `breadboard` conserve le circuit de démonstration existant ; une
 puce sans circuit affiche quand même son brochage et ses broches interactives.
 

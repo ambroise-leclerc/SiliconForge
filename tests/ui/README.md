@@ -27,3 +27,26 @@ with a non-zero code on failure. Wiring `wf test` into CTest (the application in
 
 The same API can be used by any browser automation tool (Playwright, WebDriver) to test a firmware's behaviour from
 the outside.
+
+## Dynamic MCU smoke test
+
+This is a **manual integration test**, outside CTest and CI. Use a dedicated local
+server: the script replaces its MCU, runs firmware, and clears its current state.
+It is not suitable for a server used by another session.
+
+```sh
+build/apps/siliconforge/siliconforge --no-browser --port 19032
+SILICONFORGE_URL=http://127.0.0.1:19032 node /path/to/SiliconForge/tests/ui/mcu.playwright.cjs
+```
+
+Install Playwright in the test environment (or set `SILICONFORGE_PLAYWRIGHT_MODULE`
+to its module directory). `PLAYWRIGHT_CHROMIUM_EXECUTABLE` optionally selects the
+browser executable. Fixture paths resolve relative to the script, so the Node
+command works from any working directory.
+
+The test uploads an ATmega168 description, checks the selected MCU, dynamic
+breadboard and pinout, runs `blink`, verifies a localized validation error, retries
+a failed chip request and clears its error, checks generic pin labels, distinguishes
+a modified file sharing a catalog name, verifies exact server IDs and avoids repeated
+selection writes, then returns to the built-in chip.
+The CTest count reported for the C++ tests does not include this scenario.

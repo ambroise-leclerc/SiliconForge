@@ -35,6 +35,10 @@ struct Options {
     std::string                  mcu{"atmega328p"};
     std::optional<std::filesystem::path> firmware;
     bool                         headless{false};
+    bool                         help{false};
+    bool                         explicitMcu{false};
+    std::optional<std::filesystem::path> mcuFile;
+    std::vector<std::filesystem::path>   mcuPaths;
     Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
     double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
     double                       speed{1.0};   ///< 0 = as fast as possible.
@@ -51,6 +55,8 @@ on http://<address>:<port>/.
 
 Options:
   --mcu <name>        Microcontroller to emulate (default atmega328p)
+  --mcu-file <file>   Load a JSON MCU description
+  --mcu-path <dir>    Discover JSON MCU descriptions (repeatable)
   --headless          No interface: run, print the serial output on stdout and report the emulation speed
   --duration <s>      Simulated seconds to run in headless mode (default: until interrupted)
   --speed <factor>    1 = real time (default), 0 or "max" = as fast as possible
@@ -84,24 +90,32 @@ std::optional<Options> parseOptions(int argc, char** argv) {
                 return std::nullopt;
             return std::string_view{argv[++i]};
         };
-        if (argument == "--help" || argument == "-h")
-            return std::nullopt;
+        if (argument == "--help" || argument == "-h") {
+            options.help = true;
+            continue;
+        }
         if (argument == "--headless") {
             options.headless = true;
         } else if (argument == "--browser") {
             options.display = Display::Browser;
         } else if (argument == "--no-browser") {
             options.display = Display::None;
-        } else if (argument == "--mcu" || argument == "--address" || argument == "--port" || argument == "--ui") {
+        } else if (argument == "--mcu" || argument == "--address" || argument == "--port" || argument == "--ui" || argument == "--mcu-file"
+                   || argument == "--mcu-path") {
             const auto text = value();
             if (!text)
                 return std::nullopt;
-            if (argument == "--mcu")
+            if (argument == "--mcu") {
                 options.mcu = *text;
-            else if (argument == "--address")
+                options.explicitMcu = true;
+            } else if (argument == "--address")
                 options.address = *text;
             else if (argument == "--port")
                 options.port = *text;
+            else if (argument == "--mcu-file")
+                options.mcuFile = std::filesystem::path{*text};
+            else if (argument == "--mcu-path")
+                options.mcuPaths.emplace_back(*text);
             else
                 options.ui = *text;
         } else if (argument == "--duration" || argument == "--speed") {
@@ -156,7 +170,8 @@ webfront::WebFrontConfig webConfig(const Options& options) {
 /// Serves the interface until the window is closed or, without a window, until the program is stopped.
 template <typename App>
 void serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
-    app::WebBridge<App> bridge{web, simulation, firmwareName};
+    app::WebBridge<App> bridge{web, simulation, firmwareName,
+                               options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu}};
     if (options.firmware)
         simulation.run();
     std::println("SiliconForge: http://{}:{}/", options.address == "0.0.0.0" ? "localhost" : options.address, web.port());
@@ -174,7 +189,25 @@ int main(int argc, char** argv) {
         printUsage();
         return 1;
     }
-    auto device = mcu::create(options->mcu);
+    for (const auto& directory : options->mcuPaths)
+        for (const auto& [path, error] : mcu::addPath(directory))
+            std::println(stderr, "{}{}: {}", path.string(), error.path, error.message);
+    if (options->help) {
+        printUsage();
+        return 0;
+    }
+    std::unique_ptr<Mcu> device;
+    if (options->mcuFile) {
+        if (options->explicitMcu)
+            std::println(stderr, "Warning: --mcu-file overrides --mcu '{}'", options->mcu);
+        auto result = mcu::load(*options->mcuFile);
+        if (!result) {
+            std::println(stderr, "{}{}: {}", options->mcuFile->string(), result.error().path, result.error().message);
+            return 1;
+        }
+        device = std::move(*result);
+    } else
+        device = mcu::create(options->mcu);
     if (!device) {
         std::println(stderr, "Unknown microcontroller '{}'", options->mcu);
         printUsage();
@@ -188,7 +221,12 @@ int main(int argc, char** argv) {
                          image.error().line ? std::format(" (line {})", image.error().line) : std::string{});
             return 1;
         }
-        device->load(*image);
+        try {
+            device->load(*image);
+        } catch (const std::exception& e) {
+            std::println(stderr, "{}", e.what());
+            return 1;
+        }
         firmwareName = options->firmware->filename().string();
     } else if (options->headless) {
         std::println(stderr, "--headless needs a firmware");

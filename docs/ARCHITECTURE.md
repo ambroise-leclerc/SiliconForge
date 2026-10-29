@@ -49,13 +49,15 @@ SiliconForge is organised in layers that only depend on the layers below them.
 
 ## mcu: chips
 
-`mcu/atmega328p/Atmega328p` composes the AVR core with the ATmega328P memory sizes, its ports, Timer0, USART0, ADC
-and EEPROM, and labels the pins after the Arduino Uno board (D0-D13, A0-A5). `mcu::create("atmega328p")` builds it
-by name; the registry is the only place that knows the list of chips.
+`mcu::create("atmega328p")` loads the embedded `mcus/atmega328p.json`. The loader validates it against
+`schemas/mcu.schema.json`, checks references, then assembles `avr::Device` through named peripheral factories.
+The JSON supplies memories, register addresses and resets, interrupt vectors, instruction/peripheral timings and
+package pins. `mcu/atmega328p/Atmega328p` remains a compatibility facade. Dynamic descriptions use the same loader;
+see [the format and import guide](MCU-DESCRIPTIONS.md).
 
 ### Adding a chip or an architecture
 
-1. A megaAVR chip: a new `mcu/<chip>/` reusing `arch/avr`, registered in `src/mcu/Registry.cpp`.
+1. A megaAVR chip: a JSON description loaded through `--mcu-file`, `--mcu-path`, or the interface, reusing `arch/avr`.
 2. A new architecture: `arch/<family>/` with its core and peripherals, then a chip in `mcu/`. Nothing changes in
    `core/`, the application, the bench or the interface, which only see `Mcu`.
 
@@ -72,10 +74,10 @@ by name; the registry is the only place that knows the list of chips.
   is a template over the WebFront application type.
 - `ui/` is plain HTML/CSS/JavaScript served from a document root. `window.siliconForge` is both the page's model and
   the automation API used by UI tests.
-- The board views are generic and driven by a chip description (`ui/atmega328p.js`, registered under the name the MCU
-  reports): the package pins with their labels for the **pinout** view, and a demonstration circuit for the
-  **breadboard** view (wires, resistors, LEDs bound to a pin, a push button, a potentiometer, given by breadboard
-  holes). Supporting a new chip in the interface means adding such a file; the **pins** view needs nothing.
+- The board views are generic and driven by the JSON description served through `sf.chip()`: package pins and
+  labels for the **pinout** view, and the optional demonstration circuit for the **breadboard** view. A dynamically
+  loaded MCU needs no JavaScript file. Replacing a chip under the simulation lock rebuilds its observers and the
+  browser views, pauses execution and clears the firmware.
 
 ## Threads and locks
 

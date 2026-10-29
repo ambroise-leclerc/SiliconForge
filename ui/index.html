@@ -6,7 +6,6 @@
   <title>SiliconForge</title>
   <link rel="stylesheet" href="style.css">
   <script src="WebFront.js"></script>
-  <script src="atmega328p.js" defer></script>
   <script src="breadboard.js" defer></script>
   <script src="pinout.js" defer></script>
   <script src="siliconforge.js" defer></script>
@@ -36,6 +35,11 @@
     <label class="button" title="Load an Intel HEX or ELF firmware">Load firmware…
       <input type="file" id="firmware-file" accept=".hex,.ihx,.elf" hidden>
     </label>
+    <label class="field">MCU <select id="mcu-select" aria-label="Microcontroller"></select></label>
+    <label class="button" title="Load a JSON MCU description (clears the firmware)">Load MCU…
+      <input type="file" id="mcu-file" accept=".json,application/json" hidden>
+    </label>
+    <span id="mcu-error" role="alert" hidden></span>
     <div class="clock">
       <span id="time">0.000000 s</span>
       <span id="cycles" class="muted">0 cycles</span>

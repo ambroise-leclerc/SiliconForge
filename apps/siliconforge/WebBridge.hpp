@@ -2,39 +2,26 @@
 
 #include "Simulation.hpp"
 
+#include <nlohmann/json.hpp>
 #include <siliconforge/core/loader/ProgramImage.hpp>
+#include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/WebFront.hpp>
 
+#include <algorithm>
+#include <cctype>
 #include <chrono>
+#include <cmath>
+#include <cstdint>
 #include <format>
 #include <map>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 
 namespace siliconforge::app {
-
-/// Appends `text` as a JSON string literal.
-inline void appendJsonString(std::string& out, std::string_view text) {
-    out += '"';
-    for (const char c : text) {
-        switch (c) {
-            case '"': out += "\\\""; break;
-            case '\\': out += "\\\\"; break;
-            case '\n': out += "\\n"; break;
-            case '\r': out += "\\r"; break;
-            case '\t': out += "\\t"; break;
-            default:
-                if (static_cast<unsigned char>(c) < 0x20 || static_cast<unsigned char>(c) >= 0x7F)
-                    out += std::format("\\u{:04x}", static_cast<unsigned char>(c));
-                else
-                    out += c;
-        }
-    }
-    out += '"';
-}
 
 /// Connects a Simulation to the browsers of a WebFront application.
 ///
@@ -46,11 +33,10 @@ class WebBridge {
 public:
     using UI = typename App::UI;
 
-    WebBridge(App& app, Simulation& simulation, std::string firmware) : app(app), simulation(simulation), firmwareName(std::move(firmware)) {
+    WebBridge(App& app, Simulation& simulation, std::string firmware, std::optional<std::string_view> catalogName = std::nullopt)
+        : app(app), simulation(simulation), firmwareName(std::move(firmware)), mcuId(catalogName ? catalogId(*catalogName) : std::nullopt) {
         simulation.access([this](Mcu& mcu) {
-            activity.resize(mcu.pins().size());
-            for (std::size_t index = 0; index < mcu.pins().size(); ++index)
-                mcu.pins()[index].subscribe([this, index](const Pin& pin, Cycles at) { activity[index].change(pin.state() == PinState::High, at); });
+            observe(mcu);
         });
         registerFunctions();
         app.onUIStarted([this](UI ui) {
@@ -114,7 +100,59 @@ private:
         std::size_t serialOffset;
     };
 
+    void observe(Mcu& mcu) {
+        std::vector<Activity> prepared(mcu.pins().size());
+        for (std::size_t index = 0; index < mcu.pins().size(); ++index)
+            mcu.pins()[index].subscribe([this, index](const Pin& p, Cycles at) {
+                activity[index].change(p.state() == PinState::High, at);
+            });
+        activity = std::move(prepared);
+        ++chipRevision;
+    }
+
+    static std::optional<std::string> catalogId(std::string_view requested) {
+        for (auto id : mcu::available())
+            if (std::ranges::equal(id, requested, [](unsigned char a, unsigned char b) { return std::tolower(a) == std::tolower(b); }))
+                return std::string{id};
+        return std::nullopt;
+    }
+
+    void replace(std::unique_ptr<Mcu> next, std::optional<std::string> id = std::nullopt) {
+        simulation.replace(std::move(next), [this, &id](Mcu& mcu) {
+            // Always acquire the simulation lock before clientsMutex, as pushState does.
+            std::scoped_lock lock{clientsMutex};
+            observe(mcu);  // Publishes observers only after all allocations and subscriptions succeed.
+            mcuId.swap(id);
+            firmwareName.clear();
+            resetSerialOffsetsLocked();
+        });
+    }
     void registerFunctions() {
+        app.cppFunction("sf.chip", [this] {
+            return simulation.access([](Mcu& mcu) {
+                return std::string{mcu.chipJson()};
+            });
+        });
+        app.cppFunction("sf.mcus", [] {
+            std::vector<std::string> names;
+            for (auto name : mcu::available())
+                names.emplace_back(name);
+            return nlohmann::json(names).dump();
+        });
+        app.cppFunction("sf.selectMcu", [this](std::string name) -> std::string {
+            auto device = mcu::create(name);
+            if (!device)
+                return "Unknown MCU: " + name;
+            replace(std::move(device), catalogId(name));
+            return {};
+        });
+        app.cppFunction("sf.loadMcu", [this](std::string text) -> std::string {
+            auto device = mcu::loadJson(text);
+            if (!device)
+                return device.error().path + ": " + device.error().message;
+            replace(std::move(*device));
+            return {};
+        });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
         app.cppFunction("sf.step", [this] { simulation.step(); });
@@ -154,12 +192,16 @@ private:
             if (!image)
                 return image.error().line ? std::format("{} (line {})", image.error().message, image.error().line) : image.error().message;
             simulation.pause();
-            simulation.access([&](Mcu& mcu) { mcu.load(*image); });
-            {
-                std::scoped_lock lock{clientsMutex};
-                firmwareName = std::move(name);
+            try {
+                simulation.access([&](Mcu& mcu) {
+                    mcu.load(*image);
+                    std::scoped_lock lock{clientsMutex};
+                    firmwareName = std::move(name);
+                    resetSerialOffsetsLocked();
+                });
+            } catch (const std::exception& e) {
+                return e.what();
             }
-            resetSerialOffsets();
             return {};
         });
         app.cppFunction("sf.addBreakpoint", [this](double address) {
@@ -170,53 +212,62 @@ private:
 
     void resetSerialOffsets() {
         std::scoped_lock lock{clientsMutex};
+        resetSerialOffsetsLocked();
+    }
+
+    // clientsMutex must be held. The epoch prevents an in-flight frame from undoing a reset at offset zero.
+    void resetSerialOffsetsLocked() {
+        ++serialEpoch;
         for (auto& [id, client] : clients)
             client.serialOffset = 0;
     }
 
     void pushState() {
-        // Never call WebFront while holding a lock: its server thread runs our callbacks, which take these locks.
+        // Snapshot under simulation -> clients locks. Send only after releasing both locks.
         std::vector<std::pair<webfront::WebLinkId, Client>> targets;
-        std::string                                         firmware;
-        {
+        nlohmann::json state;
+        std::string serialOutput;
+        std::uint64_t epoch{};
+        simulation.snapshot([&](Mcu& mcu, std::optional<StopReason> reason) {
             std::scoped_lock lock{clientsMutex};
             if (clients.empty())
                 return;
             for (const auto& [id, client] : clients)
                 targets.emplace_back(id, client);
-            firmware = firmwareName;
-        }
-
-        const auto  reason  = simulation.stopReason();
-        std::string common;
-        std::string serialOutput;
-        simulation.access([&](Mcu& mcu) {
+            epoch = serialEpoch;
             const auto now = mcu.cycles();
-            common         = std::format(R"("mcu":"{}","arch":"{}","clockHz":{},"cycles":{},"pc":{},"running":{},"speed":{},)", mcu.name(),
-                                         mcu.architecture(), mcu.clockHz(), now, mcu.programCounter(), simulation.isRunning(), simulation.speedFactor());
-            common += R"("symbol":)";
-            appendJsonString(common, mcu.symbolAt(mcu.programCounter()));
-            common += R"(,"firmware":)";
-            appendJsonString(common, firmware);
-            common += R"(,"stop":)";
-            if (reason)
-                appendJsonString(common, toString(*reason));
-            else
-                common += "null";
-
-            common += R"(,"pins":[)";
+            state = {
+                {"mcu", mcu.name()},
+                {"mcuId", mcuId ? nlohmann::json(*mcuId) : nlohmann::json(nullptr)},
+                {"arch", mcu.architecture()},
+                {"clockHz", mcu.clockHz()},
+                {"cycles", now},
+                {"pc", mcu.programCounter()},
+                {"running", simulation.isRunning()},
+                {"speed", simulation.speedFactor()},
+                {"symbol", mcu.symbolAt(mcu.programCounter())},
+                {"firmware", firmwareName},
+                {"chipRevision", chipRevision}
+            };
+            state["stop"] = reason ? nlohmann::json(toString(*reason)) : nlohmann::json(nullptr);
+            state["pins"] = nlohmann::json::array();
             for (std::size_t index = 0; index < mcu.pins().size(); ++index) {
                 const auto& pin = mcu.pins()[index];
-                auto&      pinActivity = activity[index];
-                const auto edges       = pinActivity.edges;
-                common += std::format(R"({}{{"name":"{}","label":"{}","state":{},"output":{},"pullUp":{},"duty":{:.3f},"edges":{}}})", index ? "," : "",
-                                      pin.name(), pin.label(), static_cast<int>(pin.state()), pin.isOutput(), pin.hasPullUp(), pinActivity.takeDuty(now), edges);
+                auto& a = activity[index];
+                const auto edges = a.edges;
+                state["pins"].push_back({
+                    {"name", pin.name()},
+                    {"label", pin.label()},
+                    {"state", static_cast<int>(pin.state())},
+                    {"output", pin.isOutput()},
+                    {"pullUp", pin.hasPullUp()},
+                    {"duty", std::round(a.takeDuty(now) * 1000.0) / 1000.0},
+                    {"edges", edges}
+                });
             }
-            common += R"(],"registers":[)";
-            const auto registers = mcu.registers();
-            for (std::size_t index = 0; index < registers.size(); ++index)
-                common += std::format(R"({}["{}",{},{}])", index ? "," : "", registers[index].name, registers[index].value, registers[index].bits);
-            common += "]";
+            state["registers"] = nlohmann::json::array();
+            for (const auto& r : mcu.registers())
+                state["registers"].push_back(nlohmann::json::array({r.name, r.value, r.bits}));
             if (auto* port = mcu.serial(0))
                 serialOutput = port->output();
         });
@@ -227,16 +278,27 @@ private:
             auto offset = client.serialOffset > serialOutput.size() ? 0 : client.serialOffset;
             // Strings crossing the bridge are limited to 64 KiB: a large burst is sent over several frames.
             const auto chunk = std::string_view{serialOutput}.substr(offset, 16 * 1024);
-            auto       json  = "{" + common + R"(,"serial":)";
-            appendJsonString(json, chunk);
-            json += "}";
+            // Serial is a byte stream: map each byte to U+00XX, preserving the legacy browser contract.
+            // This also preserves bytes when a UTF-8 sequence straddles two chunks.
+            std::string text;
+            text.reserve(chunk.size() * 2);
+            for (const unsigned char byte : chunk) {
+                if (byte >= 0x80) {
+                    text += static_cast<char>(0xC0 | (byte >> 6));
+                    text += static_cast<char>(0x80 | (byte & 0x3F));
+                } else
+                    text += static_cast<char>(byte);
+            }
+            state["serial"] = std::move(text);
             try {
+                // Names, ELF symbols and paths may contain invalid UTF-8; serial has already been transcoded.
+                const auto json = state.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
                 client.ui.jsFunction("siliconForge.onState")(json);
             } catch (const std::exception&) {
                 continue;  // The browser disconnected meanwhile; subscribeUIClosed removes it.
             }
             std::scoped_lock lock{clientsMutex};
-            if (auto found = clients.find(id); found != clients.end() && found->second.serialOffset == client.serialOffset)
+            if (auto found = clients.find(id); found != clients.end() && serialEpoch == epoch && found->second.serialOffset == client.serialOffset)
                 found->second.serialOffset = offset + chunk.size();  // Unless a reset or a new firmware restarted it.
         }
     }
@@ -244,7 +306,10 @@ private:
     App&                     app;
     Simulation&              simulation;
     std::string              firmwareName;
+    std::optional<std::string> mcuId;  // Catalog ID, or null for a directly loaded description; simulation lock.
     std::vector<Activity>    activity;
+    unsigned                 chipRevision{0};
+    std::uint64_t            serialEpoch{0};  // Protected by clientsMutex.
     std::mutex               clientsMutex;
     std::map<webfront::WebLinkId, Client> clients;
     webfront::UISubscription closed;

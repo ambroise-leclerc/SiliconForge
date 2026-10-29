@@ -24,10 +24,24 @@
     get state() { return state; },
     get output() { return serial; },
     onState(json) {
-      state = JSON.parse(json);
+      const next = JSON.parse(json);
+      if (state && state.chipRevision !== next.chipRevision) {
+        serial = ""; $("serial-output").textContent = "";
+      }
+      state = next;
       serial += state.serial;
       render(state);
       for (const waiter of [...waiters]) waiter();
+    },
+    chip: async () => JSON.parse(await call("sf.chip")),
+    mcus: async () => JSON.parse(await call("sf.mcus")),
+    loadMcu: async (text) => {
+      const error = await call("sf.loadMcu", text);
+      if (error) throw new Error(error);
+    },
+    selectMcu: async (name) => {
+      const error = await call("sf.selectMcu", name);
+      if (error) throw new Error(error);
     },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
@@ -96,6 +110,7 @@
     }
     $("run").textContent = s.running ? "Pause" : "Run";
     $("chip").textContent = `${s.mcu} · ${s.clockHz / 1e6} MHz`;
+    syncMcuSelection(s);
     $("firmware").textContent = s.firmware || "no firmware";
     $("time").textContent = formatTime(s.cycles / s.clockHz);
     $("cycles").textContent = `${s.cycles.toLocaleString()} cycles`;
@@ -114,8 +129,9 @@
     const element = document.createElement("div");
     element.className = "pin";
     element.dataset.pin = pin.name;
-    element.innerHTML = `<span class="label">${pin.label || pin.name}</span><span class="port">${pin.name}</span>` +
-      `<span class="mode"></span><span class="level"></span>`;
+    for (const [kind, text] of [["label", pin.label || pin.name], ["port", pin.name], ["mode", ""], ["level", ""]]) {
+      const span = document.createElement("span"); span.className = kind; span.textContent = text; element.append(span);
+    }
     element.title = "Click to drive this input";
     element.addEventListener("click", (event) => {
       if (event.target.tagName === "INPUT") return;
@@ -160,17 +176,72 @@
   };
   let views = null;
 
+  let chipRevision = null;
+  let chipRequest = 0;
+  let pendingChipRevision = null;
+  let chipRetryAt = 0;
   function renderViews(s) {
-    if (!views) {
+    if (chipRevision !== s.chipRevision && pendingChipRevision !== s.chipRevision && performance.now() >= chipRetryAt) {
+      pendingChipRevision = s.chipRevision;
+      const request = ++chipRequest;
       views = [];
-      const chip = window.SiliconForgeChips?.[s.mcu];
+      forced.clear();
+      voltages.clear();
+      $("digital").replaceChildren();
+      $("analog").replaceChildren();
       for (const name of ["breadboard", "pinout"]) {
         const container = $(name);
-        if (chip && window.SiliconForgeViews?.[name]) views.push(window.SiliconForgeViews[name](container, chip, viewContext));
-        else container.querySelector(".hint").textContent = `No ${name} view for ${s.mcu} yet: see the Pins tab.`;
+        container.querySelectorAll("svg").forEach((svg) => svg.remove());
+        container.querySelector(".hint").textContent = "Loading chip description…";
       }
+      api.chip().then((chip) => {
+        if (request !== chipRequest || state?.chipRevision !== s.chipRevision) return;
+        for (const name of ["breadboard", "pinout"]) {
+          const container = $(name);
+          const available = chip && (name !== "breadboard" || chip.breadboard);
+          container.querySelector(".hint").textContent = available
+            ? "Click a port to drive it: released → high → low → released."
+            : `No ${name} configuration for ${s.mcu}: see the Pins tab.`;
+          if (available && window.SiliconForgeViews?.[name]) views.push(window.SiliconForgeViews[name](container, chip, viewContext));
+        }
+        chipRevision = s.chipRevision;
+        chipRetryAt = 0;
+        showMcuError(null);
+        for (const view of views) view.update(state);
+      }).catch((error) => {
+        if (request !== chipRequest) return;
+        chipRetryAt = performance.now() + 1000;
+        showMcuError(error);
+      }).finally(() => {
+        if (request === chipRequest) pendingChipRevision = null;
+      });
     }
-    for (const view of views) view.update(s);
+    for (const view of views || []) view.update(s);
+  }
+
+  function syncMcuSelection(s) {
+    const select = $("mcu-select");
+    const known = s.mcuId === null ? null : [...select.options].find((option) => !option.dataset.loaded && option.value === s.mcuId);
+    let loaded = select.querySelector("option[data-loaded]");
+    if (known) {
+      loaded?.remove();
+      if (select.value !== known.value) select.value = known.value;
+    } else {
+      if (!loaded) {
+        loaded = new Option(`${s.mcu} (loaded)`, "__loaded__");
+        loaded.dataset.loaded = "true";
+        loaded.disabled = true;
+        select.add(loaded);
+      }
+      const label = `${s.mcu} (loaded)`;
+      if (loaded.textContent !== label) loaded.textContent = label;
+      if (select.value !== loaded.value) select.value = loaded.value;
+    }
+  }
+
+  function showMcuError(error) {
+    $("mcu-error").hidden = !error;
+    $("mcu-error").textContent = error?.message ?? "";
   }
 
   function selectView(name) {
@@ -186,12 +257,14 @@
     const digital = $("digital");
     const analog = $("analog");
     if (!digital.childElementCount) {
-      const order = (pin) => Number(pin.label.slice(1));
-      pins.filter((p) => p.label.startsWith("D")).sort((a, b) => order(a) - order(b)).forEach((p) => digital.append(pinElement(p, false)));
-      pins.filter((p) => p.label.startsWith("A")).sort((a, b) => order(a) - order(b)).forEach((p) => analog.append(pinElement(p, true)));
+      const analogLabel = (pin) => /^A\d+$/.test(pin.label);
+      const labels = new Intl.Collator(undefined, {numeric: true});
+      const order = (a, b) => labels.compare(a.label || a.name, b.label || b.name);
+      pins.filter((p) => !analogLabel(p)).sort(order).forEach((p) => digital.append(pinElement(p, false)));
+      pins.filter(analogLabel).sort(order).forEach((p) => analog.append(pinElement(p, true)));
     }
     for (const pin of pins) {
-      const element = document.querySelector(`.pin[data-pin="${pin.name}"]`);
+      const element = document.querySelector(`.pin[data-pin="${CSS.escape(pin.name)}"]`);
       if (!element) continue;
       const pwm = pin.output && pin.edges >= 2;  // Several edges in one frame: show the average level
       element.dataset.state = pin.state;
@@ -263,6 +336,24 @@
     $("step").addEventListener("click", () => api.step());
     $("reset").addEventListener("click", () => api.reset());
     $("speed").addEventListener("change", (event) => api.setSpeed(Number(event.target.value)));
+    const loadMcuFile = async (file) => {
+      if (!file) return;
+      try { await api.loadMcu(await file.text()); showMcuError(null); }
+      catch (error) { showMcuError(error); }
+    };
+    $("mcu-file").addEventListener("change", async (event) => {
+      await loadMcuFile(event.target.files[0]); event.target.value = "";
+    });
+    $("mcu-select").addEventListener("change", async (event) => {
+      try { await api.selectMcu(event.target.value); showMcuError(null); }
+      catch (error) { showMcuError(error); }
+    });
+    document.addEventListener("dragover", (event) => { event.preventDefault(); });
+    document.addEventListener("drop", async (event) => {
+      event.preventDefault();
+      const file = event.dataTransfer.files[0];
+      if (file?.name.toLowerCase().endsWith(".json")) await loadMcuFile(file);
+    });
     $("firmware-file").addEventListener("change", async (event) => {
       const file = event.target.files[0];
       if (!file) return;
@@ -295,6 +386,11 @@
   bindControls();
   webFront.ready.then(() => {
     $("status").textContent = "connected";
+    api.mcus().then((names) => {
+      const placeholder = new Option("Choose MCU…", ""); placeholder.disabled = true; placeholder.selected = true;
+      $("mcu-select").replaceChildren(placeholder, ...names.map((name) => new Option(name, name)));
+      if (state) syncMcuSelection(state);
+    }).catch(showMcuError);
   }, (error) => {
     $("status").textContent = `disconnected: ${error.message ?? error}`;
     $("status").dataset.state = "stopped";
