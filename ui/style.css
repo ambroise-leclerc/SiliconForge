@@ -1,31 +1,19 @@
 :root {
-  --bg: #0f1216;
-  --panel: #161b22;
-  --panel-edge: #262d36;
-  --text: #d8dee6;
-  --muted: #7d8794;
+  --bg: #b3bac2;
+  --panel: #cbd1d8;
+  --panel-edge: #8b96a2;
+  --text: #202833;
+  --muted: #475461;
   --accent: #f0a73a;
+  --accent-ink: #804507;
   --accent-text: #1a1206;
   --high: #ffb84d;
-  --low: #2a3038;
-  --floating: #3b4450;
-  --ok: #57d18c;
-  --error: #ff6b6b;
+  --low: #afb9c4;
+  --floating: #8a95a3;
+  --ok: #197143;
+  --error: #b42332;
   --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #eef1f4;
-    --panel: #ffffff;
-    --panel-edge: #d5dbe1;
-    --text: #1d2329;
-    --muted: #66707b;
-    --low: #e2e6ea;
-    --floating: #c9d0d7;
-    color-scheme: light;
-  }
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; }
@@ -49,7 +37,7 @@ body {
 
 .topbar { border-bottom: 1px solid var(--panel-edge); }
 .brand { font-weight: 700; letter-spacing: .02em; }
-.logo { color: var(--accent); }
+.logo { color: var(--accent-ink); }
 .chip { font-family: var(--mono); padding: 2px 8px; border: 1px solid var(--panel-edge); border-radius: 4px; }
 .firmware { font-family: var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40ch; }
 .status { margin-left: auto; font-weight: 600; }
@@ -159,13 +147,12 @@ button.small { padding: 1px 8px; font-size: 12px; float: right; }
 .flags span.on { background: var(--accent); color: var(--accent-text); font-weight: 700; }
 .registers { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; font-family: var(--mono); font-size: 12px; }
 .registers div { display: flex; justify-content: space-between; padding: 2px 4px; border-radius: 3px; background: var(--bg); }
-.registers div.changed { color: var(--accent); }
+.registers div.changed { color: var(--accent-ink); }
 .registers b { color: var(--muted); font-weight: normal; }
 @media (max-width: 560px) { .registers { grid-template-columns: repeat(4, 1fr); } }
 
 /* Breadboard ------------------------------------------------------------------------------------------------------- */
 .breadboard { --bb-board: #f1efe8; --bb-hole: #3a3a3a; --bb-label: #8d8a80; }
-@media (prefers-color-scheme: dark) { .breadboard { --bb-board: #d9d6cc; --bb-hole: #2e2e2e; --bb-label: #77746b; } }
 .bb-board { fill: var(--bb-board); }
 .bb-channel { fill: color-mix(in srgb, var(--bb-board) 80%, #000); }
 .bb-hole { fill: var(--bb-hole); }
@@ -209,7 +196,7 @@ button.small { padding: 1px 8px; font-size: 12px; float: right; }
 .po-notch { fill: var(--panel); }
 .po-chip-name { fill: #f2f2f2; font: 700 18px system-ui, sans-serif; letter-spacing: .12em; }
 .po-leg { fill: #9da2a8; }
-.po-number { fill: var(--text); font-size: 11px; font-weight: 700; }
+.po-number { fill: #f2f2f2; font-size: 11px; font-weight: 700; }
 .po-line { stroke: var(--muted); stroke-width: 1; }
 .po-box rect { stroke: rgb(0 0 0 / .25); stroke-width: .8; }
 .po-box text { font-size: 10.5px; fill: #1a1a1a; font-weight: 600; }

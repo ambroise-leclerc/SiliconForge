@@ -1,149 +1,120 @@
 # SiliconForge
 
-**A microcontroller emulator for fast firmware iteration, with a web interface and automated tests built in.**
+Français · [English (UK)](README.en.md)
 
-SiliconForge runs the very binaries your toolchain produces (`.hex` or `.elf`) on an emulated MCU, precise to the
-clock cycle, with simulated peripherals and I/O. Its interface is served by [WebFront](https://github.com/ambroise-leclerc/WebFront):
-the chip on a breadboard with a few components, its pinout, the serial monitor and the CPU state live in a native
-window, or in a browser page, locally or over the network.
+**Testez immédiatement votre code embarqué, sans le transférer sur une carte.**
 
-Because the emulated MCU is deterministic and scriptable, firmware becomes testable like any other software:
-C++ tests drive it through a test bench, and UI tests drive it through the same page a developer uses.
+Chargez le binaire `.hex` ou `.elf` produit par votre chaîne de compilation et lancez-le sur un microcontrôleur
+simulé. Avec SiliconForge, vous pouvez vérifier un clignotement, échanger des messages série, essayer une entrée
+analogique ou observer vos registres sans brancher de matériel. Mettez l’exécution en pause, avancez instruction
+par instruction et recommencez autant de fois que nécessaire.
 
-![SiliconForge running the blink firmware on its breadboard view](docs/images/siliconforge.png)
+SiliconForge est une application native multiplateforme écrite en C++, pour **macOS, Linux et Windows**.
+Le premier microcontrôleur pris en charge est l’**ATmega328P à 16 MHz**, utilisé dans l’Arduino Uno.
 
-The **breadboard** view wires LEDs, a push button and a potentiometer to the chip: the LED on D13 blinks with the
-firmware, the one on D6 shows its PWM duty cycle, the button and the potentiometer drive D2 and A0. The **pinout**
-view shows every pin with its port, functions and Arduino name, and its live level:
+## Votre code, un circuit, un résultat visible
 
-![Pinout view](docs/images/pinout.png)
+La plaque d’essai réunit un microcontrôleur et des composants simulés. Dans cet exemple, le même firmware
+`blink.hex` que vous chargeriez sur une carte fait clignoter la LED sur D13. Le temps simulé, les cycles et les
+registres évoluent pendant l’exécution.
 
-## Status
+![SiliconForge sous macOS : le firmware fait clignoter une LED sur la plaque d’essai](docs/images/siliconforge.gif)
 
-First target: **ATmega328P** (Arduino Uno).
+Le circuit de démonstration comprend déjà deux LED, des résistances, un bouton et un potentiomètre :
 
-| Part | State |
+- **Observez vos sorties** : la LED sur D13 suit le programme et celle sur D6 reflète le rapport cyclique PWM.
+- **Essayez vos entrées** : appuyez sur le bouton relié à D2 ou tournez le potentiomètre sur A0.
+- **Dialoguez avec votre code** : envoyez du texte au microcontrôleur et lisez ses réponses dans le moniteur série.
+- **Comprenez une anomalie** : suspendez l’exécution et inspectez les registres, puis avancez d’une instruction.
+
+L’objectif est de vous permettre de **connecter vos propres composants et construire votre circuit autour du
+microcontrôleur**. Aujourd’hui, les composants du circuit de démonstration sont précâblés ; l’ajout et le câblage
+libres de composants font partie des prochaines étapes. Des afficheurs et des écrans simulés sont également prévus.
+
+## Vérifier les broches
+
+La vue **Pinout** montre les broches physiques, leurs fonctions et leurs noms Arduino. Les indicateurs suivent
+les niveaux pendant l’exécution. Cliquez sur une entrée pour la forcer à l’état haut ou bas, puis la libérer,
+et observez la réaction de votre code.
+
+![SiliconForge sous macOS : niveaux des broches et registres pendant l’exécution du firmware](docs/images/pinout.gif)
+
+Le brochage indique aussi les fonctions du composant réel qui ne sont pas encore simulées.
+
+## Ce que vous pouvez tester aujourd’hui
+
+| Fonction | Disponible |
 | --- | --- |
-| AVRe+ core | Complete instruction set of the ATmega328P with documented cycle counts, interrupts (priorities, 4-cycle response, SEI/RETI delay), sleep, BREAK, self-programming (SPM) |
-| Memories | 32 KiB flash, 2 KiB SRAM, 1 KiB EEPROM (with write timing) |
-| GPIO | Ports B, C, D: DDR/PORT/PIN, PIN toggle, pull-ups, `MCUCR.PUD` |
-| Timer/Counter0 | Normal, CTC, Fast PWM, Phase Correct PWM, OC0A/OC0B outputs, interrupts |
-| USART0 | Asynchronous mode timed at the baud rate, 2-level receive FIFO with overrun, interrupts |
-| ADC | Single conversions on A0-A5 and the bandgap, with conversion time |
-| Not yet | Timer1/2, SPI, TWI, watchdog, analog comparator, external interrupts (their registers act as plain storage) |
+| Firmwares | Chargement Intel HEX et ELF, exécution, pause, pas à pas, réinitialisation et vitesse réglable |
+| ATmega328P | Instructions et temporisations en cycles, interruptions internes, sommeil et auto-programmation |
+| Mémoires | Flash de 32 Kio, SRAM de 2 Kio et EEPROM de 1 Kio |
+| Entrées-sorties | Ports B, C et D, résistances de rappel, niveaux logiques et tensions analogiques |
+| PWM et temporisation | Timer0 : normal, CTC, Fast PWM et Phase Correct PWM |
+| Liaison série | USART0 asynchrone, envoi et réception dans le moniteur série |
+| Conversion analogique | Conversions simples sur A0–A5 et référence interne |
+| Tests automatisés | Pilotage du temps simulé, des broches et de la liaison série depuis un banc de test C++ |
 
-Emulation speed: about 170 MHz of simulated clock on a desktop CPU in Release builds, i.e. ten times real time for a
-16 MHz ATmega328P.
+**Limites actuelles :** Timer1/2, SPI, I²C/TWI, watchdog, comparateur analogique et interruptions externes ne sont
+pas encore émulés. Leurs noms sur le brochage ne signifient pas qu’ils sont utilisables. D’autres microcontrôleurs,
+dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
 
-## Quick start
+## Essayer SiliconForge
 
-Requirements: a C++26 compiler (GCC 16), CMake 3.31+ and Python 3 for the tests and ATDF importer. Dependencies (WebFront, Catch2) are fetched by CPM. For a
-native window on Linux, install WebKitGTK 6.0 (`sudo apt install libwebkitgtk-6.0-dev` on Ubuntu/Debian,
-`webkitgtk6.0-devel` on Fedora); without it, the interface opens in the system browser.
+Le projet se compile actuellement depuis les sources. Il faut **CMake 3.31+** et un compilateur avec bibliothèque
+standard compatible **C++26** (GCC 16 sur la CI Linux, Apple Clang 21 pour les captures macOS). Les dépendances
+sont téléchargées automatiquement lors de la configuration. **Python 3** est requis pour les tests et pour
+l’importeur ATDF.
 
-```bash
-mkdir build && cd build
-cmake ..            # Release by default
-cmake --build . -j
-apps/siliconforge/siliconforge ../firmware/prebuilt/blink.hex
-```
+Sous Linux, installez aussi WebKitGTK 6.0 pour la fenêtre native : `sudo apt install libwebkitgtk-6.0-dev` sur
+Debian/Ubuntu, ou `webkitgtk6.0-devel` sur Fedora. Sans moteur natif disponible, l’application ouvre le navigateur
+système.
 
-Other uses:
-
-```bash
-# The system browser instead of a window
-siliconforge --browser firmware.hex
-
-# Serve the interface to other machines (http://<host>:9002/) without opening anything
-siliconforge --address 0.0.0.0 --no-browser firmware.elf
-
-# Headless: run 5 simulated seconds as fast as possible, serial output on stdout
-siliconforge --headless --speed max --duration 5 firmware.hex
-```
-
-Run the tests from the build directory:
+Depuis la racine du dépôt :
 
 ```bash
-ctest --output-on-failure
+cmake -S . -B build
+cmake --build build -j
+./build/apps/siliconforge/siliconforge firmware/prebuilt/blink.hex
 ```
 
-## MCU descriptions
+Les [exemples précompilés](firmware/README.md) permettent d’essayer immédiatement le clignotement, l’écho série,
+les interruptions Timer0 et la PWM, sans installer de compilateur AVR.
 
-Chip parameters, instruction timings, peripherals and package pinouts come from versioned JSON.
-Load a description without recompiling with `--mcu-file chip.json`, or discover a directory
-with `--mcu-path directory`. The interface also accepts MCU JSON files through **Load MCU…** or drag and drop.
-See [the format and ATDF import guide](docs/MCU-DESCRIPTIONS.md).
+Pour essayer votre propre code, remplacez le chemin de `blink.hex` par celui de votre binaire ATmega328P, ou
+utilisez **Load firmware…** dans l’application. Aucune opération de programmation sur une carte n’est nécessaire.
 
-## Testing firmware
+## Automatiser vos vérifications
 
-The test bench (`include/siliconforge/testing/Bench.hpp`) loads a firmware, advances simulated time and observes it.
-Everything is deterministic and runs faster than real time:
+Vous pouvez exécuter un firmware sans affichage, accélérer le temps simulé et récupérer sa sortie série :
 
-```cpp
-#include <siliconforge/mcu/Registry.hpp>
-#include <siliconforge/testing/Bench.hpp>
-
-using namespace std::chrono_literals;
-
-TEST_CASE("the firmware echoes in upper case") {
-    siliconforge::testing::Bench bench{siliconforge::mcu::create("atmega328p")};
-    bench.load("uart_echo.hex");
-    REQUIRE(bench.waitForSerial("ready\r\n", 100ms));
-    bench.serial().send("hello\r");
-    REQUIRE(bench.waitForSerial("HELLO\r\n", 100ms));
-}
-
-TEST_CASE("the LED blinks at 1 Hz") {
-    siliconforge::testing::Bench bench{siliconforge::mcu::create("atmega328p")};
-    bench.load("blink.hex");
-    bench.runFor(3s);
-    CHECK(*bench.period("D13") == Catch::Approx(1.0).epsilon(0.001));
-}
+```bash
+./build/apps/siliconforge/siliconforge --headless --speed max --duration 5 firmware/prebuilt/uart_echo.hex
 ```
 
-The web page exposes the same capabilities to JavaScript through `window.siliconForge`, so that UI tests can drive
-the firmware and check what the page shows: see [tests/ui](tests/ui/README.md).
+Le [banc de test C++](include/siliconforge/testing/Bench.hpp) permet d’envoyer des données, de modifier des entrées
+et de vérifier les réponses ou la période d’un signal de façon reproductible. Les [tests de firmwares](tests/integration/FirmwareTests.cpp)
+fournissent des exemples. Pour exécuter les tests du projet :
 
-## Architecture
-
-The emulator core knows nothing about any instruction set; each architecture and each chip is a separate layer:
-
-```
-include/siliconforge/
-├── core/       Mcu interface, scheduler, pins, serial ports, debugger, HEX/ELF loaders
-├── arch/avr/   AVR core, instruction set, data space, interrupts, megaAVR peripherals
-├── mcu/        Concrete chips (atmega328p) and the registry creating them by name
-└── testing/    Test bench
-apps/siliconforge/   Command-line application and WebFront bridge
-ui/                  Web interface
-firmware/            Test firmware (avr-gcc) and their prebuilt binaries
+```bash
+ctest --test-dir build --output-on-failure
 ```
 
-Adding a chip of a known family is a JSON description in `mcus/`; adding an architecture (ARM Cortex-M, RISC-V...) is a new
-`arch/<family>`, with no change to the core, the application or the interface. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the [architecture decisions](docs/adr).
+## Décrire un microcontrôleur
 
-## Roadmap
+Les paramètres de la puce, les temps d’instruction, les périphériques et les brochages viennent de fichiers JSON
+versionnés. `--mcu-file puce.json` charge une description sans recompiler, et `--mcu-path répertoire` en découvre
+tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…** ou par glisser-déposer. Le
+[guide du format et de l’import ATDF](docs/MCU-DESCRIPTIONS.md) détaille la procédure.
 
-The main directions are recorded as architecture decisions and tracked as epics:
+## Pour aller plus loin
 
-| Direction | Decision | Epic |
-| --- | --- | --- |
-| Self-tested end-to-end demo: the firmware really blinks the LED on screen | [ADR 0003](docs/adr/0003-demo-bout-en-bout.md) | [#2](https://github.com/ambroise-leclerc/SiliconForge/issues/2) |
-| Standard JSON description of an MCU (instruction cycles, peripherals, ADC timing), loaded at run time | [ADR 0004](docs/adr/0004-description-mcu-json.md) | [#3](https://github.com/ambroise-leclerc/SiliconForge/issues/3) |
-| Components and circuits described in JSON (LEDs, resistors, potentiometers, then 7-segment displays and screens) | [ADR 0005](docs/adr/0005-composants-et-circuits.md) | [#4](https://github.com/ambroise-leclerc/SiliconForge/issues/4) |
-| Qualification of the CPU core (decoding coverage, differential tests, cycle checks) | [ADR 0006](docs/adr/0006-qualification-coeur.md) | [#5](https://github.com/ambroise-leclerc/SiliconForge/issues/5) |
+- [Firmwares de démonstration](firmware/README.md)
+- [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
+- [Architecture et contribution](docs/ARCHITECTURE.md)
+- [Orientations du projet](docs/adr)
 
-Also planned:
+## Licence
 
-- Timer1/Timer2, external and pin-change interrupts, SPI, TWI, watchdog
-- Simulated displays (SSD1306, ST7735...) and UI tests of the interfaces they show
-- `wf test` UI suites run by CTest; firmware served as embedded WebFront assets
-- GDB remote protocol, disassembly view, call stack from ELF symbols
-- Other targets: ATmega2560, then ARM Cortex-M0+/M4 and RISC-V
-
-## License
-
-SiliconForge is dual-licensed under **Apache-2.0 OR CECILL-B**, at your option. See [LICENSE](LICENSE) for the full
-Apache 2.0 and CeCILL-B version 1 texts, including the French and English versions of CeCILL-B. Third-party components
-retain their own licenses.
+SiliconForge est proposé sous double licence **Apache-2.0 OR CECILL-B**, au choix. Le fichier [LICENSE](LICENSE)
+contient les textes complets, dont les versions française et anglaise de CeCILL-B. Les composants tiers conservent
+leurs propres licences.
