@@ -43,6 +43,7 @@ jobs:
       - name: Test
         run: cd build && ctest --output-on-failure -LE ui
       - name: Test native UI
+        if: success() || failure()
         run: cd build && ctest --output-on-failure --no-tests=error -L ui
       - name: Upload UI test reports
         if: always()

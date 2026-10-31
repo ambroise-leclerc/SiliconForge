@@ -49,5 +49,7 @@ if(SILICONFORGE_BUILD_APP)
         webfront_add_jasmine_test(NAME UI-Blink TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/blink.spec.js ARGS --port 0 ${PROJECT_SOURCE_DIR}/firmware/prebuilt/blink.hex)
         set_property(TEST UI-Uart UI-Blink APPEND PROPERTY LABELS ui)
+    else()
+        message(STATUS "Native UI tests skipped: they need Linux and WebFront's WebKitGTK frontend")
     endif()
 endif()
