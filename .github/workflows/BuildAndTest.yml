@@ -18,7 +18,10 @@ jobs:
   linux-gcc16:
     runs-on: ubuntu-24.04
     # GCC 16 and the AVR toolchain come from Ubuntu 26.04.
-    container: ubuntu:26.04
+    container:
+      image: ubuntu:26.04
+      # WebKitGTK's bubblewrap sandbox needs to create user namespaces, which Docker's default profiles forbid.
+      options: --security-opt seccomp=unconfined --security-opt apparmor=unconfined
     timeout-minutes: 30
     env:
       CC: gcc-16
