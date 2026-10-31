@@ -18,10 +18,7 @@ jobs:
   linux-gcc16:
     runs-on: ubuntu-24.04
     # GCC 16 and the AVR toolchain come from Ubuntu 26.04.
-    container:
-      image: ubuntu:26.04
-      # WebKitGTK's bubblewrap sandbox needs to create user namespaces, which Docker's default profiles forbid.
-      options: --security-opt seccomp=unconfined --security-opt apparmor=unconfined
+    container: ubuntu:26.04
     timeout-minutes: 30
     env:
       CC: gcc-16
@@ -47,6 +44,9 @@ jobs:
         run: cd build && ctest --output-on-failure -LE ui
       - name: Test native UI
         if: success() || failure()
+        # The runner's kernel forbids the user namespaces WebKit's bubblewrap sandbox needs; the page under test is our own.
+        env:
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
         run: cd build && ctest --output-on-failure --no-tests=error -L ui
       - name: Upload UI test reports
         if: always()
