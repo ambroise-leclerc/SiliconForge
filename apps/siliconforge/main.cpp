@@ -6,6 +6,9 @@
 #include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/WebFront.hpp>
+#ifdef WEBFRONT_JASMINE_TESTING
+#include <webfront/testing/Jasmine.hpp>
+#endif
 
 #include <charconv>
 #include <chrono>
@@ -39,7 +42,11 @@ struct Options {
     bool                         explicitMcu{false};
     std::optional<std::filesystem::path> mcuFile;
     std::vector<std::filesystem::path>   mcuPaths;
+#ifdef WEBFRONT_JASMINE_TESTING
+    Display                      display{Display::Window};
+#else
     Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
+#endif
     double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
     double                       speed{1.0};   ///< 0 = as fast as possible.
     std::string                  address{"127.0.0.1"};
@@ -169,9 +176,12 @@ webfront::WebFrontConfig webConfig(const Options& options) {
 
 /// Serves the interface until the window is closed or, without a window, until the program is stopped.
 template <typename App>
-void serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
+int serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
     app::WebBridge<App> bridge{web, simulation, firmwareName,
                                options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu}};
+#ifdef WEBFRONT_JASMINE_TESTING
+    webfront::testing::JasmineTest tests{web};
+#endif
     if (options.firmware)
         simulation.run();
     std::println("SiliconForge: http://{}:{}/", options.address == "0.0.0.0" ? "localhost" : options.address, web.port());
@@ -179,6 +189,12 @@ void serve(App& web, app::Simulation& simulation, const Options& options, const 
         web.run();
     else
         web.show("index.html");
+    web.shutdown();
+#ifdef WEBFRONT_JASMINE_TESTING
+    return tests.exitCode();
+#else
+    return 0;
+#endif
 }
 
 }  // namespace
@@ -249,13 +265,17 @@ int main(int argc, char** argv) {
                 std::println(stderr, "siliconforge: no native window ({}), using the system browser", error.what());
             }
             if (window) {
-                serve(*window, simulation, *options, firmwareName);
-                return 0;
+                return serve(*window, simulation, *options, firmwareName);
             }
         }
 #endif
+#ifdef WEBFRONT_JASMINE_TESTING
+        std::println(stderr, "siliconforge: Jasmine requires a native window");
+        return 1;
+#else
         webfront::WebFront web{webConfig(*options)};
-        serve(web, simulation, *options, firmwareName);
+        return serve(web, simulation, *options, firmwareName);
+#endif
     } catch (const std::exception& error) {
         std::println(stderr, "siliconforge: {}", error.what());
         return 1;

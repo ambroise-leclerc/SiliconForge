@@ -36,4 +36,18 @@ if(SILICONFORGE_BUILD_APP)
     add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp)
     target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::mcu SiliconForge_options WebFront::WebFront Catch2::Catch2WithMain)
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
+
+    get_target_property(_ui_webfront_definitions WebFront::WebFront INTERFACE_COMPILE_DEFINITIONS)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBKITGTK")
+        # WebFront's autodetected option is scoped to its subdirectory; expose it to the helper's validation.
+        set(WEBFRONT_EMBED_WEBKITGTK ON)
+        add_executable(siliconforge_ui_test ../apps/siliconforge/main.cpp)
+        target_link_libraries(siliconforge_ui_test PRIVATE SiliconForge::mcu SiliconForge_options WebFront::WebFront)
+        target_compile_definitions(siliconforge_ui_test PRIVATE SILICONFORGE_UI_DIR="${PROJECT_SOURCE_DIR}/ui")
+        webfront_add_jasmine_test(NAME UI-Uart TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/board.spec.js ARGS --port 0 ${PROJECT_SOURCE_DIR}/firmware/prebuilt/uart_echo.hex)
+        webfront_add_jasmine_test(NAME UI-Blink TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/blink.spec.js ARGS --port 0 ${PROJECT_SOURCE_DIR}/firmware/prebuilt/blink.hex)
+        set_property(TEST UI-Uart UI-Blink APPEND PROPERTY LABELS ui)
+    endif()
 endif()

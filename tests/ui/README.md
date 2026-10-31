@@ -17,13 +17,19 @@ Pins are named after the datasheet (`PB5`) or the Arduino Uno board (`D13`).
 
 ## Running the suite
 
-The specs are meant for WebFront's `wf test` command, which runs Jasmine specs in the application's window and exits
-with a non-zero code on failure. Wiring `wf test` into CTest (the application in developer mode, as WebFront's
-`examples/life/LifeDeveloper.cpp` does) is the next step of the roadmap; until then the suite can be run by hand:
+On Linux, install `libwebkitgtk-6.0-dev`, `xvfb` and `xauth` before configuring. Build with the application and tests
+enabled, then run:
 
-1. `build/apps/siliconforge/siliconforge firmware/prebuilt/uart_echo.hex`
-2. In the page's developer console, load Jasmine and `board.spec.js`, or run them from a WebFront developer project
-   (`wf install jasmine-core@7.0.2`, then list `tests/board.spec.js` under `"test": {"specs": [...]}`).
+```sh
+cmake --build build
+ctest --test-dir build -L ui --output-on-failure
+```
+
+WebFront runs `board.spec.js` against `uart_echo.hex` and `blink.spec.js` against `blink.hex` in native WebKitGTK
+windows under Xvfb. The JSON reports, including individual spec verdicts, are in
+`build/tests/webfront-jasmine/UI-*/report.json`. Jasmine 7.0.2 is downloaded and verified at configuration; for offline
+configuration, set `WEBFRONT_JASMINE_ARCHIVE_DIR` to a directory containing `jasmine-core-7.0.2.tgz`.
+See WebFront's [consumer testing recipe](https://github.com/ambroise-leclerc/WebFront/blob/v0.7.0/docs/CONSUMER_TESTING.md).
 
 The same API can be used by any browser automation tool (Playwright, WebDriver) to test a firmware's behaviour from
 the outside.
