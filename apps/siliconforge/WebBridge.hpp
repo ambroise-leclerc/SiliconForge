@@ -72,6 +72,8 @@ private:
         bool   high{false};
 
         void change(bool nowHigh, Cycles at) {
+            if (nowHigh == high)
+                return;  // Floating <-> low is no edge of the level the LED shows.
             ++edges;
             if (high)
                 highTotal += at - std::max(highSince, windowStart);
@@ -83,9 +85,12 @@ private:
             if (now < windowStart) {  // The MCU was reset.
                 windowStart = highSince = now;
                 highTotal   = 0;
+                edges       = 0;  // Edges counted before the reset do not belong to the new run.
             }
-            if (now == windowStart)
+            if (now == windowStart) {
+                edges = 0;  // The frame reports them: an empty window must not carry them into the next one.
                 return high ? 1.0 : 0.0;
+            }
             const auto total = highTotal + (high ? now - std::max(highSince, windowStart) : 0);
             const auto duty  = static_cast<double>(total) / static_cast<double>(now - windowStart);
             windowStart      = now;
@@ -247,7 +252,8 @@ private:
                 {"speed", simulation.speedFactor()},
                 {"symbol", mcu.symbolAt(mcu.programCounter())},
                 {"firmware", firmwareName},
-                {"chipRevision", chipRevision}
+                {"chipRevision", chipRevision},
+                {"frame", ++frameCounter}  // Consecutive numbers received by a client prove that no frame was skipped.
             };
             state["stop"] = reason ? nlohmann::json(toString(*reason)) : nlohmann::json(nullptr);
             state["pins"] = nlohmann::json::array();
@@ -310,6 +316,7 @@ private:
     std::vector<Activity>    activity;
     unsigned                 chipRevision{0};
     std::uint64_t            serialEpoch{0};  // Protected by clientsMutex.
+    std::uint64_t            frameCounter{0};  // Only touched by the pushing thread.
     std::mutex               clientsMutex;
     std::map<webfront::WebLinkId, Client> clients;
     webfront::UISubscription closed;
