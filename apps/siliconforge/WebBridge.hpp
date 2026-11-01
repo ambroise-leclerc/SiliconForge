@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace siliconforge::app {
@@ -81,22 +82,28 @@ private:
             highSince = at;
         }
 
-        double takeDuty(Cycles now) {
+        /// What the frame ending at `now` reports for this pin.
+        struct Sample {
+            double duty;
+            u32    edges;
+        };
+
+        /// Closes the frame ending at `now`. The reset is detected here, before the edge count is read, so that the
+        /// first frame after a reset never carries edges of the previous run.
+        Sample takeFrame(Cycles now) {
             if (now < windowStart) {  // The MCU was reset.
                 windowStart = highSince = now;
-                highTotal   = 0;
-                edges       = 0;  // Edges counted before the reset do not belong to the new run.
+                highTotal               = 0;
+                edges                   = 0;
             }
-            if (now == windowStart) {
-                edges = 0;  // The frame reports them: an empty window must not carry them into the next one.
-                return high ? 1.0 : 0.0;
-            }
+            const auto counted = std::exchange(edges, 0u);  // An empty window must not carry them into the next one.
+            if (now == windowStart)
+                return {high ? 1.0 : 0.0, counted};
             const auto total = highTotal + (high ? now - std::max(highSince, windowStart) : 0);
             const auto duty  = static_cast<double>(total) / static_cast<double>(now - windowStart);
             windowStart      = now;
             highTotal        = 0;
-            edges            = 0;
-            return duty;
+            return {duty, counted};
         }
     };
 
@@ -260,15 +267,15 @@ private:
             for (std::size_t index = 0; index < mcu.pins().size(); ++index) {
                 const auto& pin = mcu.pins()[index];
                 auto& a = activity[index];
-                const auto edges = a.edges;
+                const auto sample = a.takeFrame(now);
                 state["pins"].push_back({
                     {"name", pin.name()},
                     {"label", pin.label()},
                     {"state", static_cast<int>(pin.state())},
                     {"output", pin.isOutput()},
                     {"pullUp", pin.hasPullUp()},
-                    {"duty", std::round(a.takeDuty(now) * 1000.0) / 1000.0},
-                    {"edges", edges}
+                    {"duty", std::round(sample.duty * 1000.0) / 1000.0},
+                    {"edges", sample.edges}
                 });
             }
             state["registers"] = nlohmann::json::array();
