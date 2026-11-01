@@ -31,7 +31,9 @@ WebFront runs the specs in native WebKitGTK windows under Xvfb, against the firm
 | --- | --- | --- | --- |
 | `UI-Uart` | `board.spec.js` | `uart_echo.hex` | Serial console and controls |
 | `UI-Blink` | `blink.spec.js` | `blink.hex` | D13 toggles and the pin view follows |
-| `UI-Led` | `led.spec.js` | `blink.hex` | Breadboard LED `.bb-led[data-pin="D13"]`, on the simulated clock. At ×5 (a frame covers ~0.17 s, under a half-period) the frame's `data-level`, the high fraction, places each edge: every half-period is 0.5 s ± 1 %. At full speed a frame holds several edges, so the pin's `edges` counts are summed over the longest run of consecutive frames (`state.frame`): the count fixes the half-period to one edge (~2 % over 24 s) and the LED level of every frame must match the blink computed in closed form. Frames skipped by a slow client are excluded | The JSON reports, including individual spec verdicts, are in
+| `UI-Led` | `led.spec.js` | `blink.hex` | Breadboard LED `.bb-led[data-pin="D13"]`, on the simulated clock. At ×5 (a frame covers ~0.17 s, under a half-period) the frame's `data-level`, the high fraction, places each edge: every half-period is 0.5 s ± 1 %. At full speed a frame holds several edges, so the pin's `edges` counts are summed over the longest run of consecutive frames (`state.frame`): the count fixes the half-period to one edge (~2 % over 24 s) and the LED level of every frame must match the blink computed in closed form. Frames skipped by a slow client are excluded
+
+The JSON reports, including individual spec verdicts, are in
 `build/tests/webfront-jasmine/UI-*/report.json`. Jasmine 7.0.2 is downloaded and verified at configuration; for offline
 configuration, set `WEBFRONT_JASMINE_ARCHIVE_DIR` to a directory containing `jasmine-core-7.0.2.tgz`.
 See WebFront's [consumer testing recipe](https://github.com/ambroise-leclerc/WebFront/blob/v0.7.0/docs/CONSUMER_TESTING.md).
