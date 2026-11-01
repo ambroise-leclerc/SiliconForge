@@ -32,6 +32,7 @@ WebFront runs the specs in native WebKitGTK windows under Xvfb, against the firm
 | `UI-Uart` | `board.spec.js` | `uart_echo.hex` | Serial console and controls |
 | `UI-Blink` | `blink.spec.js` | `blink.hex` | D13 toggles and the pin view follows |
 | `UI-Led` | `led.spec.js` | `blink.hex` | Breadboard LED `.bb-led[data-pin="D13"]`, on the simulated clock. At ×5 (a frame covers ~0.17 s, under a half-period) the frame's `data-level`, the high fraction, places each edge: every half-period is 0.5 s ± 1 %. At full speed a frame holds several edges, so the pin's `edges` counts are summed over the longest run of consecutive frames (`state.frame`): the count fixes the half-period to one edge (~2 % over 24 s) and the LED level of every frame must match the blink computed in closed form. Frames skipped by a slow client are excluded
+| `UI-LedRealtime` | `led-realtime.spec.js` | `blink.hex` | At ×1, mean period 1 s ± 10 % on `performance.now()` over 4.5 s, no missed edge (each half-period 0.5 ± 0.15 s). One retry on failure for loaded CI machines |
 
 The JSON reports, including individual spec verdicts, are in
 `build/tests/webfront-jasmine/UI-*/report.json`. Jasmine 7.0.2 is downloaded and verified at configuration; for offline
