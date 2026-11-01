@@ -35,4 +35,8 @@ prebuilt: all
 clean:
 	rm -rf $(BUILD)
 
-.PHONY: all prebuilt clean
+# The firmware whose binaries are committed in prebuilt/ (not the test variants), one per line, for the CI.
+list:
+	@printf '%s\n' $(FIRMWARE)
+
+.PHONY: all prebuilt clean list
