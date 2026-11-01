@@ -91,7 +91,7 @@ private:
         /// Closes the frame ending at `now`. The reset is detected here, before the edge count is read, so that the
         /// first frame after a reset never carries edges of the previous run.
         Sample takeFrame(Cycles now) {
-            if (now < windowStart) {  // The MCU was reset.
+            if (now < windowStart) {  // Safety net: the MCU went back in time without restartActivity()
                 windowStart = highSince = now;
                 highTotal               = 0;
                 edges                   = 0;
@@ -120,6 +120,17 @@ private:
             });
         activity = std::move(prepared);
         ++chipRevision;
+    }
+
+    /// Starts a new window on every pin. The simulation lock is held, so no pin changes in between: whatever the pins
+    /// did before the reset (edges, high time) cannot be mixed with the new run, however far it has gone by the next frame.
+    void restartActivity(Mcu& mcu) {
+        for (std::size_t index = 0; index < activity.size(); ++index) {
+            auto& a       = activity[index];
+            a             = Activity{};
+            a.windowStart = a.highSince = mcu.cycles();
+            a.high        = mcu.pins()[index].state() == PinState::High;
+        }
     }
 
     static std::optional<std::string> catalogId(std::string_view requested) {
@@ -169,7 +180,7 @@ private:
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
         app.cppFunction("sf.step", [this] { simulation.step(); });
         app.cppFunction("sf.reset", [this] {
-            simulation.reset();
+            simulation.reset([this](Mcu& mcu) { restartActivity(mcu); });
             resetSerialOffsets();
         });
         app.cppFunction("sf.setSpeed", [this](double factor) { simulation.setSpeed(factor); });
