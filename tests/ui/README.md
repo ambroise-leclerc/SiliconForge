@@ -26,7 +26,7 @@ ctest --test-dir build -L ui --output-on-failure
 ```
 
 WebFront runs `board.spec.js` against `uart_echo.hex` and `blink.spec.js` against `blink.hex` in native WebKitGTK
-windows under Xvfb. The JSON reports, including individual spec verdicts, are in
+windows under Xvfb. The firmware is built from `firmware/src` when avr-gcc is installed (`firmware/prebuilt` otherwise). The JSON reports, including individual spec verdicts, are in
 `build/tests/webfront-jasmine/UI-*/report.json`. Jasmine 7.0.2 is downloaded and verified at configuration; for offline
 configuration, set `WEBFRONT_JASMINE_ARCHIVE_DIR` to a directory containing `jasmine-core-7.0.2.tgz`.
 See WebFront's [consumer testing recipe](https://github.com/ambroise-leclerc/WebFront/blob/v0.7.0/docs/CONSUMER_TESTING.md).
