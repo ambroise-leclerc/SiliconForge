@@ -78,6 +78,17 @@ public:
         lastStop = device->step().reason;
     }
 
+    /// Resets the MCU, then calls afterReset(Mcu&) while still holding the simulation lock, so that observers can drop
+    /// what they accumulated before the reset without the simulation running in between.
+    template <typename Function>
+    void reset(Function&& afterReset) {
+        std::scoped_lock lock{mutex};
+        device->reset();
+        std::forward<Function>(afterReset)(*device);
+        lastStop.reset();
+        paceFrom(std::chrono::steady_clock::now());
+    }
+
     void reset() {
         std::scoped_lock lock{mutex};
         device->reset();

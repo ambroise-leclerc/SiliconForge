@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace siliconforge::app {
@@ -72,6 +73,8 @@ private:
         bool   high{false};
 
         void change(bool nowHigh, Cycles at) {
+            if (nowHigh == high)
+                return;  // Floating <-> low is no edge of the level the LED shows.
             ++edges;
             if (high)
                 highTotal += at - std::max(highSince, windowStart);
@@ -79,19 +82,28 @@ private:
             highSince = at;
         }
 
-        double takeDuty(Cycles now) {
-            if (now < windowStart) {  // The MCU was reset.
+        /// What the frame ending at `now` reports for this pin.
+        struct Sample {
+            double duty;
+            u32    edges;
+        };
+
+        /// Closes the frame ending at `now`. The reset is detected here, before the edge count is read, so that the
+        /// first frame after a reset never carries edges of the previous run.
+        Sample takeFrame(Cycles now) {
+            if (now < windowStart) {  // Safety net: the MCU went back in time without restartActivity()
                 windowStart = highSince = now;
-                highTotal   = 0;
+                highTotal               = 0;
+                edges                   = 0;
             }
+            const auto counted = std::exchange(edges, 0u);  // An empty window must not carry them into the next one.
             if (now == windowStart)
-                return high ? 1.0 : 0.0;
+                return {high ? 1.0 : 0.0, counted};
             const auto total = highTotal + (high ? now - std::max(highSince, windowStart) : 0);
             const auto duty  = static_cast<double>(total) / static_cast<double>(now - windowStart);
             windowStart      = now;
             highTotal        = 0;
-            edges            = 0;
-            return duty;
+            return {duty, counted};
         }
     };
 
@@ -108,6 +120,17 @@ private:
             });
         activity = std::move(prepared);
         ++chipRevision;
+    }
+
+    /// Starts a new window on every pin. The simulation lock is held, so no pin changes in between: whatever the pins
+    /// did before the reset (edges, high time) cannot be mixed with the new run, however far it has gone by the next frame.
+    void restartActivity(Mcu& mcu) {
+        for (std::size_t index = 0; index < activity.size(); ++index) {
+            auto& a       = activity[index];
+            a             = Activity{};
+            a.windowStart = a.highSince = mcu.cycles();
+            a.high        = mcu.pins()[index].state() == PinState::High;
+        }
     }
 
     static std::optional<std::string> catalogId(std::string_view requested) {
@@ -157,7 +180,7 @@ private:
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
         app.cppFunction("sf.step", [this] { simulation.step(); });
         app.cppFunction("sf.reset", [this] {
-            simulation.reset();
+            simulation.reset([this](Mcu& mcu) { restartActivity(mcu); });
             resetSerialOffsets();
         });
         app.cppFunction("sf.setSpeed", [this](double factor) { simulation.setSpeed(factor); });
@@ -247,22 +270,23 @@ private:
                 {"speed", simulation.speedFactor()},
                 {"symbol", mcu.symbolAt(mcu.programCounter())},
                 {"firmware", firmwareName},
-                {"chipRevision", chipRevision}
+                {"chipRevision", chipRevision},
+                {"frame", ++frameCounter}  // Consecutive numbers received by a client prove that no frame was skipped.
             };
             state["stop"] = reason ? nlohmann::json(toString(*reason)) : nlohmann::json(nullptr);
             state["pins"] = nlohmann::json::array();
             for (std::size_t index = 0; index < mcu.pins().size(); ++index) {
                 const auto& pin = mcu.pins()[index];
                 auto& a = activity[index];
-                const auto edges = a.edges;
+                const auto sample = a.takeFrame(now);
                 state["pins"].push_back({
                     {"name", pin.name()},
                     {"label", pin.label()},
                     {"state", static_cast<int>(pin.state())},
                     {"output", pin.isOutput()},
                     {"pullUp", pin.hasPullUp()},
-                    {"duty", std::round(a.takeDuty(now) * 1000.0) / 1000.0},
-                    {"edges", edges}
+                    {"duty", std::round(sample.duty * 1000.0) / 1000.0},
+                    {"edges", sample.edges}
                 });
             }
             state["registers"] = nlohmann::json::array();
@@ -310,6 +334,7 @@ private:
     std::vector<Activity>    activity;
     unsigned                 chipRevision{0};
     std::uint64_t            serialEpoch{0};  // Protected by clientsMutex.
+    std::uint64_t            frameCounter{0};  // Only touched by the pushing thread.
     std::mutex               clientsMutex;
     std::map<webfront::WebLinkId, Client> clients;
     webfront::UISubscription closed;

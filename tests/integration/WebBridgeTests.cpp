@@ -44,11 +44,16 @@ struct TestApp {
     using UI = TestUI;
     std::function<void(UI)> started;
     std::function<std::string(std::string)> select;
+    std::function<void()> reset;
     template <typename F>
     void cppFunction(std::string_view name, F f) {
         if constexpr (std::is_invocable_r_v<std::string, F, std::string>) {
             if (name == "sf.selectMcu")
                 select = std::move(f);
+        }
+        if constexpr (std::is_invocable_r_v<void, F>) {
+            if (name == "sf.reset")
+                reset = std::move(f);
         }
     }
     void onUIStarted(std::function<void(UI)> f) { started = std::move(f); }
@@ -123,6 +128,30 @@ TEST_CASE("MCU replacement keeps frame metadata coherent and discards stale seri
     CHECK(next["mcuId"] == "atmega328p");
     CHECK(next["stop"].is_null());
     CHECK(next["serial"] == "replacement");
+}
+
+TEST_CASE("A reset drops the edges counted before it, even when no frame noticed the cycle counter going back", "[app][bridge]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+    // Before any frame the activity window starts at cycle 0 and the reset leaves the cycle counter at 0: only an
+    // explicit reset of the activity can tell the two runs apart.
+    simulation.access([](Mcu& mcu) {
+        auto* pin = mcu.pin("PB0");
+        pin->setExternal(true);
+        pin->setExternal(false);
+        pin->setExternal(true);
+    });
+    web.reset();
+    auto frames = std::make_shared<Frames>();
+    web.started(TestUI{frames});
+    const auto values = frames->waitFor(1);
+    REQUIRE(!values.empty());
+    const auto state = nlohmann::json::parse(values[0]);
+    const auto pin   = std::ranges::find_if(state["pins"], [](const nlohmann::json& p) { return p["name"] == "PB0"; });
+    REQUIRE(pin != state["pins"].end());
+    CHECK((*pin)["edges"] == 0);
+    CHECK(state["cycles"] == 0);
 }
 
 TEST_CASE("Serial preserves every byte and sequences crossing a frame boundary", "[app][bridge]") {

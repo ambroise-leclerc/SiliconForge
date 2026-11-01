@@ -72,7 +72,9 @@ if(SILICONFORGE_BUILD_APP)
             SPECS ui/board.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/uart_echo.hex)
         webfront_add_jasmine_test(NAME UI-Blink TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/blink.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
-        set_property(TEST UI-Uart UI-Blink APPEND PROPERTY LABELS ui)
+        webfront_add_jasmine_test(NAME UI-Led TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/led.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
+        set_property(TEST UI-Uart UI-Blink UI-Led APPEND PROPERTY LABELS ui)
     else()
         message(STATUS "Native UI tests skipped: they need Linux and WebFront's WebKitGTK frontend")
     endif()
