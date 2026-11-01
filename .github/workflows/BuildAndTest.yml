@@ -55,7 +55,13 @@ jobs:
           name: ui-test-reports
           path: build/tests/webfront-jasmine/*/report.json
           if-no-files-found: warn
-      - name: Build the test firmware from source
-        run: make -C firmware
+      - name: Check that firmware/prebuilt is up to date
+        # CMake built firmware/src with avr-gcc into build/firmware; the committed binaries must match byte for byte.
+        run: |
+          status=0
+          for committed in firmware/prebuilt/*.hex; do
+            cmp "$committed" "build/firmware/$(basename "$committed")" || status=1
+          done
+          [ "$status" -eq 0 ] || { echo "firmware/prebuilt is stale: run 'make -C firmware prebuilt' and commit the result"; exit 1; }
       - name: Emulation speed (headless)
-        run: build/apps/siliconforge/siliconforge --headless --speed max --duration 10 firmware/build/blink.hex
+        run: build/apps/siliconforge/siliconforge --headless --speed max --duration 10 build/firmware/blink.hex
