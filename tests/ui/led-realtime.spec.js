@@ -5,7 +5,8 @@
 //
 // Tolerance for loaded CI machines: the mean period must be within 10 % of 1 s, and each half-period within 0.5 s +-
 // 0.15 s, which still catches a lost frame that would merge two states (1 s between edges) or a missed one. The
-// measurement is attempted twice; the spec fails, with both measurements in the message, only if both attempts fail.
+// measurement is attempted twice, whether the first fails by a wrong period or by a timeout waiting for frames; the spec
+// fails, with both attempts in the message, only if both fail.
 describe("Blink LED in real time", () => {
   const sf = () => window.siliconForge;
   const led = () => document.querySelector('.bb-led[data-pin="D13"]');
@@ -60,7 +61,13 @@ describe("Blink LED in real time", () => {
     await sf().waitFor(() => led() !== null, 5000);
     const failures = [];
     for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
-      const issue = problem(await measureEdges());
+      let issue;
+      try {
+        issue = problem(await measureEdges());
+      } catch (error) {
+        // A frame wait that times out (no first edge on a loaded machine) is a failed attempt like any other.
+        issue = `measurement failed: ${error?.message ?? error}`;
+      }
       if (issue === null) return;
       failures.push(`attempt ${attempt}: ${issue}`);
     }
