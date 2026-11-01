@@ -47,8 +47,10 @@ dire « la LED est allumée » ni « j'appuie sur le bouton ».
   dans `components/`, plus un modèle C++ quand le comportement est nouveau.
 - Le modèle électrique reste volontairement simple (logique et résistif, sans simulation SPICE). Les composants dont le
   comportement dépend d'effets analogiques fins sont hors périmètre.
-- La cadence d'envoi doit absorber des états plus gros (écrans). Le besoin de diffusion efficace rejoint
-  [WebFront#401](https://github.com/ambroise-leclerc/WebFront/issues/401).
+- La cadence d'envoi doit absorber des états plus gros (écrans).
+  [WebFront#401](https://github.com/ambroise-leclerc/WebFront/issues/401) est livré depuis la 0.6 et disponible dans
+  notre dépendance 0.7 (`broadcast`, contre-pression). Son adoption devra préserver le flux série par client ;
+  voir le [bilan de migration](../WEBFRONT-0.7.md).
 
 ## Alternatives écartées
 

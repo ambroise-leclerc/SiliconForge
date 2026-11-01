@@ -100,6 +100,7 @@ ctest --test-dir build --output-on-failure
 - [Demonstration firmware](firmware/README.md)
 - [Microcontroller descriptions and model limitations](docs/MCU-DESCRIPTIONS.md)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
+- [WebFront 0.7: capabilities and remaining integrations (French)](docs/WEBFRONT-0.7.md)
 - [Project direction](docs/adr)
 
 ## Licence

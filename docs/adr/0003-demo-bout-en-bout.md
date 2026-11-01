@@ -30,8 +30,9 @@ cadencement de `Simulation`, de la cadence d'envoi ou du rendu passerait inaper�
    - **En temps réel**, à ×1 : la période mesurée à l'horloge murale vaut 1 s ± 10 %. Cela prouve que le clignotement
      est réel pour un humain : cadencement de `Simulation` et trames sans perte.
 3. **Dans la vraie fenêtre.** En CI, les specs tournent dans le frontend natif (WebKitGTK) sous Xvfb, au moyen de
-   CTest. Cela dépend de [WebFront#402](https://github.com/ambroise-leclerc/WebFront/issues/402) ; en attendant, un
-   runner Playwright headless versionné dans `tests/ui/`, avec Jasmine embarqué, joue ce rôle.
+   CTest. [WebFront#402](https://github.com/ambroise-leclerc/WebFront/issues/402) est livré depuis la 0.6 et disponible
+   dans notre dépendance 0.7 : [#8](https://github.com/ambroise-leclerc/SiliconForge/issues/8) a raccordé
+   `webfront_add_jasmine_test` à CTest (label `ui`), sans runner provisoire.
 4. **Depuis les sources.** Quand avr-gcc est présent, le build compile `firmware/` et la démo utilise ces binaires.
    `firmware/prebuilt/` reste le repli, et la CI vérifie qu'il est à jour. Un test change la durée du délai et constate
    la nouvelle période : « je modifie mon code, je vois la LED changer ».
