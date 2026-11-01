@@ -6,6 +6,7 @@
 #include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/WebFront.hpp>
+#include <webfront/testing/Jasmine.hpp>
 
 #include <charconv>
 #include <chrono>
@@ -169,9 +170,10 @@ webfront::WebFrontConfig webConfig(const Options& options) {
 
 /// Serves the interface until the window is closed or, without a window, until the program is stopped.
 template <typename App>
-void serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
+int serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
     app::WebBridge<App> bridge{web, simulation, firmwareName,
                                options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu}};
+    webfront::testing::JasmineTest tests{web};  // Inert unless the build is a WebFront Jasmine test target.
     if (options.firmware)
         simulation.run();
     std::println("SiliconForge: http://{}:{}/", options.address == "0.0.0.0" ? "localhost" : options.address, web.port());
@@ -179,6 +181,8 @@ void serve(App& web, app::Simulation& simulation, const Options& options, const 
         web.run();
     else
         web.show("index.html");
+    web.shutdown();  // Always: the pin observers and test hooks must be gone before the bridge is destroyed.
+    return tests.exitCode();
 }
 
 }  // namespace
@@ -249,13 +253,12 @@ int main(int argc, char** argv) {
                 std::println(stderr, "siliconforge: no native window ({}), using the system browser", error.what());
             }
             if (window) {
-                serve(*window, simulation, *options, firmwareName);
-                return 0;
+                return serve(*window, simulation, *options, firmwareName);
             }
         }
 #endif
         webfront::WebFront web{webConfig(*options)};
-        serve(web, simulation, *options, firmwareName);
+        return serve(web, simulation, *options, firmwareName);
     } catch (const std::exception& error) {
         std::println(stderr, "siliconforge: {}", error.what());
         return 1;

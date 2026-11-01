@@ -29,7 +29,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
-            ca-certificates git cmake ninja-build gcc-16 g++-16 gcc-avr avr-libc binutils-avr make python3
+            ca-certificates git cmake ninja-build gcc-16 g++-16 gcc-avr avr-libc binutils-avr make python3 libwebkitgtk-6.0-dev xvfb xauth
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
@@ -41,7 +41,20 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Test
-        run: cd build && ctest --output-on-failure
+        run: cd build && ctest --output-on-failure -LE ui
+      - name: Test native UI
+        if: success() || failure()
+        # The runner's kernel forbids the user namespaces WebKit's bubblewrap sandbox needs; the page under test is our own.
+        env:
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
+        run: cd build && ctest --output-on-failure --no-tests=error -L ui
+      - name: Upload UI test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-reports
+          path: build/tests/webfront-jasmine/*/report.json
+          if-no-files-found: warn
       - name: Build the test firmware from source
         run: make -C firmware
       - name: Emulation speed (headless)
