@@ -22,8 +22,6 @@ using namespace siliconforge;
 
 namespace {
 
-constexpr bool nativeWindowBuilt = webfront::embeddedFrontendAvailable;
-
 /// Where the interface is displayed.
 enum class Display { Window, Browser, None };
 
@@ -35,7 +33,7 @@ struct Options {
     bool                         explicitMcu{false};
     std::optional<std::filesystem::path> mcuFile;
     std::vector<std::filesystem::path>   mcuPaths;
-    Display                      display{nativeWindowBuilt ? Display::Window : Display::Browser};
+    Display                      display{webfront::embeddedFrontendAvailable ? Display::Window : Display::Browser};
     double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
     double                       speed{1.0};   ///< 0 = as fast as possible.
     std::string                  address{"127.0.0.1"};
@@ -62,7 +60,7 @@ Options:
   --no-browser        Serve the interface without opening a window or a browser
   --ui <directory>    Interface files (default: the ui/ directory of the sources)
   --help              This help)",
-                 nativeWindowBuilt ? "" : " (this build has no native window engine: the system browser)");
+                 webfront::embeddedFrontendAvailable ? "" : " (this build has no native window engine: the system browser)");
     std::print("Available microcontrollers:");
     for (auto name : mcu::available())
         std::print(" {}", name);
@@ -238,16 +236,18 @@ int main(int argc, char** argv) {
     try {
         app::Simulation simulation{std::move(device)};
         simulation.setSpeed(options->speed);
-        if (nativeWindowBuilt && options->display == Display::Window) {
-            std::optional<webfront::EmbeddedWebFront> window;
-            try {
-                window.emplace(webConfig(*options));
-            } catch (const std::exception& error) {
-                // Typically no graphical session (no DISPLAY or WAYLAND_DISPLAY): fall back to the browser.
-                std::println(stderr, "siliconforge: no native window ({}), using the system browser", error.what());
-            }
-            if (window) {
-                return serve(*window, simulation, *options, firmwareName);
+        if constexpr (webfront::embeddedFrontendAvailable) {
+            if (options->display == Display::Window) {
+                std::optional<webfront::EmbeddedWebFront> window;
+                try {
+                    window.emplace(webConfig(*options));
+                } catch (const std::exception& error) {
+                    // Typically no graphical session (no DISPLAY or WAYLAND_DISPLAY): fall back to the browser.
+                    std::println(stderr, "siliconforge: no native window ({}), using the system browser", error.what());
+                }
+                if (window) {
+                    return serve(*window, simulation, *options, firmwareName);
+                }
             }
         }
         webfront::WebFront web{webConfig(*options)};
