@@ -119,3 +119,5 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 SiliconForge est proposé sous double licence **Apache-2.0 OR CECILL-B**, au choix. Le fichier [LICENSE](LICENSE)
 contient les textes complets, dont les versions française et anglaise de CeCILL-B. Les composants tiers conservent
 leurs propres licences.
+
+WebFront 0.8.0 : [migration et travaux restants](docs/WEBFRONT-0.8.md).
