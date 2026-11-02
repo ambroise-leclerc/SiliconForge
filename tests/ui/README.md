@@ -37,7 +37,7 @@ WebFront runs the specs in native WebKitGTK windows under Xvfb, against the firm
 The JSON reports, including individual spec verdicts, are in
 `build/tests/webfront-jasmine/UI-*/report.json`. Jasmine 7.0.2 is downloaded and verified at configuration; for offline
 configuration, set `WEBFRONT_JASMINE_ARCHIVE_DIR` to a directory containing `jasmine-core-7.0.2.tgz`.
-See WebFront's [consumer testing recipe](https://github.com/ambroise-leclerc/WebFront/blob/v0.7.0/docs/CONSUMER_TESTING.md).
+See WebFront's [consumer testing recipe](https://github.com/ambroise-leclerc/WebFront/blob/v0.8.0/docs/CONSUMER_TESTING.md).
 
 The same API can be used by any browser automation tool (Playwright, WebDriver) to test a firmware's behaviour from
 the outside.

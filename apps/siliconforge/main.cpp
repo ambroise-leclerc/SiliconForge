@@ -22,12 +22,7 @@ using namespace siliconforge;
 
 namespace {
 
-#if defined(WEBFRONT_EMBED_WEBKITGTK) || defined(WEBFRONT_EMBED_WEBVIEW2) || defined(WEBFRONT_EMBED_WKWEBVIEW)
-constexpr bool nativeWindowBuilt = true;
-using NativeWebFront             = webfront::WebFrontWithFrontend<webfront::frontend::NativeWebViewFrontend>;
-#else
-constexpr bool nativeWindowBuilt = false;
-#endif
+constexpr bool nativeWindowBuilt = webfront::embeddedFrontendAvailable;
 
 /// Where the interface is displayed.
 enum class Display { Window, Browser, None };
@@ -243,9 +238,8 @@ int main(int argc, char** argv) {
     try {
         app::Simulation simulation{std::move(device)};
         simulation.setSpeed(options->speed);
-#if defined(WEBFRONT_EMBED_WEBKITGTK) || defined(WEBFRONT_EMBED_WEBVIEW2) || defined(WEBFRONT_EMBED_WKWEBVIEW)
-        if (options->display == Display::Window) {
-            std::optional<NativeWebFront> window;
+        if (nativeWindowBuilt && options->display == Display::Window) {
+            std::optional<webfront::EmbeddedWebFront> window;
             try {
                 window.emplace(webConfig(*options));
             } catch (const std::exception& error) {
@@ -256,7 +250,6 @@ int main(int argc, char** argv) {
                 return serve(*window, simulation, *options, firmwareName);
             }
         }
-#endif
         webfront::WebFront web{webConfig(*options)};
         return serve(web, simulation, *options, firmwareName);
     } catch (const std::exception& error) {
