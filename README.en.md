@@ -100,7 +100,7 @@ ctest --test-dir build --output-on-failure
 - [Demonstration firmware](firmware/README.md)
 - [Microcontroller descriptions and model limitations](docs/MCU-DESCRIPTIONS.md)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
-- [WebFront 0.7: capabilities and remaining integrations (French)](docs/WEBFRONT-0.7.md)
+- [WebFront 0.9: migration, adoption and decisions (French)](docs/WEBFRONT-0.9.md) (earlier reports: [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Project direction](docs/adr)
 
 ## Licence
@@ -108,4 +108,4 @@ ctest --test-dir build --output-on-failure
 SiliconForge is dual-licensed under **Apache-2.0 OR CECILL-B**, at your option. [LICENSE](LICENSE) contains the full
 texts, including the French and English versions of CeCILL-B. Third-party components retain their own licences.
 
-WebFront 0.8.0: [migration and remaining work](docs/WEBFRONT-0.8.md).
+WebFront 0.9.0: [migration and adoption (French)](docs/WEBFRONT-0.9.md).

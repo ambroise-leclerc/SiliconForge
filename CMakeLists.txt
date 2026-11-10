@@ -41,7 +41,7 @@ if(SILICONFORGE_BUILD_APP)
     CPMAddPackage(
         NAME WebFront
         GITHUB_REPOSITORY ambroise-leclerc/WebFront
-        GIT_TAG 15f54631715309fb2848b72344c6829d3206d3a9) # v0.8.0
+        GIT_TAG e2d93348abd73c24cb26338843c572ce210d49f1) # v0.9.0
     add_subdirectory(apps/siliconforge)
 endif()
 

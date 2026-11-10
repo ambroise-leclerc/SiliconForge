@@ -76,7 +76,17 @@ if(SILICONFORGE_BUILD_APP)
             SPECS ui/led.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
         webfront_add_jasmine_test(NAME UI-LedRealtime TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/led-realtime.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime APPEND PROPERTY LABELS ui)
+        # Files chosen in the window: the spec reads its firmware and MCU description from a generated script. The
+        # committed prebuilt firmware is used so that the fixtures exist at configure time.
+        file(READ ${PROJECT_SOURCE_DIR}/mcus/atmega328p.json _ui_mcu_fixture)
+        file(READ ${PROJECT_SOURCE_DIR}/firmware/prebuilt/blink.hex _ui_hex_fixture)
+        string(REPLACE "\r" "" _ui_hex_fixture "${_ui_hex_fixture}")
+        string(REPLACE "\n" "\\n" _ui_hex_fixture "${_ui_hex_fixture}")
+        file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js
+            "window.sfFixtures = {mcu: ${_ui_mcu_fixture}, hex: \"${_ui_hex_fixture}\"};\n")
+        webfront_add_jasmine_test(NAME UI-Files TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js ui/files.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files APPEND PROPERTY LABELS ui)
     else()
         message(STATUS "Native UI tests skipped: they need Linux and WebFront's WebKitGTK frontend")
     endif()
