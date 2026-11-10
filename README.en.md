@@ -107,3 +107,5 @@ ctest --test-dir build --output-on-failure
 
 SiliconForge is dual-licensed under **Apache-2.0 OR CECILL-B**, at your option. [LICENSE](LICENSE) contains the full
 texts, including the French and English versions of CeCILL-B. Third-party components retain their own licences.
+
+WebFront 0.8.0: [migration and remaining work](docs/WEBFRONT-0.8.md).
