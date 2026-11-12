@@ -43,15 +43,29 @@ struct TestUI {
 struct TestApp {
     using UI = TestUI;
     std::function<void(UI)> started;
-    std::function<std::string(std::string)> select;
+    std::function<void(std::string)> select;
+    std::function<void(std::string)> loadMcu;
+    std::function<void(std::string, std::vector<std::uint8_t>)> loadFirmware;
+    std::function<std::vector<std::string>()> mcus;
+    std::function<std::string()> chip;
     std::function<void()> reset;
     template <typename F>
     void cppFunction(std::string_view name, F f) {
-        if constexpr (std::is_invocable_r_v<std::string, F, std::string>) {
+        if constexpr (std::is_invocable_v<F, std::string>) {
             if (name == "sf.selectMcu")
                 select = std::move(f);
-        }
-        if constexpr (std::is_invocable_r_v<void, F>) {
+            else if (name == "sf.loadMcu")
+                loadMcu = std::move(f);
+        } else if constexpr (std::is_invocable_v<F, std::string, std::vector<std::uint8_t>>) {
+            if (name == "sf.loadFirmware")
+                loadFirmware = std::move(f);
+        } else if constexpr (std::is_invocable_r_v<std::vector<std::string>, F>) {
+            if (name == "sf.mcus")
+                mcus = std::move(f);
+        } else if constexpr (std::is_invocable_r_v<std::string, F>) {
+            if (name == "sf.chip")
+                chip = std::move(f);
+        } else if constexpr (std::is_invocable_r_v<void, F>) {
             if (name == "sf.reset")
                 reset = std::move(f);
         }
@@ -156,8 +170,9 @@ TEST_CASE("A reset drops the edges counted before it, even when no frame noticed
 
 TEST_CASE("Serial preserves every byte and sequences crossing a frame boundary", "[app][bridge]") {
     auto device = mcu::create("atmega328p");
-    // Split C3 A9 across the 16 KiB boundary. Neither byte may be decoded or replaced.
-    std::string bytes(16 * 1024 - 1, 'x');
+    // Split C3 A9 across the per-frame boundary. Neither byte may be decoded or replaced.
+    constexpr auto frameLimit = app::WebBridge<TestApp>::maxSerialPerFrame;
+    std::string bytes(frameLimit - 1, 'x');
     bytes += "\xc3\xa9";
     std::string escaped = "\"";
     for (unsigned byte = 0; byte <= 255; ++byte) {
@@ -176,7 +191,7 @@ TEST_CASE("Serial preserves every byte and sequences crossing a frame boundary",
     REQUIRE(values.size() >= 2);
     const auto first = nlohmann::json::parse(values[0])["serial"].get<std::string>();
     const auto second = nlohmann::json::parse(values[1])["serial"].get<std::string>();
-    CHECK(first == std::string(16 * 1024 - 1, 'x') + "\xc3\x83");  // U+00C3
+    CHECK(first == std::string(frameLimit - 1, 'x') + "\xc3\x83");  // U+00C3
     CHECK(second == "\xc2\xa9" + nlohmann::json::parse(escaped).get<std::string>());  // U+00A9 then all 256 bytes.
     CHECK(values[1].find("\\u00b0") != std::string::npos);  // Latin-1 degree sign is retained.
 }
@@ -196,4 +211,63 @@ TEST_CASE("A failed MCU initializer preserves the current simulation", "[app][si
         CHECK(mcu.cycles() == previousCycles);
         CHECK(reason == previousStop);
     });
+}
+
+namespace {
+/// Calls `action`, which must reject with a BridgeError, and returns it.
+template <typename Action>
+webfront::BridgeError rejection(Action&& action) {
+    try {
+        action();
+    } catch (const webfront::BridgeError& error) {
+        return error;
+    }
+    FAIL("no BridgeError was thrown");
+    throw std::logic_error{"unreachable"};
+}
+}  // namespace
+
+TEST_CASE("sf.mcus returns the catalog as a list", "[app][bridge]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+    const auto names = web.mcus();
+    CHECK(std::ranges::find(names, std::string{"atmega328p"}) != names.end());
+}
+
+TEST_CASE("MCU and firmware loading errors carry a typed code", "[app][bridge]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+
+    const auto unknown = rejection([&] { web.select("no-such-mcu"); });
+    CHECK(unknown.code() == app::error_code::unknownMcu);
+    CHECK(std::string{unknown.what()} == "Unknown MCU: no-such-mcu");
+
+    auto broken = mcu::builtinDescription("atmega328p");
+    broken["clockHz"] = "fast";
+    const auto invalidMcu = rejection([&] { web.loadMcu(broken.dump()); });
+    CHECK(invalidMcu.code() == app::error_code::invalidMcu);
+    CHECK(std::string{invalidMcu.what()}.contains("clockHz"));  // The JSON path leads the message.
+
+    const std::string badHex = ":10000000ZZ\n";
+    const auto invalidFirmware = rejection([&] { web.loadFirmware("bad.hex", {badHex.begin(), badHex.end()}); });
+    CHECK(invalidFirmware.code() == app::error_code::invalidFirmware);
+    CHECK(std::string{invalidFirmware.what()}.contains("(line 1)"));
+
+    // A rejected load leaves the simulation as it was.
+    CHECK(simulation.access([](Mcu& mcu) { return std::string{mcu.name()}; }) == "ATmega328P");
+}
+
+TEST_CASE("A description and a chip larger than 64 KiB cross the bridge functions", "[app][bridge]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+    auto description = mcu::builtinDescription("atmega328p");
+    const std::string name(100 * 1024, 'n');
+    description["name"] = name;
+    REQUIRE_NOTHROW(web.loadMcu(description.dump()));
+    const auto chip = web.chip();
+    CHECK(chip.size() > 64 * 1024);
+    CHECK(chip.contains(name));
 }

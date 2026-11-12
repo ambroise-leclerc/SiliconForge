@@ -24,6 +24,14 @@
 
 namespace siliconforge::app {
 
+/// Codes of the errors that `sf.*` functions reject their Promise with (`error.code` in the browser).
+namespace error_code {
+inline constexpr std::string_view unknownMcu       = "siliconforge.unknownMcu";        ///< sf.selectMcu: not in the catalog.
+inline constexpr std::string_view invalidMcu       = "siliconforge.invalidMcu";        ///< sf.loadMcu: message is "<JSON path>: <reason>".
+inline constexpr std::string_view invalidFirmware  = "siliconforge.invalidFirmware";   ///< sf.loadFirmware: unparsable image, message ends with "(line N)" when known.
+inline constexpr std::string_view firmwareRejected = "siliconforge.firmwareRejected";  ///< sf.loadFirmware: the MCU refused the image.
+}  // namespace error_code
+
 /// Connects a Simulation to the browsers of a WebFront application.
 ///
 /// The browser calls `sf.*` C++ functions to control the MCU; the bridge pushes the MCU state to every connected
@@ -62,6 +70,9 @@ public:
             pusher.join();
         simulation.shutdown();  // The pin observers refer to this bridge: no instruction may run after it is gone.
     }
+
+    /// Serial bytes sent in one frame; the rest follows in the next ones.
+    static constexpr std::size_t maxSerialPerFrame = 64 * 1024;
 
 private:
     /// High time of one pin over the current frame.
@@ -160,21 +171,20 @@ private:
             std::vector<std::string> names;
             for (auto name : mcu::available())
                 names.emplace_back(name);
-            return nlohmann::json(names).dump();
+            return names;
         });
-        app.cppFunction("sf.selectMcu", [this](std::string name) -> std::string {
+        // The three functions below reject with a webfront::BridgeError (see error_code) and return nothing on success.
+        app.cppFunction("sf.selectMcu", [this](std::string name) {
             auto device = mcu::create(name);
             if (!device)
-                return "Unknown MCU: " + name;
+                throw webfront::BridgeError{std::string{error_code::unknownMcu}, "Unknown MCU: " + name};
             replace(std::move(device), catalogId(name));
-            return {};
         });
-        app.cppFunction("sf.loadMcu", [this](std::string text) -> std::string {
+        app.cppFunction("sf.loadMcu", [this](std::string text) {
             auto device = mcu::loadJson(text);
             if (!device)
-                return device.error().path + ": " + device.error().message;
+                throw webfront::BridgeError{std::string{error_code::invalidMcu}, device.error().path + ": " + device.error().message};
             replace(std::move(*device));
-            return {};
         });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
@@ -208,12 +218,13 @@ private:
                 return pin != nullptr;
             });
         });
-        // Firmware sent by the browser (Intel HEX or ELF content). Returns an error message, empty on success.
-        app.cppFunction("sf.loadFirmware", [this](std::string name, std::vector<std::uint8_t> bytes) -> std::string {
+        // Firmware sent by the browser (Intel HEX or ELF content). Rejects with a BridgeError when it cannot be loaded.
+        app.cppFunction("sf.loadFirmware", [this](std::string name, std::vector<std::uint8_t> bytes) {
             const auto isElf = bytes.size() >= 4 && bytes[0] == 0x7F && bytes[1] == 'E' && bytes[2] == 'L' && bytes[3] == 'F';
             auto image = isElf ? parseElf(bytes) : parseIntelHex(std::string_view{reinterpret_cast<const char*>(bytes.data()), bytes.size()});
             if (!image)
-                return image.error().line ? std::format("{} (line {})", image.error().message, image.error().line) : image.error().message;
+                throw webfront::BridgeError{std::string{error_code::invalidFirmware},
+                                            image.error().line ? std::format("{} (line {})", image.error().message, image.error().line) : image.error().message};
             simulation.pause();
             try {
                 simulation.access([&](Mcu& mcu) {
@@ -223,9 +234,8 @@ private:
                     resetSerialOffsetsLocked();
                 });
             } catch (const std::exception& e) {
-                return e.what();
+                throw webfront::BridgeError{std::string{error_code::firmwareRejected}, e.what()};
             }
-            return {};
         });
         app.cppFunction("sf.addBreakpoint", [this](double address) {
             simulation.access([&](Mcu& mcu) { mcu.debugger().addBreakpoint(static_cast<Address>(address)); });
@@ -300,8 +310,8 @@ private:
             if (client.ui.pendingWrites() > 4)  // A slow browser skips frames instead of accumulating them.
                 continue;
             auto offset = client.serialOffset > serialOutput.size() ? 0 : client.serialOffset;
-            // Strings crossing the bridge are limited to 64 KiB: a large burst is sent over several frames.
-            const auto chunk = std::string_view{serialOutput}.substr(offset, 16 * 1024);
+            // A frame carries at most maxSerialPerFrame bytes of serial output, so that a large burst does not delay the pins.
+            const auto chunk = std::string_view{serialOutput}.substr(offset, maxSerialPerFrame);
             // Serial is a byte stream: map each byte to U+00XX, preserving the legacy browser contract.
             // This also preserves bytes when a UTF-8 sequence straddles two chunks.
             std::string text;

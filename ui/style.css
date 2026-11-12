@@ -218,3 +218,6 @@ button.small { padding: 1px 8px; font-size: 12px; float: right; }
 .po-io[data-state="2"] .po-level { fill: #ffffff; stroke-dasharray: 2 1.5; }
 .po-io[data-output="true"] rect { stroke: #1a1a1a; stroke-width: 1.8; }
 .po-io[data-forced="high"] rect, .po-io[data-forced="low"] rect { stroke: #2f6fd8; stroke-width: 2.2; }
+
+#mcu-error, #firmware-error { color: var(--error); font-size: 0.85em; max-width: 28em; overflow-wrap: anywhere; }
+#mcu-error[hidden], #firmware-error[hidden] { display: none; }

@@ -111,7 +111,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Firmwares de démonstration](firmware/README.md)
 - [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
-- [WebFront 0.7 : possibilités et intégrations restantes](docs/WEBFRONT-0.7.md)
+- [WebFront 0.9 : migration, adoption et décisions](docs/WEBFRONT-0.9.md) (bilans précédents : [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Orientations du projet](docs/adr)
 
 ## Licence
@@ -120,4 +120,4 @@ SiliconForge est proposé sous double licence **Apache-2.0 OR CECILL-B**, au cho
 contient les textes complets, dont les versions française et anglaise de CeCILL-B. Les composants tiers conservent
 leurs propres licences.
 
-WebFront 0.8.0 : [migration et travaux restants](docs/WEBFRONT-0.8.md).
+WebFront 0.9.0 : [migration et adoption](docs/WEBFRONT-0.9.md).

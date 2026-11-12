@@ -67,7 +67,9 @@ see [the format and import guide](MCU-DESCRIPTIONS.md).
   (real time or a multiple) or as fast as possible. Other threads access the MCU through `Simulation::access()`.
 - `WebBridge` registers the `sf.*` C++ functions called by the page, and pushes the state about 30 times per second
   with `siliconForge.onState(json)`. Each pin carries the fraction of the frame it spent high: a PWM-driven LED is
-  shown with its average brightness.
+  shown with its average brightness. `sf.selectMcu`, `sf.loadMcu` and `sf.loadFirmware` reject their Promise with a
+  `webfront::BridgeError` whose `code` is one of the `siliconforge.*` codes of `WebBridge.hpp`; strings crossing the
+  bridge have no 64 KiB limit since WebFront 0.9, and a frame only caps the serial bytes it carries.
 - `main.cpp` shows the interface in a native window (`webfront::frontend::NativeWebViewFrontend`: WebKitGTK, WebView2
   or WKWebView) when WebFront found the platform's engine at configuration time, and falls back to the system browser
   when it was not built or no graphical session is available. The application code is the same for both: `WebBridge`

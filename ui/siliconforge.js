@@ -34,15 +34,10 @@
       for (const waiter of [...waiters]) waiter();
     },
     chip: async () => JSON.parse(await call("sf.chip")),
-    mcus: async () => JSON.parse(await call("sf.mcus")),
-    loadMcu: async (text) => {
-      const error = await call("sf.loadMcu", text);
-      if (error) throw new Error(error);
-    },
-    selectMcu: async (name) => {
-      const error = await call("sf.selectMcu", name);
-      if (error) throw new Error(error);
-    },
+    mcus: () => call("sf.mcus"),
+    // loadMcu, selectMcu and load reject with an Error whose `code` is one of the siliconforge.* codes of WebBridge.hpp.
+    loadMcu: (text) => call("sf.loadMcu", text),
+    selectMcu: (name) => call("sf.selectMcu", name),
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -61,8 +56,7 @@
     /** Voltage last applied to an analog input from this page (0 if none). */
     voltage: (name) => voltages.get(api.pin(name)?.name ?? name) ?? 0,
     load: async (name, bytes) => {
-      const error = await call("sf.loadFirmware", name, bytes);
-      if (error) throw new Error(error);
+      await call("sf.loadFirmware", name, bytes);
       serial = "";
       $("serial-output").textContent = "";
     },
@@ -244,6 +238,11 @@
     $("mcu-error").textContent = error?.message ?? "";
   }
 
+  function showFirmwareError(error) {
+    $("firmware-error").hidden = !error;
+    $("firmware-error").textContent = error?.message ?? "";
+  }
+
   function selectView(name) {
     for (const element of document.querySelectorAll("[data-view]")) {
       const selected = element.dataset.view === name;
@@ -359,9 +358,10 @@
       if (!file) return;
       try {
         await api.load(file.name, new Uint8Array(await file.arrayBuffer()));
+        showFirmwareError(null);
         await api.run();
       } catch (error) {
-        alert(`Cannot load ${file.name}: ${error.message}`);
+        showFirmwareError(new Error(`Cannot load ${file.name}: ${error.message}`));
       }
       event.target.value = "";
     });
