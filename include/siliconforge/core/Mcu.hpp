@@ -33,6 +33,11 @@ public:
     [[nodiscard]] virtual std::string_view architecture() const noexcept = 0;
     [[nodiscard]] virtual u64              clockHz() const noexcept      = 0;
 
+    /// Supply voltage, in volts: the level of a high output and the full scale of the analog inputs.
+    [[nodiscard]] virtual double supplyVolts() const noexcept {
+        return 5.0;
+    }
+
     /// Board view metadata serialized as JSON, from the loaded chip description.
     [[nodiscard]] virtual std::string_view chipJson() const noexcept {
         return "null";

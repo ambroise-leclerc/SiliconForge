@@ -26,7 +26,7 @@ SiliconForge is organised in layers that only depend on the layers below them.
   cycle: they schedule their next observable change (compare match, end of a serial frame, end of an ADC conversion)
   and bring their state up to date lazily when firmware reads a register. See [ADR 0002](adr/0002-modele-temporel.md).
 - **`Pin`** is shared between the MCU (output driver, pull-up) and the outside world (external level or analog
-  voltage). Observers receive the cycle of every change, which is how the bench measures periods and duty cycles.
+  voltage, applied by the interface, a test or a circuit). Observers receive the cycle of every change, which is how the bench measures periods and duty cycles.
 - **`SerialPort`** is the host side of a UART: bytes sent by the host are received at the configured baud rate,
   bytes transmitted by the MCU are kept and notified.
 - **`Debugger`**: breakpoints (program addresses), watchpoints (data addresses), thread-safe stop requests.
@@ -68,8 +68,14 @@ component types from `components/<type>/component.json` and circuits from `circu
 its JSON Schema and then checked for consistency (known types and terminals, footprints, holes used once, property
 bounds). `circuit::Library::builtin()` holds the embedded types and `circuits/arduino-demo.json` is the embedded
 demonstration circuit. Errors carry a JSON Pointer, like the MCU loader, through the shared `DescriptionError`.
-See [the format guide](CIRCUITS.md). The electrical model and the bench access come with #19; until the interface
-renders circuits (#20), the breadboard view still draws the `breadboard` section of the MCU description.
+See [the format guide](CIRCUITS.md).
+
+`circuit::Circuit` resolves the circuit in C++, so that the bench sees what the user sees: holes, wires and pressed
+buttons form nets; rails and MCU outputs fix their voltage; a potentiometer divides it; an LED in series with
+resistors gets `I = (V+ - V- - Vf) / R`; opposed sources are reported as a short circuit. It subscribes to the pins
+of the attached `Mcu`, resolves again on each change and applies the net voltages to the inputs. `Bench::attach`,
+`component(id)`, `press(id)` and `release(id)` expose it to tests. Until the interface renders circuits (#20), the
+breadboard view still draws the `breadboard` section of the MCU description.
 
 ## Application and interface
 
@@ -105,5 +111,6 @@ could deadlock.
 | Instruction | `tests/unit/AvrInstructionTests.cpp` | Results, flags and cycles of each instruction family, encoded with `tests/support/AvrAssembler.hpp` |
 | Peripheral | `tests/unit/*Tests.cpp` | GPIO, Timer0 modes, USART timing, EEPROM, ADC, interrupts, sleep |
 | Descriptions | `tests/unit/DescriptionTests.cpp`, `tests/unit/CircuitDescriptionTests.cpp` | Committed MCU, component and circuit files are valid; each consistency rule reports its JSON Pointer |
+| Circuit | `tests/unit/CircuitModelTests.cpp`, `tests/integration/CircuitFirmwareTests.cpp` | Nets, LED current, divider, button, pulls, short circuits; real firmware seen through the components of the demonstration circuit |
 | Firmware | `tests/integration/FirmwareTests.cpp` | Real avr-gcc binaries checked through the bench (1 Hz blink, echo, ISR, PWM) |
 | Interface | `tests/ui/` | Jasmine specs driving the page and the firmware through `window.siliconForge` |

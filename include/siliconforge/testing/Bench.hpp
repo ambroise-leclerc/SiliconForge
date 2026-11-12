@@ -1,5 +1,6 @@
 #pragma once
 
+#include <siliconforge/circuit/Circuit.hpp>
 #include <siliconforge/core/Mcu.hpp>
 #include <siliconforge/core/loader/ProgramImage.hpp>
 
@@ -31,6 +32,12 @@ struct Transition {
 ///     bench.load("blink.hex");
 ///     REQUIRE(bench.waitForSerial("ready\n", 100ms));
 ///     REQUIRE(bench.period("D13") == Approx(1.0s));
+///
+/// With a circuit attached (link SiliconForge::circuit), the bench sees the components the user sees:
+///
+///     bench.attach(circuit::Circuit::builtin("arduino-demo"));
+///     CHECK(bench.component("led-d13").brightness() == 1.0);
+///     bench.press("button-d2");
 class Bench {
 public:
     explicit Bench(std::unique_ptr<Mcu> device) : device(std::move(device)) {
@@ -136,8 +143,39 @@ public:
         return static_cast<double>(high) / static_cast<double>(std::prev(last)->at - first->at);
     }
 
+    // Circuit -------------------------------------------------------------------------------------------------------
+
+    /// Plugs the MCU in a circuit: its outputs drive the components, its inputs read the nets.
+    void attach(circuit::Circuit circuit) {
+        if (board)
+            throw std::logic_error("The bench already has a circuit");
+        if (auto attached = circuit.attach(*device); !attached)
+            throw std::runtime_error(std::format("{}: {} ({})", circuit.name(), attached.error().message, attached.error().path));
+        board = std::move(circuit);
+    }
+
+    void attach(const std::filesystem::path& description) {
+        auto loaded = circuit::Circuit::load(description);
+        if (!loaded)
+            throw std::runtime_error(std::format("{}: {} ({})", description.string(), loaded.error().message, loaded.error().path));
+        attach(std::move(*loaded));
+    }
+
+    [[nodiscard]] circuit::Circuit& circuit() {
+        if (!board)
+            throw std::logic_error("The bench has no circuit: call attach() first");
+        return *board;
+    }
+
+    /// A component of the attached circuit, by its id ("led-d13").
+    [[nodiscard]] circuit::Component component(std::string_view id) { return circuit().component(id); }
+
+    void press(std::string_view id) { component(id).press(); }
+    void release(std::string_view id) { component(id).release(); }
+
 private:
     std::unique_ptr<Mcu>                          device;
+    std::optional<circuit::Circuit>               board;
     std::map<std::string, std::vector<Transition>, std::less<>> history;
 };
 

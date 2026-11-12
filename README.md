@@ -93,7 +93,8 @@ Vous pouvez exécuter un firmware sans affichage, accélérer le temps simulé e
 
 Le [banc de test C++](include/siliconforge/testing/Bench.hpp) permet d’envoyer des données, de modifier des entrées
 et de vérifier les réponses ou la période d’un signal de façon reproductible. Les [tests de firmwares](tests/integration/FirmwareTests.cpp)
-fournissent des exemples. Pour exécuter les tests du projet :
+fournissent des exemples. Il voit aussi le [circuit](docs/CIRCUITS.md) : luminosité d’une LED, appui sur un bouton,
+position d’un potentiomètre ([exemples](tests/integration/CircuitFirmwareTests.cpp)). Pour exécuter les tests du projet :
 
 ```bash
 ctest --test-dir build --output-on-failure
