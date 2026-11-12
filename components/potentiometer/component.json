@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "type": "potentiometer",
+  "name": "Potentiometer",
+  "description": "Three-legged trimmer: the wiper divides the voltage between its two ends.",
+  "terminals": [{"name": "a"}, {"name": "wiper"}, {"name": "b"}],
+  "properties": {
+    "resistance": {"type": "number", "unit": "Ω", "default": 10000, "minimum": 1, "maximum": 100000000}
+  },
+  "footprint": {"kind": "fixed", "offsets": {"a": [0, 0], "wiper": [1, 0], "b": [2, 0]}},
+  "model": {"elements": [{"type": "potentiometer", "between": ["a", "wiper", "b"]}]},
+  "state": {
+    "position": {
+      "type": "number", "minimum": 0, "maximum": 1, "default": 0, "interactive": true,
+      "description": "0: the wiper is at terminal a; 1: at terminal b."
+    }
+  }
+}

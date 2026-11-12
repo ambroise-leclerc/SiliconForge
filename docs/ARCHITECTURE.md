@@ -61,6 +61,16 @@ see [the format and import guide](MCU-DESCRIPTIONS.md).
 2. A new architecture: `arch/<family>/` with its core and peripherals, then a chip in `mcu/`. Nothing changes in
    `core/`, the application, the bench or the interface, which only see `Mcu`.
 
+## circuit: components and circuits
+
+`SiliconForge::circuit` loads what is plugged around the chip ([ADR 0005](adr/0005-composants-et-circuits.md)):
+component types from `components/<type>/component.json` and circuits from `circuits/<name>.json`, each validated by
+its JSON Schema and then checked for consistency (known types and terminals, footprints, holes used once, property
+bounds). `circuit::Library::builtin()` holds the embedded types and `circuits/arduino-demo.json` is the embedded
+demonstration circuit. Errors carry a JSON Pointer, like the MCU loader, through the shared `DescriptionError`.
+See [the format guide](CIRCUITS.md). The electrical model and the bench access come with #19; until the interface
+renders circuits (#20), the breadboard view still draws the `breadboard` section of the MCU description.
+
 ## Application and interface
 
 - `Simulation` runs the MCU on its own thread, by slices of one simulated millisecond, paced against the wall clock
@@ -94,5 +104,6 @@ could deadlock.
 | --- | --- | --- |
 | Instruction | `tests/unit/AvrInstructionTests.cpp` | Results, flags and cycles of each instruction family, encoded with `tests/support/AvrAssembler.hpp` |
 | Peripheral | `tests/unit/*Tests.cpp` | GPIO, Timer0 modes, USART timing, EEPROM, ADC, interrupts, sleep |
+| Descriptions | `tests/unit/DescriptionTests.cpp`, `tests/unit/CircuitDescriptionTests.cpp` | Committed MCU, component and circuit files are valid; each consistency rule reports its JSON Pointer |
 | Firmware | `tests/integration/FirmwareTests.cpp` | Real avr-gcc binaries checked through the bench (1 Hz blink, echo, ISR, PWM) |
 | Interface | `tests/ui/` | Jasmine specs driving the page and the firmware through `window.siliconForge` |
