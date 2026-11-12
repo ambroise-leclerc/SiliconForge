@@ -22,6 +22,7 @@ add_executable(siliconforge_tests
     support/PublicHeaders.cpp
     unit/DescriptionTests.cpp
     unit/CircuitDescriptionTests.cpp
+    unit/CircuitModelTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp
     unit/AvrInstructionTests.cpp
@@ -30,7 +31,8 @@ add_executable(siliconforge_tests
     unit/Timer0Tests.cpp
     unit/UsartTests.cpp
     unit/EepromAdcTests.cpp
-    integration/FirmwareTests.cpp)
+    integration/FirmwareTests.cpp
+    integration/CircuitFirmwareTests.cpp)
 target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge::circuit SiliconForge_options Catch2::Catch2WithMain)
 target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_MCU_DIR="${PROJECT_SOURCE_DIR}/mcus" SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}" SILICONFORGE_FIRMWARE_DIR="${SILICONFORGE_FIRMWARE_DIR}")
 if(SILICONFORGE_FIRMWARE_FROM_SOURCE)

@@ -74,7 +74,8 @@ target_include_directories(SiliconForge_mcu PRIVATE "${CMAKE_CURRENT_BINARY_DIR}
 
 # Components and circuits described in JSON, checked against the component library.
 add_library(SiliconForge_circuit STATIC
-    circuit/Description.cpp)
+    circuit/Description.cpp
+    circuit/Circuit.cpp)
 add_library(SiliconForge::circuit ALIAS SiliconForge_circuit)
 target_link_libraries(SiliconForge_circuit PUBLIC SiliconForge::core nlohmann_json::nlohmann_json PRIVATE SiliconForge_options nlohmann_json_schema_validator)
 target_include_directories(SiliconForge_circuit PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated" "${CMAKE_CURRENT_SOURCE_DIR}")

@@ -89,7 +89,8 @@ You can run firmware headlessly, accelerate simulated time and collect its seria
 
 The [C++ test bench](include/siliconforge/testing/Bench.hpp) lets you send data, change inputs and check replies
 or signal periods reproducibly. The [firmware tests](tests/integration/FirmwareTests.cpp) provide examples.
-Run the project’s tests with:
+It also sees the [circuit](docs/CIRCUITS.md): brightness of an LED, a pressed button, the position of a
+potentiometer ([examples](tests/integration/CircuitFirmwareTests.cpp)). Run the project’s tests with:
 
 ```bash
 ctest --test-dir build --output-on-failure
