@@ -1,0 +1,25 @@
+#pragma once
+#include <cstddef>
+#include <string_view>
+namespace siliconforge::circuit::embedded {
+template <std::size_t N>
+std::string_view view(const unsigned char (&bytes)[N]) {
+    return {reinterpret_cast<const char*>(bytes), N};
+}
+inline constexpr unsigned char componentSchemaBytes[] = {
+@SILICONFORGE_COMPONENT_SCHEMA_BYTES@
+};
+inline constexpr unsigned char circuitSchemaBytes[] = {
+@SILICONFORGE_CIRCUIT_SCHEMA_BYTES@
+};
+inline constexpr unsigned char arduinoDemoBytes[] = {
+@SILICONFORGE_ARDUINO_DEMO_BYTES@
+};
+@SILICONFORGE_COMPONENT_ARRAYS@
+inline const std::string_view componentSchema = view(componentSchemaBytes);
+inline const std::string_view circuitSchema   = view(circuitSchemaBytes);
+inline const std::string_view arduinoDemo     = view(arduinoDemoBytes);
+/// Every components/<type>/component.json of the source tree.
+inline const std::string_view components[] = {
+@SILICONFORGE_COMPONENT_VIEWS@};
+}

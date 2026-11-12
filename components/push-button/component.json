@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "type": "push-button",
+  "name": "Push button",
+  "description": "Momentary switch: connects its two terminals while pressed.",
+  "terminals": [{"name": "a"}, {"name": "b"}],
+  "properties": {},
+  "footprint": {"kind": "span", "minimum": 2, "maximum": 2},
+  "model": {"elements": [{"type": "switch", "between": ["a", "b"]}]},
+  "state": {
+    "pressed": {"type": "boolean", "default": false, "interactive": true}
+  }
+}

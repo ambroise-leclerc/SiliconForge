@@ -1,0 +1,20 @@
+{
+  "formatVersion": 1,
+  "type": "led",
+  "name": "LED",
+  "description": "5 mm light-emitting diode. Lit when the current flows from the anode to the cathode.",
+  "terminals": [{"name": "anode"}, {"name": "cathode"}],
+  "properties": {
+    "color": {"type": "string", "default": "red", "enum": ["red", "green", "yellow", "blue"]},
+    "forwardVoltage": {"type": "number", "unit": "V", "default": 1.8, "minimum": 0.5, "maximum": 5.0},
+    "nominalCurrent": {
+      "type": "number", "unit": "A", "default": 0.01, "minimum": 0.0001, "maximum": 1.0,
+      "description": "Current at which the LED is rendered at full brightness."
+    }
+  },
+  "footprint": {"kind": "fixed", "offsets": {"anode": [0, 0], "cathode": [1, 0]}},
+  "model": {"elements": [{"type": "led", "between": ["anode", "cathode"]}]},
+  "state": {
+    "brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0}
+  }
+}

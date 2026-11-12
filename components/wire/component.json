@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "type": "wire",
+  "name": "Jumper wire",
+  "description": "Ideal connection between two holes. Circuits list their wires in \"wires\".",
+  "terminals": [{"name": "from"}, {"name": "to"}],
+  "properties": {
+    "color": {"type": "string", "default": "red"}
+  },
+  "footprint": {"kind": "free"},
+  "model": {"elements": [{"type": "wire", "between": ["from", "to"]}]},
+  "state": {}
+}

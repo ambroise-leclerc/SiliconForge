@@ -110,6 +110,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 
 - [Firmwares de démonstration](firmware/README.md)
 - [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
+- [Format des composants et des circuits](docs/CIRCUITS.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
 - [WebFront 0.9 : migration, adoption et décisions](docs/WEBFRONT-0.9.md) (bilans précédents : [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Orientations du projet](docs/adr)
