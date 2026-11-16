@@ -1,6 +1,8 @@
 #include "../../apps/siliconforge/WebBridge.hpp"
+#include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <siliconforge/arch/avr/Device.hpp>
+#include <siliconforge/circuit/Description.hpp>
 #include <siliconforge/mcu/Description.hpp>
 
 #include <algorithm>
@@ -49,6 +51,14 @@ struct TestApp {
     std::function<std::vector<std::string>()> mcus;
     std::function<std::string()> chip;
     std::function<void()> reset;
+    using Signals = std::tuple<double, double, double, double, std::vector<double>, std::vector<std::uint16_t>, std::vector<float>, std::vector<std::uint8_t>>;
+    std::function<void(std::string)> selectCircuit;
+    std::function<void(std::string)> loadExample;
+    std::function<void(std::string, std::string)> loadCircuit;
+    std::function<void(std::string, std::string, double)> setComponent;
+    std::function<Signals(double, double)> signals;
+    std::function<std::vector<std::string>()> circuits;
+    std::function<std::string()> circuit;
     template <typename F>
     void cppFunction(std::string_view name, F f) {
         if constexpr (std::is_invocable_v<F, std::string>) {
@@ -56,15 +66,32 @@ struct TestApp {
                 select = std::move(f);
             else if (name == "sf.loadMcu")
                 loadMcu = std::move(f);
+            else if (name == "sf.selectCircuit")
+                selectCircuit = std::move(f);
+            else if (name == "sf.loadExample")
+                loadExample = std::move(f);
         } else if constexpr (std::is_invocable_v<F, std::string, std::vector<std::uint8_t>>) {
             if (name == "sf.loadFirmware")
                 loadFirmware = std::move(f);
+        } else if constexpr (std::is_invocable_v<F, std::string, std::string, double>) {
+            if (name == "sf.component.set")
+                setComponent = std::move(f);
+        } else if constexpr (std::is_invocable_v<F, std::string, std::string>) {
+            if (name == "sf.loadCircuit")
+                loadCircuit = std::move(f);
+        } else if constexpr (std::is_invocable_r_v<Signals, F, double, double>) {
+            if (name == "sf.signals")
+                signals = std::move(f);
         } else if constexpr (std::is_invocable_r_v<std::vector<std::string>, F>) {
             if (name == "sf.mcus")
                 mcus = std::move(f);
+            else if (name == "sf.circuits")
+                circuits = std::move(f);
         } else if constexpr (std::is_invocable_r_v<std::string, F>) {
             if (name == "sf.chip")
                 chip = std::move(f);
+            else if (name == "sf.circuit")
+                circuit = std::move(f);
         } else if constexpr (std::is_invocable_r_v<void, F>) {
             if (name == "sf.reset")
                 reset = std::move(f);
@@ -270,4 +297,117 @@ TEST_CASE("A description and a chip larger than 64 KiB cross the bridge function
     const auto chip = web.chip();
     CHECK(chip.size() > 64 * 1024);
     CHECK(chip.contains(name));
+}
+
+TEST_CASE("The bridge plugs the chip in a circuit and pushes the state of its components", "[app][bridge][circuit]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, "", "atmega328p", circuit::builtinDescription("arduino-demo"), "arduino-demo"};
+    const auto view = nlohmann::json::parse(web.circuit());
+    CHECK(view.at("id") == "arduino-demo");
+    CHECK(view.at("components").size() == 7);
+    const auto builtin = web.circuits();
+    CHECK(std::ranges::find(builtin, std::string{"seven-segment"}) != builtin.end());
+
+    auto frames = std::make_shared<Frames>();
+    web.started(TestUI{frames});
+    REQUIRE(frames->waitFor(1).size() >= 1);
+    auto state = nlohmann::json::parse(frames->waitFor(1).front());
+    CHECK(state.at("components").at("led-d13").at("brightness") == 0.0);
+    CHECK(state.at("components").at("button-d2").at("pressed") == false);
+    CHECK(state.at("shorts").empty());
+    const auto revision = state.at("circuitRevision").get<unsigned>();
+
+    SECTION("an interaction goes through the electrical model") {
+        web.setComponent("button-d2", "pressed", 1);
+        CHECK(simulation.access([](Mcu& mcu) { return mcu.pin("D2")->state(); }) == PinState::Low);
+        web.setComponent("pot-a0", "position", 0.5);
+        CHECK(simulation.access([](Mcu& mcu) { return mcu.pin("A0")->voltage(5.0); }) == Catch::Approx(2.5).margin(1e-3));
+
+        CHECK(rejection([&] { web.setComponent("no-such-part", "pressed", 1); }).code() == app::error_code::unknownComponent);
+        CHECK(rejection([&] { web.setComponent("button-d2", "depth", 1); }).code() == app::error_code::unknownComponent);
+        CHECK(rejection([&] { web.setComponent("led-d13", "brightness", 1); }).code() == app::error_code::invalidValue);
+        const auto bounds = rejection([&] { web.setComponent("pot-a0", "position", 2); });
+        CHECK(bounds.code() == app::error_code::invalidValue);
+        CHECK(std::string{bounds.what()}.contains("out of bounds"));
+    }
+    SECTION("another circuit is selected, or loaded from its text") {
+        web.selectCircuit("led-buttons");
+        CHECK(nlohmann::json::parse(web.circuit()).at("id") == "led-buttons");
+        auto mine    = circuit::builtinDescription("led-buttons");
+        mine["name"] = "Mine";
+        web.loadCircuit("mine.json", mine.dump());
+        CHECK(nlohmann::json::parse(web.circuit()).at("name") == "Mine");
+        const auto count = frames->waitFor(0).size();
+        state            = nlohmann::json::parse(frames->waitFor(count + 2).back());
+        CHECK(state.at("circuitRevision").get<unsigned>() > revision);
+        CHECK(state.at("components").contains("led-d9"));
+    }
+    SECTION("an invalid circuit is refused with its JSON path and the current one stays") {
+        auto broken = circuit::builtinDescription("led-buttons");
+        broken["components"][1]["properties"]["resistance"] = -5;
+        const auto invalid = rejection([&] { web.loadCircuit("broken.json", broken.dump()); });
+        CHECK(invalid.code() == app::error_code::invalidCircuit);
+        CHECK(std::string{invalid.what()}.starts_with("/components/1/properties/resistance: "));
+        CHECK(rejection([&] { web.loadCircuit("text.json", "{"); }).code() == app::error_code::invalidCircuit);
+        CHECK(rejection([&] { web.selectCircuit("no-such-circuit"); }).code() == app::error_code::unknownCircuit);
+        auto elsewhere             = circuit::builtinDescription("led-buttons");
+        elsewhere["chip"]["mcu"]   = "no-such-mcu";
+        const auto unknownMcu = rejection([&] { web.loadCircuit("elsewhere.json", elsewhere.dump()); });
+        CHECK(std::string{unknownMcu.what()}.starts_with("/chip/mcu: "));
+        CHECK(nlohmann::json::parse(web.circuit()).at("id") == "arduino-demo");
+    }
+    SECTION("a chip the circuit was not made for gets a bare board") {
+        auto other    = mcu::builtinDescription("atmega328p");
+        other["name"] = "Another chip";
+        web.loadMcu(other.dump());
+        CHECK(web.circuit() == "null");
+        web.select("atmega328p");
+        CHECK(nlohmann::json::parse(web.circuit()).at("id") == "arduino-demo");
+    }
+}
+
+TEST_CASE("An example loads its circuit and its firmware, and the capture restarts with it", "[app][bridge][instruments]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+    CHECK(web.circuit() == "null");
+    CHECK(rejection([&] { web.loadExample("no-such-example"); }).code() == app::error_code::unknownExample);
+
+    const auto before = std::get<0>(web.signals(-1, 0));
+    web.loadExample("blink");
+    simulation.pause();
+    CHECK(nlohmann::json::parse(web.circuit()).at("id") == "arduino-demo");
+
+    // 1.6 simulated seconds of blink: D13 rises at once, falls after 0.5 s, rises after 1 s, falls after 1.5 s.
+    simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1600}) - mcu.cycles()); });
+    const auto [epoch, first, next, now, at, channel, volts, state] = web.signals(-1, 0);
+    CHECK(epoch > before);
+    CHECK(first == 0);
+    CHECK(next == static_cast<double>(at.size()));
+    CHECK(now >= 1.6 * 16e6);
+    const auto d13 = simulation.access([](Mcu& mcu) { return static_cast<std::uint16_t>(mcu.pin("D13") - mcu.pins().data()); });
+    std::vector<double> rises, falls;
+    for (std::size_t i = 0; i < at.size(); ++i)
+        if (channel[i] == d13 && at[i] > 0)
+            (state[i] == 1 ? rises : falls).push_back(at[i]);
+    REQUIRE(rises.size() == 2);
+    REQUIRE(falls.size() == 2);
+    CHECK(falls[0] - rises[0] == Catch::Approx(8e6).epsilon(0.001));  // Half a second, in cycles
+    CHECK(rises[1] - rises[0] == Catch::Approx(16e6).epsilon(0.001));
+    for (std::size_t i = 0; i < at.size(); ++i)
+        if (channel[i] == d13)
+            CHECK(volts[i] == (state[i] == 1 ? 5.0f : 0.0f));
+
+    SECTION("a reader that is up to date gets nothing, and a stale epoch starts again") {
+        CHECK(std::get<4>(web.signals(epoch, next)).empty());
+        CHECK(std::get<4>(web.signals(epoch - 1, next)).size() == at.size());
+    }
+    SECTION("a reset restarts the capture") {
+        web.reset();
+        const auto restarted = web.signals(epoch, next);
+        CHECK(std::get<0>(restarted) == epoch + 1);
+        CHECK(std::get<3>(restarted) == 0);
+        CHECK(std::get<4>(restarted).size() == simulation.access([](Mcu& mcu) { return mcu.pins().size(); }));  // One starting point per pin
+    }
 }

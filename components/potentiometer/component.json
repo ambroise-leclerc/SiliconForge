@@ -13,6 +13,7 @@
     "position": {
       "type": "number", "minimum": 0, "maximum": 1, "default": 0, "interactive": true,
       "description": "0: the wiper is at terminal a; 1: at terminal b."
-    }
+    },
+    "voltage": {"type": "number", "default": 0, "description": "Voltage of the wiper, in volts."}
   }
 }

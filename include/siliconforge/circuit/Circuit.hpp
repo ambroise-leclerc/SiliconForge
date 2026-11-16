@@ -1,0 +1,91 @@
+#pragma once
+
+#include <nlohmann/json.hpp>
+#include <siliconforge/circuit/Description.hpp>
+#include <siliconforge/core/Mcu.hpp>
+
+#include <expected>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+#include <vector>
+
+namespace siliconforge::circuit {
+
+/// Why Circuit::set refused a value.
+enum class SetError { UnknownComponent, UnknownState, NotInteractive, OutOfRange };
+
+/// Electrical model of a circuit on a breadboard (ADR 0005): the same circuit for the interface and for the tests.
+///
+/// The holes and the wires make nets. Power rails, MCU outputs and probes (force) are ideal voltage sources; resistors,
+/// potentiometers, LEDs (a threshold and a small series resistance) and the pull-ups of the MCU inputs link the nets.
+/// The node voltages are solved each time a source or a component changes, and each solution is remembered, so a PWM
+/// output that alternates between two states costs two solves, not one per edge. The model is resistive and logical,
+/// not a SPICE simulation.
+///
+/// The circuit reads the outputs of the MCU and applies to its inputs the voltage of their net. Call update() whenever
+/// a pin drive changes (Pin::subscribeDrive) and after every change made from outside (set, force).
+class Circuit {
+public:
+    /// Builds the model of a description, which is validated first. The error carries the JSON Pointer of the fault.
+    [[nodiscard]] static std::expected<std::unique_ptr<Circuit>, LoadError> create(nlohmann::json description,
+                                                                                   const Library& library = Library::builtin());
+    ~Circuit();
+    Circuit(const Circuit&)            = delete;
+    Circuit& operator=(const Circuit&) = delete;
+
+    /// Plugs the chip of `mcu` at `chip.column`: its package pins are connected to their holes. The MCU must outlive
+    /// the circuit or be detached. Fails ("/chip/column") when the package does not fit on the board.
+    std::expected<void, LoadError> attach(Mcu& mcu);
+    /// Releases the inputs the circuit was driving and forgets the MCU.
+    void detach();
+
+    /// Solves the circuit for the current pin drives and applies the result to the MCU inputs.
+    void update();
+    /// The MCU was reset: its clock restarted, so the averages start again from now.
+    void restart();
+
+    [[nodiscard]] const nlohmann::json& description() const noexcept { return source; }
+    [[nodiscard]] double                supplyVoltage() const noexcept { return supply; }
+    [[nodiscard]] std::vector<std::string> componentIds() const;
+    [[nodiscard]] bool                     has(std::string_view id) const noexcept;
+
+    /// Present value of a state entry of a component ("brightness", "pressed", "position", "a.brightness"...);
+    /// booleans read 0 or 1. nullopt for an unknown component or entry.
+    [[nodiscard]] std::optional<double> state(std::string_view id, std::string_view name) const;
+    /// Changes an interactive state entry (a button press, a potentiometer position) and solves the circuit again.
+    std::expected<void, SetError> set(std::string_view id, std::string_view name, double value);
+
+    /// A probe applies `volts` to the net of an MCU pin, like an ideal source; nullopt removes it. Returns false for a
+    /// pin that is not on the board.
+    bool force(std::string_view pin, std::optional<double> volts);
+    /// Applies a voltage the way a user would: by turning the potentiometer whose wiper feeds this pin when there is
+    /// one between the rails, otherwise with a probe.
+    bool drive(std::string_view pin, double volts);
+    [[nodiscard]] std::optional<double> forced(std::string_view pin) const;
+
+    /// Voltage of the net of a hole ("e6", "T+3"), for tests and diagnostics.
+    [[nodiscard]] std::optional<double> voltageAt(std::string_view hole) const;
+    /// Nets where two sources impose different voltages, described for a human.
+    [[nodiscard]] const std::vector<std::string>& shorts() const noexcept { return shortCircuits; }
+
+    /// What the interface draws: the description with the properties of every component resolved, the MCU pin each
+    /// component is wired to, and the descriptions of the types in use.
+    [[nodiscard]] nlohmann::json view() const;
+    /// The state of every component since the previous call: time averages for what the MCU modulates (the brightness
+    /// of a PWM-driven LED), present values for the rest.
+    [[nodiscard]] nlohmann::json frame();
+
+private:
+    Circuit() = default;
+    struct Model;
+    std::unique_ptr<Model>   model;
+    nlohmann::json           source;
+    double                   supply{5.0};
+    std::vector<std::string> shortCircuits;
+};
+
+}  // namespace siliconforge::circuit

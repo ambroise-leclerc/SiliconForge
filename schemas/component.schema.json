@@ -83,6 +83,10 @@
             "properties": {
               "type": {"enum": ["wire", "resistor", "led", "switch", "potentiometer"]},
               "name": {"$ref": "#/definitions/identifier"},
+              "swapWhen": {
+                "description": "A led only: name of a boolean property that, when true, reverses the anode and the cathode.",
+                "$ref": "#/definitions/identifier"
+              },
               "between": {
                 "type": "array",
                 "items": {"$ref": "#/definitions/identifier"},

@@ -3,59 +3,87 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
   <title>SiliconForge</title>
   <link rel="stylesheet" href="style.css">
   <script src="WebFront.js"></script>
   <script src="breadboard.js" defer></script>
   <script src="pinout.js" defer></script>
+  <script src="instruments.js" defer></script>
   <script src="siliconforge.js" defer></script>
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand"><span class="logo">◆</span> SiliconForge</div>
-    <div class="chip" id="chip">—</div>
-    <div class="firmware" id="firmware" title="Firmware">no firmware</div>
+  <header class="appbar">
+    <div class="brand" title="SiliconForge">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M7 3v3M12 3v3M17 3v3M7 18v3M12 18v3M17 18v3M3 8h3M3 12h3M3 16h3M18 8h3M18 12h3M18 16h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+        <rect x="6" y="6" width="12" height="12" rx="2.2" fill="currentColor"/>
+        <path d="M10.2 14.6l1.2-5.2 2.4 3.1 1.1-1.4" fill="none" stroke="var(--panel)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>SiliconForge</span>
+    </div>
+    <div class="target">
+      <span class="chip" id="chip" title="Microcontroller and clock">—</span>
+      <span class="firmware" id="firmware" title="Firmware">no firmware</span>
+    </div>
+    <div class="transport" role="group" aria-label="Simulation controls">
+      <button id="run" class="primary" title="Run / pause (Space)">Run</button>
+      <button id="step" title="Execute one instruction (S)">Step</button>
+      <button id="reset" title="Reset the MCU (R)">Reset</button>
+      <label class="field" title="Emulation speed">
+        <span class="visually-hidden">Speed</span>
+        <select id="speed" aria-label="Speed">
+          <option value="0.1">×0.1</option>
+          <option value="0.5">×0.5</option>
+          <option value="1" selected>×1 real time</option>
+          <option value="2">×2</option>
+          <option value="10">×10</option>
+          <option value="0">max</option>
+        </select>
+      </label>
+    </div>
+    <div class="clock" aria-label="Simulated time">
+      <span id="time">0.000000 s</span>
+      <span id="cycles" class="muted">0 cycles</span>
+      <span id="rate" class="muted"></span>
+    </div>
     <div class="status" id="status" data-state="paused">connecting…</div>
+    <button id="theme" class="icon" title="Light / dark theme" aria-label="Light / dark theme">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9c0-.5 0-.9-.1-1.4A7 7 0 0 1 12.4 3.1z" fill="currentColor"/></svg>
+    </button>
   </header>
 
-  <nav class="toolbar" aria-label="Simulation controls">
-    <button id="run" class="primary" title="Run / pause (Space)">Run</button>
-    <button id="step" title="Execute one instruction (S)">Step</button>
-    <button id="reset" title="Reset the MCU (R)">Reset</button>
-    <label class="field">Speed
-      <select id="speed">
-        <option value="0.1">×0.1</option>
-        <option value="0.5">×0.5</option>
-        <option value="1" selected>×1 (real time)</option>
-        <option value="2">×2</option>
-        <option value="10">×10</option>
-        <option value="0">max</option>
-      </select>
+  <nav class="toolbar" aria-label="Project">
+    <label class="field">Example
+      <select id="example-select" aria-label="Example" title="A ready-made firmware with its circuit"></select>
     </label>
+    <span class="separator" aria-hidden="true"></span>
     <label class="button" title="Load an Intel HEX or ELF firmware">Load firmware…
       <input type="file" id="firmware-file" accept=".hex,.ihx,.elf" hidden>
+    </label>
+    <label class="field">Circuit <select id="circuit-select" aria-label="Circuit"></select></label>
+    <label class="button" title="Load a JSON circuit description">Load circuit…
+      <input type="file" id="circuit-file" accept=".json,application/json" hidden>
     </label>
     <label class="field">MCU <select id="mcu-select" aria-label="Microcontroller"></select></label>
     <label class="button" title="Load a JSON MCU description (clears the firmware)">Load MCU…
       <input type="file" id="mcu-file" accept=".json,application/json" hidden>
     </label>
-    <span id="mcu-error" role="alert" hidden></span>
-    <span id="firmware-error" role="alert" hidden></span>
-    <div class="clock">
-      <span id="time">0.000000 s</span>
-      <span id="cycles" class="muted">0 cycles</span>
-      <span id="rate" class="muted"></span>
-    </div>
+    <span id="mcu-error" class="error" role="alert" hidden></span>
+    <span id="firmware-error" class="error" role="alert" hidden></span>
+    <span id="circuit-error" class="error" role="alert" hidden></span>
   </nav>
+  <div id="shorts" class="banner" role="alert" hidden></div>
 
   <main class="workspace">
     <section class="panel board" aria-label="Board">
-      <h2 class="board-header">
+      <h2 class="panel-header">
         <span class="tabs" role="tablist">
           <button role="tab" id="tab-breadboard" aria-controls="breadboard" aria-selected="false" data-view="breadboard">Breadboard</button>
           <button role="tab" id="tab-pinout" aria-controls="pinout" aria-selected="false" data-view="pinout">Pinout</button>
           <button role="tab" id="tab-pins" aria-controls="view-pins" aria-selected="false" data-view="pins">Pins</button>
         </span>
+        <span class="circuit-name muted" id="circuit-name"></span>
         <span class="leds">
           <span class="led" id="led-l"><span class="lamp"></span>L <small>D13</small></span>
           <span class="led tx" id="led-tx"><span class="lamp"></span>TX</span>
@@ -63,7 +91,7 @@
         </span>
       </h2>
       <div class="view" data-view="breadboard" id="breadboard" role="tabpanel" aria-labelledby="tab-breadboard">
-        <p class="hint">Press the button (D2), turn the potentiometer (A0), click a chip pin to drive it.</p>
+        <p class="hint">Press the buttons, turn the potentiometer, click a chip pin to drive it.</p>
       </div>
       <div class="view" data-view="pinout" id="pinout" role="tabpanel" aria-labelledby="tab-pinout">
         <p class="hint">Click a port to drive it: released → high → low → released. Live levels in the dots.</p>
@@ -77,28 +105,71 @@
       </div>
     </section>
 
-    <section class="panel serial" aria-label="Serial monitor">
-      <h2>Serial monitor <span class="muted">USART0</span>
-        <button id="serial-clear" class="small">Clear</button></h2>
-      <pre id="serial-output" tabindex="0"></pre>
-      <form id="serial-form" class="serial-input">
-        <input id="serial-text" autocomplete="off" placeholder="Send to the MCU…">
-        <select id="serial-eol" title="Line ending">
-          <option value="">No line ending</option>
-          <option value="\n" selected>LF</option>
-          <option value="\r">CR</option>
-          <option value="\r\n">CR LF</option>
-        </select>
-        <button type="submit">Send</button>
-      </form>
+    <section class="panel instruments" id="instruments" aria-label="Instruments">
+      <h2 class="panel-header">
+        <span class="tabs" role="tablist">
+          <button role="tab" data-mode="logic" aria-selected="true" title="Digital lanes, one per pin">Logic analyser</button>
+          <button role="tab" data-mode="scope" aria-selected="false" title="Voltages">Oscilloscope</button>
+        </span>
+        <span class="group">
+          <button class="small" data-action="zoom-out" title="Zoom out (wheel)" aria-label="Zoom out">−</button>
+          <output class="readout" data-readout="timebase" title="Time per division">—</output>
+          <button class="small" data-action="zoom-in" title="Zoom in (wheel)" aria-label="Zoom in">+</button>
+          <button class="small toggle" data-action="live" title="Follow the capture, or hold the display to look back (drag to pan)">Live</button>
+        </span>
+        <span class="group">
+          <select data-select="trigger" aria-label="Trigger source" title="Freeze the display on an edge of this pin"></select>
+          <select data-select="edge" aria-label="Trigger edge">
+            <option value="rising">↑ rising</option>
+            <option value="falling">↓ falling</option>
+          </select>
+          <button class="small toggle" data-action="single" title="Stop on the next trigger">Single</button>
+        </span>
+        <span class="group">
+          <select data-select="uart" aria-label="UART decoder" title="Decode serial frames (8N1) on this pin"></select>
+          <select data-select="baud" aria-label="Baud rate"></select>
+        </span>
+        <span class="group end">
+          <details class="channels">
+            <summary class="button small">Channels</summary>
+            <div class="popover" data-list="channels"></div>
+          </details>
+          <button class="small" data-action="export" title="Save the capture as a VCD file (GTKWave, PulseView, Surfer)">Export VCD</button>
+        </span>
+      </h2>
+      <div class="scope"><canvas aria-label="Captured signals" role="img"></canvas></div>
+      <p class="hint">
+        <output data-readout="cursors"></output>
+        <button class="link" data-action="clear-cursors">clear</button>
+        <output class="warning" data-readout="capture"></output>
+        <span class="end">Edges are time-stamped in clock cycles: wheel to zoom, drag to look back.</span>
+      </p>
     </section>
 
-    <section class="panel cpu" aria-label="CPU">
-      <h2>CPU <span class="muted" id="arch"></span></h2>
-      <div class="special" id="special"></div>
-      <div class="flags" id="flags"></div>
-      <div class="registers" id="registers"></div>
-    </section>
+    <aside class="side">
+      <section class="panel serial" aria-label="Serial monitor">
+        <h2 class="panel-header">Serial monitor <span class="muted">USART0</span>
+          <button id="serial-clear" class="small end">Clear</button></h2>
+        <pre id="serial-output" tabindex="0"></pre>
+        <form id="serial-form" class="serial-input">
+          <input id="serial-text" autocomplete="off" placeholder="Send to the MCU…" aria-label="Text to send">
+          <select id="serial-eol" title="Line ending" aria-label="Line ending">
+            <option value="">No line ending</option>
+            <option value="\n" selected>LF</option>
+            <option value="\r">CR</option>
+            <option value="\r\n">CR LF</option>
+          </select>
+          <button type="submit">Send</button>
+        </form>
+      </section>
+
+      <section class="panel cpu" aria-label="CPU">
+        <h2 class="panel-header">CPU <span class="muted" id="arch"></span></h2>
+        <div class="special" id="special"></div>
+        <div class="flags" id="flags"></div>
+        <div class="registers" id="registers"></div>
+      </section>
+    </aside>
   </main>
 </body>
 </html>

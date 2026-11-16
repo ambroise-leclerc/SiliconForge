@@ -1,0 +1,22 @@
+#pragma once
+#include <cstddef>
+#include <string_view>
+#include <utility>
+#include <vector>
+namespace siliconforge::app::embedded {
+template <std::size_t N>
+std::string_view view(const unsigned char (&bytes)[N]) {
+    return {reinterpret_cast<const char*>(bytes), N};
+}
+@SILICONFORGE_FIRMWARE_ARRAYS@
+/// Every firmware/prebuilt/<name>.hex of the source tree, by file name.
+inline const std::vector<std::pair<std::string_view, std::string_view>> firmwares = {
+@SILICONFORGE_FIRMWARE_VIEWS@};
+/// The Intel HEX text of an example firmware ("blink.hex"), empty when it is unknown.
+inline std::string_view firmware(std::string_view name) {
+    for (const auto& [file, text] : firmwares)
+        if (file == name)
+            return text;
+    return {};
+}
+}

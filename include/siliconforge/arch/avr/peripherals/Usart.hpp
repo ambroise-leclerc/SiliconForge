@@ -8,6 +8,7 @@
 
 #include <deque>
 #include <optional>
+#include <vector>
 
 namespace siliconforge::avr {
 
@@ -49,6 +50,8 @@ private:
     void receptionComplete(Cycles now);
     void updateInterrupts();
     void updatePins();
+    /// Draws the frame being shifted out on the TXD pin, so that a logic analyser sees the real waveform.
+    void driveFrame(Cycles now);
 
     DataSpace&           data;
     Scheduler&           scheduler;
@@ -67,6 +70,7 @@ private:
     std::deque<u8>     rxFifo;
     Scheduler::EventId txEvent{0};
     Scheduler::EventId rxEvent{0};
+    std::vector<Scheduler::EventId> txEdges;
 };
 
 }  // namespace siliconforge::avr

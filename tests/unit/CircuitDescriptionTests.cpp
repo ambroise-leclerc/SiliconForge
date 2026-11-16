@@ -82,7 +82,7 @@ TEST_CASE("Every committed component description is valid and built in", "[circu
     }
     std::ranges::sort(types);
     CHECK(types == circuit::Library::builtin().types());
-    for (const auto* type : {"led", "resistor", "potentiometer", "push-button", "crystal", "wire"})
+    for (const auto* type : {"led", "resistor", "potentiometer", "push-button", "crystal", "wire", "seven-segment"})
         CHECK(circuit::Library::builtin().find(type));
 }
 
@@ -92,58 +92,6 @@ TEST_CASE("circuits/arduino-demo.json is valid and is the built-in demonstration
         FAIL(loaded.error().path << ": " << loaded.error().message);
     CHECK(*loaded == demo());
     CHECK(loaded->at("chip").at("mcu") == "atmega328p");
-}
-
-TEST_CASE("The demonstration circuit matches the breadboard still drawn from the MCU description", "[circuit][schema]") {
-    // Until the interface renders circuits (#20), ui/breadboard.js draws the "breadboard" section of the MCU.
-    const auto board   = mcu::builtinDescription("atmega328p").at("breadboard");
-    const auto circuit = demo();
-    CHECK(circuit.at("board").at("columns") == board.at("columns"));
-    CHECK(circuit.at("chip").at("column") == board.at("chipColumn"));
-
-    const auto placed = [&](std::string_view type, const Json& holes) {
-        return std::ranges::any_of(circuit.at("components"), [&](const Json& candidate) {
-            return candidate.at("type") == type && candidate.at("at") == holes;
-        });
-    };
-    std::size_t wires = 0;
-    for (const auto& drawn : board.at("components")) {
-        INFO(drawn.dump());
-        const std::string type = drawn.at("type");
-        if (type == "wire") {
-            ++wires;
-            CHECK(std::ranges::any_of(circuit.at("wires"), [&](const Json& wire) {
-                return wire.at("from") == drawn.at("from") && wire.at("to") == drawn.at("to") && wire.at("color") == drawn.at("color");
-            }));
-        } else if (type == "led") {
-            const auto found = std::ranges::find_if(circuit.at("components"), [&](const Json& candidate) {
-                return candidate.at("type") == "led"
-                       && candidate.at("at")
-                              == Json{
-                                  {  "anode",   drawn.at("anode")},
-                                  {"cathode", drawn.at("cathode")}
-                };
-            });
-            REQUIRE(found != circuit.at("components").end());
-            CHECK(found->at("properties").at("color") == drawn.at("color"));
-            CHECK(found->at("view").at("offset") == drawn.at("offset"));
-        } else if (type == "potentiometer") {
-            CHECK(placed("potentiometer",
-                         Json{
-                             {    "a", drawn.at("legs")[0]},
-                             {"wiper", drawn.at("legs")[1]},
-                             {    "b", drawn.at("legs")[2]}
-            }));
-        } else {
-            CHECK(placed(type == "button" ? "push-button" : type,
-                         Json{
-                             {"a", drawn.at("from")},
-                             {"b",   drawn.at("to")}
-            }));
-        }
-    }
-    CHECK(circuit.at("wires").size() == wires);
-    CHECK(circuit.at("components").size() == board.at("components").size() - wires);
 }
 
 TEST_CASE("Holes are parsed on terminal strips and power rails", "[circuit]") {

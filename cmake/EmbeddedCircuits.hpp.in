@@ -1,6 +1,8 @@
 #pragma once
 #include <cstddef>
 #include <string_view>
+#include <utility>
+#include <vector>
 namespace siliconforge::circuit::embedded {
 template <std::size_t N>
 std::string_view view(const unsigned char (&bytes)[N]) {
@@ -12,13 +14,15 @@ inline constexpr unsigned char componentSchemaBytes[] = {
 inline constexpr unsigned char circuitSchemaBytes[] = {
 @SILICONFORGE_CIRCUIT_SCHEMA_BYTES@
 };
-inline constexpr unsigned char arduinoDemoBytes[] = {
-@SILICONFORGE_ARDUINO_DEMO_BYTES@
-};
-@SILICONFORGE_COMPONENT_ARRAYS@
+@SILICONFORGE_CIRCUIT_ARRAYS@@SILICONFORGE_COMPONENT_ARRAYS@
 inline const std::string_view componentSchema = view(componentSchemaBytes);
 inline const std::string_view circuitSchema   = view(circuitSchemaBytes);
-inline const std::string_view arduinoDemo     = view(arduinoDemoBytes);
+/// Every circuits/<name>.json of the source tree, by name.
+inline const std::vector<std::pair<std::string_view, std::string_view>> circuits = {
+@SILICONFORGE_CIRCUIT_VIEWS@};
+/// Every components/<type>/render.js of the source tree, by type.
+inline const std::vector<std::pair<std::string_view, std::string_view>> renderers = {
+@SILICONFORGE_RENDERER_VIEWS@};
 /// Every components/<type>/component.json of the source tree.
 inline const std::string_view components[] = {
 @SILICONFORGE_COMPONENT_VIEWS@};

@@ -15,6 +15,7 @@
   "footprint": {"kind": "fixed", "offsets": {"anode": [0, 0], "cathode": [1, 0]}},
   "model": {"elements": [{"type": "led", "between": ["anode", "cathode"]}]},
   "state": {
-    "brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0}
+    "brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "current": {"type": "number", "minimum": 0, "default": 0, "description": "Current through the LED, in amperes."}
   }
 }

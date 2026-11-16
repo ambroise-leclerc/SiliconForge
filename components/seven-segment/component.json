@@ -1,0 +1,52 @@
+{
+  "formatVersion": 1,
+  "type": "seven-segment",
+  "name": "7-segment display",
+  "description": "One-digit display: eight LEDs (segments a to g and the decimal point) sharing their cathodes, or their anodes with commonAnode. Straddles the central channel like a chip.",
+  "terminals": [
+    {"name": "g"}, {"name": "f"}, {"name": "com1"}, {"name": "a"}, {"name": "b"},
+    {"name": "e"}, {"name": "d"}, {"name": "com2"}, {"name": "c"}, {"name": "dp"}
+  ],
+  "properties": {
+    "color": {"type": "string", "default": "red", "enum": ["red", "green", "yellow", "blue"]},
+    "forwardVoltage": {"type": "number", "unit": "V", "default": 2.0, "minimum": 0.5, "maximum": 5.0},
+    "nominalCurrent": {
+      "type": "number", "unit": "A", "default": 0.01, "minimum": 0.0001, "maximum": 1.0,
+      "description": "Current at which a segment is rendered at full brightness."
+    },
+    "commonAnode": {
+      "type": "boolean", "default": false,
+      "description": "The common terminals are the anodes: a segment lights when its terminal is pulled low."
+    }
+  },
+  "footprint": {
+    "kind": "fixed",
+    "offsets": {
+      "g": [0, 0], "f": [1, 0], "com1": [2, 0], "a": [3, 0], "b": [4, 0],
+      "e": [0, 1], "d": [1, 1], "com2": [2, 1], "c": [3, 1], "dp": [4, 1]
+    }
+  },
+  "model": {
+    "elements": [
+      {"type": "wire", "name": "common", "between": ["com1", "com2"]},
+      {"type": "led", "name": "a", "between": ["a", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "b", "between": ["b", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "c", "between": ["c", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "d", "between": ["d", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "e", "between": ["e", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "f", "between": ["f", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "g", "between": ["g", "com1"], "swapWhen": "commonAnode"},
+      {"type": "led", "name": "dp", "between": ["dp", "com1"], "swapWhen": "commonAnode"}
+    ]
+  },
+  "state": {
+    "a.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "b.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "c.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "d.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "e.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "f.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "g.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},
+    "dp.brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0}
+  }
+}

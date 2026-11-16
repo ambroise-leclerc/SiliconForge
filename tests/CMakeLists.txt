@@ -22,6 +22,8 @@ add_executable(siliconforge_tests
     support/PublicHeaders.cpp
     unit/DescriptionTests.cpp
     unit/CircuitDescriptionTests.cpp
+    unit/CircuitModelTests.cpp
+    unit/SignalRecorderTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp
     unit/AvrInstructionTests.cpp
@@ -56,7 +58,7 @@ if(SILICONFORGE_BUILD_APP)
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -P ${CMAKE_CURRENT_SOURCE_DIR}/CliHelpTests.cmake)
     set_tests_properties(CliHelpRejectsInvalidOptions PROPERTIES TIMEOUT 15 LABELS fast)
     add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp)
-    target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::mcu SiliconForge_options WebFront::WebFront Catch2::Catch2WithMain)
+    target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options Catch2::Catch2WithMain)
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
 
     get_target_property(_ui_webfront_definitions WebFront::WebFront INTERFACE_COMPILE_DEFINITIONS)
@@ -67,8 +69,7 @@ if(SILICONFORGE_BUILD_APP)
         if(SILICONFORGE_FIRMWARE_FROM_SOURCE)
             add_dependencies(siliconforge_ui_test firmware)
         endif()
-        target_link_libraries(siliconforge_ui_test PRIVATE SiliconForge::mcu SiliconForge_options WebFront::WebFront)
-        target_compile_definitions(siliconforge_ui_test PRIVATE SILICONFORGE_UI_DIR="${PROJECT_SOURCE_DIR}/ui")
+        target_link_libraries(siliconforge_ui_test PRIVATE SiliconForge::app SiliconForge_options)
         webfront_add_jasmine_test(NAME UI-Uart TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/board.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/uart_echo.hex)
         webfront_add_jasmine_test(NAME UI-Blink TARGET siliconforge_ui_test FRONTEND WebKitGTK
@@ -83,11 +84,23 @@ if(SILICONFORGE_BUILD_APP)
         file(READ ${PROJECT_SOURCE_DIR}/firmware/prebuilt/blink.hex _ui_hex_fixture)
         string(REPLACE "\r" "" _ui_hex_fixture "${_ui_hex_fixture}")
         string(REPLACE "\n" "\\n" _ui_hex_fixture "${_ui_hex_fixture}")
+        file(READ ${PROJECT_SOURCE_DIR}/circuits/led-buttons.json _ui_circuit_fixture)
+        file(READ ${PROJECT_SOURCE_DIR}/circuits/arduino-demo.json _ui_demo_fixture)
         file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js
-            "window.sfFixtures = {mcu: ${_ui_mcu_fixture}, hex: \"${_ui_hex_fixture}\"};\n")
+            "window.sfFixtures = {mcu: ${_ui_mcu_fixture}, hex: \"${_ui_hex_fixture}\", circuit: ${_ui_circuit_fixture}, demo: ${_ui_demo_fixture}};\n")
         webfront_add_jasmine_test(NAME UI-Files TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js ui/files.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files APPEND PROPERTY LABELS ui)
+        # The instruments on the demonstration circuit, then the circuits themselves: the 7-segment counter given on the
+        # command line, the circuits chosen and loaded from the page. Both use the firmware embedded in the application.
+        webfront_add_jasmine_test(NAME UI-Instruments TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/instruments.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/demo.hex)
+        webfront_add_jasmine_test(NAME UI-Circuits TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js ui/circuits.spec.js
+            ARGS --port 0 --circuit seven-segment ${SILICONFORGE_FIRMWARE_DIR}/counter.hex)
+        # Screenshots of the real window for the documentation, each backed by an assertion.
+        webfront_add_jasmine_test(NAME UI-Tour TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/tour.spec.js ARGS --port 0)
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Tour APPEND PROPERTY LABELS ui)
     else()
         message(STATUS "Native UI tests skipped: they need Linux and WebFront's WebKitGTK frontend")
     endif()

@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "name": "7-segment counter",
+  "description": "An ATmega328P driving a common-cathode 7-segment display: segments a to f on D2 to D7, g on D8, the decimal point on D9, each through 220 Ω.",
+  "board": {"type": "breadboard", "columns": 36},
+  "chip": {"mcu": "atmega328p", "column": 3},
+  "components": [
+    {"id": "xtal", "type": "crystal", "at": {"a": "b11", "b": "b12"}, "properties": {"frequency": 16000000}},
+    {
+      "id": "display", "type": "seven-segment",
+      "at": {
+        "g": "f30", "f": "f31", "com1": "f32", "a": "f33", "b": "f34",
+        "e": "e30", "d": "e31", "com2": "e32", "c": "e33", "dp": "e34"
+      },
+      "properties": {"color": "red"}
+    },
+    {"id": "r-a", "type": "resistor", "at": {"a": "h22", "b": "h33"}, "properties": {"resistance": 220}},
+    {"id": "r-b", "type": "resistor", "at": {"a": "g23", "b": "g34"}, "properties": {"resistance": 220}},
+    {"id": "r-c", "type": "resistor", "at": {"a": "c22", "b": "c33"}, "properties": {"resistance": 220}},
+    {"id": "r-d", "type": "resistor", "at": {"a": "b20", "b": "b31"}, "properties": {"resistance": 220}},
+    {"id": "r-e", "type": "resistor", "at": {"a": "a19", "b": "a30"}, "properties": {"resistance": 220}},
+    {"id": "r-f", "type": "resistor", "at": {"a": "j20", "b": "j31"}, "properties": {"resistance": 220}},
+    {"id": "r-g", "type": "resistor", "at": {"a": "i19", "b": "i30"}, "properties": {"resistance": 220}},
+    {"id": "r-dp", "type": "resistor", "at": {"a": "d23", "b": "d34"}, "properties": {"resistance": 220}}
+  ],
+  "wires": [
+    {"from": "a9", "to": "B+9", "color": "red"},
+    {"from": "a10", "to": "B-10", "color": "black"},
+    {"from": "j11", "to": "T+11", "color": "red"},
+    {"from": "j9", "to": "T-9", "color": "black"},
+    {"from": "c6", "to": "f22", "color": "orange"},
+    {"from": "c7", "to": "f23", "color": "yellow"},
+    {"from": "c8", "to": "e22", "color": "green"},
+    {"from": "c13", "to": "e20", "color": "blue"},
+    {"from": "c14", "to": "e19", "color": "white"},
+    {"from": "c15", "to": "f20", "color": "orange"},
+    {"from": "c16", "to": "f19", "color": "yellow"},
+    {"from": "g16", "to": "e23", "color": "green"},
+    {"from": "j32", "to": "T-32", "color": "black"},
+    {"from": "a32", "to": "B-32", "color": "black"}
+  ]
+}

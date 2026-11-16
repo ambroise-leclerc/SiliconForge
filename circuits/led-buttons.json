@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "name": "LED and two buttons",
+  "description": "An ATmega328P with a yellow LED on D9 and push buttons to ground on D2 and D3 (inputs with pull-ups).",
+  "board": {"type": "breadboard", "columns": 30},
+  "chip": {"mcu": "atmega328p", "column": 6},
+  "components": [
+    {"id": "xtal", "type": "crystal", "at": {"a": "d14", "b": "d15"}, "properties": {"frequency": 16000000}},
+    {"id": "r-d9", "type": "resistor", "at": {"a": "h19", "b": "h24"}, "properties": {"resistance": 220}},
+    {
+      "id": "led-d9", "type": "led", "at": {"anode": "f24", "cathode": "f25"},
+      "properties": {"color": "yellow", "forwardVoltage": 2.0}, "view": {"offset": [16, -40]}
+    },
+    {"id": "button-d2", "type": "push-button", "at": {"a": "c4", "b": "c2"}},
+    {"id": "button-d3", "type": "push-button", "at": {"a": "c23", "b": "c21"}}
+  ],
+  "wires": [
+    {"from": "b12", "to": "B+12", "color": "red"},
+    {"from": "a13", "to": "B-13", "color": "black"},
+    {"from": "i14", "to": "T+14", "color": "red"},
+    {"from": "j12", "to": "T-12", "color": "black"},
+    {"from": "j25", "to": "T-25", "color": "black"},
+    {"from": "b9", "to": "b4", "color": "yellow"},
+    {"from": "a2", "to": "B-2", "color": "black"},
+    {"from": "a10", "to": "a23", "color": "green"},
+    {"from": "a21", "to": "B-21", "color": "black"}
+  ]
+}

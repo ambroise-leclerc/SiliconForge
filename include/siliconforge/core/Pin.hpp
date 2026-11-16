@@ -46,27 +46,33 @@ public:
 
     /// MCU side: configure the output driver and the pull-up.
     void configure(bool isOutput, bool drivenLevel, bool pullUpEnabled) {
-        const auto before = state();
-        output            = isOutput;
-        driven            = drivenLevel;
-        pullUp            = pullUpEnabled;
-        notifyIfChanged(before);
+        const auto before       = state();
+        const auto driveChanged = output != isOutput || driven != drivenLevel || pullUp != pullUpEnabled;
+        output                  = isOutput;
+        driven                  = drivenLevel;
+        pullUp                  = pullUpEnabled;
+        notifyIfChanged(before, false);
+        if (driveChanged)
+            for (auto& observer : driveObservers)
+                observer(*this, clock ? *clock : 0);
     }
 
     /// Outside world side: apply a level (true/false) or release the pin (nullopt).
     void setExternal(std::optional<bool> newLevel) {
-        const auto before = state();
-        externalLevel     = newLevel;
+        const auto before        = state();
+        const auto voltageBefore = externalVoltage;
+        externalLevel            = newLevel;
         externalVoltage.reset();
-        notifyIfChanged(before);
+        notifyIfChanged(before, voltageBefore != externalVoltage);
     }
 
     /// Outside world side: apply an analog voltage. Digital inputs see it as high above half the supply voltage.
     void setVoltage(double volts, double supply) {
-        const auto before = state();
-        externalLevel     = volts > supply / 2;
-        externalVoltage   = volts;
-        notifyIfChanged(before);
+        const auto before        = state();
+        const auto voltageBefore = externalVoltage;
+        externalLevel            = volts > supply / 2;
+        externalVoltage          = volts;
+        notifyIfChanged(before, voltageBefore != externalVoltage);
     }
 
     /// Voltage seen by an analog input (ADC, comparator).
@@ -76,15 +82,29 @@ public:
         return state() == PinState::High ? supply : 0.0;
     }
 
+    /// Called when state() changes.
     void subscribe(Observer observer) { observers.push_back(std::move(observer)); }
 
+    /// Called when the MCU side changes: direction, driven level or pull-up, even when state() stays the same (an
+    /// output that becomes an input held at the same level by the outside world). Simulated circuits listen here.
+    void subscribeDrive(Observer observer) { driveObservers.push_back(std::move(observer)); }
+
+    /// Called when state() or the voltage applied from outside changes: what an oscilloscope probe would see.
+    void subscribeSignal(Observer observer) { signalObservers.push_back(std::move(observer)); }
+
 private:
-    void notifyIfChanged(PinState before) {
-        if (state() == before)
+    void notifyIfChanged(PinState before, bool voltageChanged) {
+        const auto stateChanged = state() != before;
+        if (!stateChanged && !voltageChanged)
             return;
-        changedAt = clock ? *clock : 0;
-        for (auto& observer : observers)
-            observer(*this, changedAt);
+        const auto now = clock ? *clock : 0;
+        if (stateChanged) {
+            changedAt = now;
+            for (auto& observer : observers)
+                observer(*this, changedAt);
+        }
+        for (auto& observer : signalObservers)
+            observer(*this, now);
     }
 
     std::string         pinName;
@@ -97,6 +117,8 @@ private:
     std::optional<double> externalVoltage;
     Cycles              changedAt{0};
     std::vector<Observer> observers;
+    std::vector<Observer> driveObservers;
+    std::vector<Observer> signalObservers;
 };
 
 }  // namespace siliconforge
