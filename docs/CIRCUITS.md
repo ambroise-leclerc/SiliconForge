@@ -9,10 +9,11 @@ composants de `components/` et `circuits/arduino-demo.json` sont embarqués par 
 installation ne dépend pas du répertoire source. La décision est décrite dans
 l'[ADR 0005](adr/0005-composants-et-circuits.md).
 
-> État : les descriptions sont chargées et validées (#18). Le modèle électrique (#19), le rendu par
-> type (#20) et le chargement d'un circuit par l'application (#21) suivent. En attendant, la vue
-> Breadboard dessine encore la section `breadboard` de la description du MCU ; un test vérifie
-> qu'elle place les mêmes pièces aux mêmes trous que `circuits/arduino-demo.json`.
+> État : les descriptions sont chargées et validées (#18) et le circuit est calculé en C++, visible
+> du banc de test (#19). Le rendu par type (#20) et le chargement d'un circuit par l'application
+> (#21) suivent. En attendant, la vue Breadboard dessine encore la section `breadboard` de la
+> description du MCU ; un test vérifie qu'elle place les mêmes pièces aux mêmes trous que
+> `circuits/arduino-demo.json`.
 
 ## Trous de la plaque
 
@@ -135,9 +136,55 @@ auto autre = circuit::loadDescription("circuits/alarme.json", library);
 lire de fichier ; `circuit::builtinDescription("arduino-demo")` rend le circuit de démonstration.
 Cible CMake : `SiliconForge::circuit`.
 
+## Modèle électrique
+
+`circuit::Circuit` calcule le montage en C++ : les tests voient le même circuit que l'utilisateur.
+Le modèle est logique et résistif, sans simulation SPICE.
+
+1. **Nets.** Les trous d'une bande, les rails, les fils et les boutons enfoncés forment des nets.
+   Les broches de la puce rejoignent le net de leur trou quand elle est posée (`attach`).
+2. **Sources.** Les rails `+` sont à la tension d'alimentation du MCU, les rails `−` à 0 V. Une
+   broche en sortie fixe son net à l'un ou l'autre.
+3. **Court-circuit.** Deux sources de tensions différentes sur un même net produisent un
+   `Fault::ShortCircuit` (sources, cycle), une fois par apparition, dans `circuit.faults()`.
+4. **Potentiomètre.** Entre deux nets fixés, le curseur est à `Va + position × (Vb − Va)`.
+5. **LED.** En série avec des résistances entre deux nets de tension connue :
+   `I = (V₊ − V₋ − ΣVf) / ΣR`, et `brightness = I / nominalCurrent`, bornée à 1. Une LED à l'envers
+   reste éteinte. `meanBrightness()` moyenne la luminosité sur le temps simulé écoulé depuis
+   l'appel précédent : c'est ce que l'œil voit d'une PWM.
+6. **Tirages.** Un net sans source relié par des résistances à des nets connus prend la tension
+   du diviseur qu'elles forment (résistance de rappel).
+7. **Entrées du MCU.** Chaque broche reçoit la tension de son net (`Pin::setVoltage`), ou est
+   relâchée si rien ne le fixe ; le pull-up interne joue alors son rôle.
+
+Limites assumées : les mailles et les LED en parallèle sur une même résistance ne sont pas
+résolues (ces LED restent éteintes) ; un net où une LED est branchée n'a pas de tension de tirage ;
+le pull-up interne n'alimente rien ; une LED sans résistance est à pleine luminosité sans défaut
+signalé. Le circuit n'est recalculé qu'aux changements de broche : avec `demo.hex` (PWM à 7,8 kHz),
+l'émulation à vitesse maximale est ralentie d'environ 9 % ; sans circuit attaché, rien ne change.
+
+### Depuis le banc de test
+
+```cpp
+#include <siliconforge/testing/Bench.hpp>
+
+testing::Bench bench{mcu::create("atmega328p")};
+bench.attach(circuit::Circuit::builtin("arduino-demo"));   // ou bench.attach("circuits/x.json")
+bench.load("blink.hex");
+
+bench.runFor(600ms);
+CHECK(bench.component("led-d13").brightness() == 1.0);
+bench.press("button-d2");                                  // D2 passe à la masse
+bench.component("pot-a0").set("position", 0.5);            // 2,5 V sur A0
+CHECK(bench.circuit().faults().empty());
+```
+
+`Component::state("nom")` lit n'importe quelle entrée de `state` ; `set` n'accepte que les états
+interactifs. `Circuit::connected("f15", "h15")` et `Circuit::voltage("g3")` interrogent les nets.
+
 ## Ajouter un type de composant
 
 1. Créer `components/<type>/component.json` ; le nom du répertoire est le `type`.
 2. Relancer CMake : le fichier est embarqué et validé par les tests (`ctest -R component`).
-3. Si le comportement n'est pas exprimable avec les éléments ci-dessus, il faudra un nouvel
-   élément dans le modèle C++ (#19).
+3. Si le comportement n'est pas exprimable avec les éléments ci-dessus, il faut un nouvel
+   élément dans le modèle C++ (`src/circuit/Circuit.cpp`).

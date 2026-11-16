@@ -37,7 +37,7 @@ Device::Device(Json d, u64 clockOverride)
       coreConfig(config(*description)),
       deviceName(description->at("name")),
       clock(clockOverride ? clockOverride : description->at("clockHz").get<u64>()),
-      supplyVoltage(description->at("supplyVoltage")),
+      supply(description->at("supplyVoltage")),
       data(coreConfig.ioEnd, coreConfig.ramEnd),
       core(coreConfig, data, scheduler, interrupts, debug),
       eeprom(description->at("memories").at("eeprom").at("size"), 0xFF) {
@@ -222,8 +222,8 @@ void Device::makeAdc(const Json& p) {
                       state->event        = scheduler.schedule(core.cycles + duration, [=, this](Cycles) {
                           state->event         = 0;
                           const auto   channel = static_cast<unsigned>(data.raw(mux) & 15);
-                          const double volts  = channel < channels.size() ? channels[channel]->voltage(supplyVoltage) : channel == bandgap ? bandgapVolts : 0.0;
-                          const auto   result = static_cast<u16>(std::clamp(volts / supplyVoltage * 1024.0, 0.0, 1023.0));
+                          const double volts  = channel < channels.size() ? channels[channel]->voltage(supply) : channel == bandgap ? bandgapVolts : 0.0;
+                          const auto   result = static_cast<u16>(std::clamp(volts / supply * 1024.0, 0.0, 1023.0));
                           if (data.raw(mux) & 0x20) {
                               data.raw(high) = static_cast<u8>(result >> 2);
                               data.raw(low)  = static_cast<u8>(result << 6);

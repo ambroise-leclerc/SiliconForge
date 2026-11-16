@@ -44,6 +44,11 @@ dire « la LED est allumée » ni « j'appuie sur le bouton ».
   d'éléments (`wire`, `resistor`, `led`, `switch`, `potentiometer`) reliant des bornes, pour qu'un afficheur
   7 segments soit décrit par huit éléments `led` sans code nouveau.
 - Dans un circuit, un composant ne nomme pas la broche du MCU : elle se déduit des trous et des fils.
+- Le modèle électrique résout les chaînes série (résistances et LED) entre deux nets de tension connue, le
+  diviseur du potentiomètre et les résistances de rappel. Les mailles et les LED en parallèle sur une même
+  résistance ne sont pas résolues : c'est la limite acceptée de « logique et résistif ». Le recalcul n'a lieu
+  qu'aux changements de broche (environ 9 % de ralentissement à vitesse maximale avec une PWM à 7,8 kHz).
+- `Mcu::supplyVolts()` donne la tension des rails et des sorties.
 - Les bornes de bus (`role: "bus"`) et l'état binaire volumineux (`type: "bytes"`) sont acceptés par le schéma et
   n'ont pas encore de modèle.
 
