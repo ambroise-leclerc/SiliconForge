@@ -1,5 +1,5 @@
 #include "EmbeddedDescriptions.hpp"
-#include <nlohmann/json-schema.hpp>
+#include "common/JsonErrors.hpp"
 #include <siliconforge/arch/avr/Device.hpp>
 #include <siliconforge/mcu/Description.hpp>
 
@@ -10,25 +10,10 @@
 
 namespace siliconforge::mcu {
 namespace {
-using Json = nlohmann::json;
-std::string child(std::string path, std::string_view key) {
-    return (Json::json_pointer{path} / std::string(key)).to_string();
-}
-struct Errors : nlohmann::json_schema::error_handler {
-    std::optional<LoadError> first;
-    void                     error(const Json::json_pointer& pointer, const Json&, const std::string& message) override {
-        if (first)
-            return;
-        auto              path   = pointer.to_string();
-        const std::string prefix = "required property '";
-        if (message.starts_with(prefix))
-            path = child(path, message.substr(prefix.size(), message.find("'", prefix.size()) - prefix.size()));
-        first = LoadError{path, message};
-    }
-};
-void fail(std::string path, std::string message) {
-    throw LoadError{std::move(path), std::move(message)};
-}
+using detail::child;
+using detail::fail;
+using detail::Json;
+using Errors = detail::SchemaErrors;
 }  // namespace
 
 std::expected<void, LoadError> validate(const Json& d) {

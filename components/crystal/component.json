@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "type": "crystal",
+  "name": "Crystal",
+  "description": "Quartz crystal. Drawn only: the clock frequency comes from the MCU description.",
+  "terminals": [{"name": "a"}, {"name": "b"}],
+  "properties": {
+    "frequency": {"type": "number", "unit": "Hz", "default": 16000000, "minimum": 1000, "maximum": 100000000}
+  },
+  "footprint": {"kind": "span", "minimum": 1, "maximum": 2},
+  "model": {"elements": []},
+  "state": {}
+}

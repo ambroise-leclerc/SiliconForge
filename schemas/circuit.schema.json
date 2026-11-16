@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://siliconforge.dev/schemas/circuit-v1.schema.json",
+  "title": "SiliconForge circuit description v1",
+  "type": "object",
+  "required": ["formatVersion", "name", "board", "chip", "components", "wires"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": {"const": 1},
+    "name": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "board": {
+      "type": "object",
+      "required": ["type", "columns"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {"const": "breadboard"},
+        "columns": {"type": "integer", "minimum": 1, "maximum": 512}
+      }
+    },
+    "chip": {
+      "type": "object",
+      "required": ["mcu", "column"],
+      "additionalProperties": false,
+      "properties": {
+        "mcu": {"type": "string", "minLength": 1},
+        "column": {"type": "integer", "minimum": 1, "maximum": 512}
+      }
+    },
+    "components": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "at"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"$ref": "#/definitions/identifier"},
+          "type": {"$ref": "#/definitions/identifier"},
+          "at": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {"$ref": "#/definitions/hole"}
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {"type": ["number", "string", "boolean"]}
+          },
+          "view": {"type": "object"}
+        }
+      }
+    },
+    "wires": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "required": ["from", "to"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {"$ref": "#/definitions/hole"},
+          "to": {"$ref": "#/definitions/hole"},
+          "color": {"type": "string", "minLength": 1},
+          "view": {"type": "object"}
+        }
+      }
+    }
+  },
+  "definitions": {
+    "identifier": {"type": "string", "pattern": "^[a-z][a-zA-Z0-9-]*$", "maxLength": 64},
+    "hole": {
+      "description": "A terminal strip hole (row a-j, then the column: \"e6\") or a power rail hole (\"T+12\", \"B-3\").",
+      "type": "string",
+      "pattern": "^([a-j]|[TB][+-])[1-9][0-9]{0,2}$"
+    }
+  }
+}

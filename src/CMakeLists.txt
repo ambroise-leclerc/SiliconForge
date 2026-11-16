@@ -20,6 +20,30 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
 configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedDescriptions.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedDescriptions.hpp" @ONLY)
 
+# Components and circuits (ADR 0005): the schemas, every components/<type>/component.json and the demonstration circuit
+# are embedded, so that an installed binary does not depend on the source tree.
+siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/schemas/component.schema.json" SILICONFORGE_COMPONENT_SCHEMA_BYTES)
+siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/schemas/circuit.schema.json" SILICONFORGE_CIRCUIT_SCHEMA_BYTES)
+siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/circuits/arduino-demo.json" SILICONFORGE_ARDUINO_DEMO_BYTES)
+file(GLOB _component_files CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/components/*/component.json")
+list(SORT _component_files)
+set(SILICONFORGE_COMPONENT_ARRAYS "")
+set(SILICONFORGE_COMPONENT_VIEWS "")
+foreach(_component_file IN LISTS _component_files)
+    get_filename_component(_component_dir "${_component_file}" DIRECTORY)
+    get_filename_component(_component_type "${_component_dir}" NAME)
+    string(MAKE_C_IDENTIFIER "${_component_type}" _component_id)
+    siliconforge_embed_bytes("${_component_file}" _component_bytes)
+    string(APPEND SILICONFORGE_COMPONENT_ARRAYS
+        "inline constexpr unsigned char component_${_component_id}[] = {\n${_component_bytes}\n};\n")
+    string(APPEND SILICONFORGE_COMPONENT_VIEWS "    view(component_${_component_id}),\n")
+endforeach()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${PROJECT_SOURCE_DIR}/schemas/component.schema.json" "${PROJECT_SOURCE_DIR}/schemas/circuit.schema.json"
+    "${PROJECT_SOURCE_DIR}/circuits/arduino-demo.json" ${_component_files})
+configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedCircuits.hpp.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedCircuits.hpp" @ONLY)
+
 # Architecture-independent foundation: scheduler, pins, serial ports, debugger, firmware loaders.
 add_library(SiliconForge_core STATIC
     core/Loader.cpp)
@@ -46,4 +70,11 @@ add_library(SiliconForge_mcu STATIC
     mcu/Description.cpp)
 add_library(SiliconForge::mcu ALIAS SiliconForge_mcu)
 target_link_libraries(SiliconForge_mcu PUBLIC SiliconForge::avr PRIVATE SiliconForge_options nlohmann_json_schema_validator)
-target_include_directories(SiliconForge_mcu PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+target_include_directories(SiliconForge_mcu PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated" "${CMAKE_CURRENT_SOURCE_DIR}")
+
+# Components and circuits described in JSON, checked against the component library.
+add_library(SiliconForge_circuit STATIC
+    circuit/Description.cpp)
+add_library(SiliconForge::circuit ALIAS SiliconForge_circuit)
+target_link_libraries(SiliconForge_circuit PUBLIC SiliconForge::core nlohmann_json::nlohmann_json PRIVATE SiliconForge_options nlohmann_json_schema_validator)
+target_include_directories(SiliconForge_circuit PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated" "${CMAKE_CURRENT_SOURCE_DIR}")

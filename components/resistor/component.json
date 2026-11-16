@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "type": "resistor",
+  "name": "Resistor",
+  "terminals": [{"name": "a"}, {"name": "b"}],
+  "properties": {
+    "resistance": {"type": "number", "unit": "Ω", "default": 220, "minimum": 0.1, "maximum": 100000000}
+  },
+  "footprint": {"kind": "span", "minimum": 2, "maximum": 12},
+  "model": {"elements": [{"type": "resistor", "between": ["a", "b"]}]},
+  "state": {}
+}

@@ -38,6 +38,15 @@ dire « la LED est allumée » ni « j'appuie sur le bouton ».
    aura un modèle C++ du contrôleur (protocole SPI ou I²C sur les broches, mémoire d'image) et enverra son framebuffer
    en `Uint8Array` vers un canvas. Le schéma prévoit des bornes de bus et un état binaire volumineux.
 
+## Mise en œuvre
+
+- Format 1 des deux fichiers : [guide](../CIRCUITS.md). Le « type de modèle de comportement » est une liste
+  d'éléments (`wire`, `resistor`, `led`, `switch`, `potentiometer`) reliant des bornes, pour qu'un afficheur
+  7 segments soit décrit par huit éléments `led` sans code nouveau.
+- Dans un circuit, un composant ne nomme pas la broche du MCU : elle se déduit des trous et des fils.
+- Les bornes de bus (`role: "bus"`) et l'état binaire volumineux (`type: "bytes"`) sont acceptés par le schéma et
+  n'ont pas encore de modèle.
+
 ## Conséquences
 
 - Les tests de firmware pourront porter sur le circuit : `bench.component("led-d13").brightness()`,

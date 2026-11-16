@@ -1,0 +1,38 @@
+{
+  "formatVersion": 1,
+  "name": "Arduino demo",
+  "description": "An ATmega328P on a breadboard: red LED on D13, green LED on D6 (PWM), push button on D2, potentiometer on A0.",
+  "board": {"type": "breadboard", "columns": 30},
+  "chip": {"mcu": "atmega328p", "column": 6},
+  "components": [
+    {"id": "xtal", "type": "crystal", "at": {"a": "d14", "b": "d15"}, "properties": {"frequency": 16000000}},
+    {"id": "r-d13", "type": "resistor", "at": {"a": "h15", "b": "h22"}, "properties": {"resistance": 220}},
+    {
+      "id": "led-d13", "type": "led", "at": {"anode": "f22", "cathode": "f23"},
+      "properties": {"color": "red", "forwardVoltage": 1.8}, "view": {"offset": [16, -40]}
+    },
+    {"id": "r-d6", "type": "resistor", "at": {"a": "c17", "b": "c24"}, "properties": {"resistance": 220}},
+    {
+      "id": "led-d6", "type": "led", "at": {"anode": "e24", "cathode": "e25"},
+      "properties": {"color": "green", "forwardVoltage": 2.1}, "view": {"offset": [16, -24]}
+    },
+    {"id": "button-d2", "type": "push-button", "at": {"a": "c4", "b": "c2"}},
+    {
+      "id": "pot-a0", "type": "potentiometer", "at": {"a": "g2", "wiper": "g3", "b": "g4"},
+      "properties": {"resistance": 10000}, "view": {"offset": [0, -27]}
+    }
+  ],
+  "wires": [
+    {"from": "b12", "to": "B+12", "color": "red"},
+    {"from": "a13", "to": "B-13", "color": "black"},
+    {"from": "i14", "to": "T+14", "color": "red"},
+    {"from": "j12", "to": "T-12", "color": "black"},
+    {"from": "j23", "to": "T-23", "color": "black"},
+    {"from": "a25", "to": "B-25", "color": "black"},
+    {"from": "b9", "to": "b4", "color": "yellow"},
+    {"from": "a2", "to": "B-2", "color": "black"},
+    {"from": "j2", "to": "T-2", "color": "black"},
+    {"from": "j4", "to": "T+4", "color": "red"},
+    {"from": "f3", "to": "g11", "color": "blue"}
+  ]
+}
