@@ -35,8 +35,11 @@ add_executable(siliconforge_tests
     unit/Timer0Tests.cpp
     unit/UsartTests.cpp
     unit/EepromAdcTests.cpp
+    unit/AtdfTests.cpp
+    unit/GifTests.cpp
     integration/FirmwareTests.cpp)
-target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge::circuit SiliconForge_options Catch2::Catch2WithMain)
+target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge::circuit SiliconForge::atdf SiliconForge::gif
+    SiliconForge_options Catch2::Catch2WithMain)
 target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_MCU_DIR="${PROJECT_SOURCE_DIR}/mcus" SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}" SILICONFORGE_FIRMWARE_DIR="${SILICONFORGE_FIRMWARE_DIR}")
 if(SILICONFORGE_FIRMWARE_FROM_SOURCE)
     target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_FIRMWARE_FROM_SOURCE)
@@ -52,18 +55,28 @@ catch_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast
 
 add_subdirectory(qualification)
 
-# Python 3 is only needed by the ATDF converter, tools/atdf2json, and its tests (docs/PYTHON-STUDY.md).
-find_package(Python3 COMPONENTS Interpreter)
-if(Python3_Interpreter_FOUND)
-    add_test(NAME McuDescriptionTools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/McuToolsTests.py)
-    set_tests_properties(McuDescriptionTools PROPERTIES TIMEOUT 30 LABELS fast)
-else()
-    message(STATUS "Python 3 not found: the tests of the ATDF converter (tools/atdf2json) are skipped")
-endif()
+add_test(NAME Atdf2JsonCommandLine
+    COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:atdf2json> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/Atdf2JsonCommandLine
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/Atdf2JsonCliTests.cmake)
+set_tests_properties(Atdf2JsonCommandLine PROPERTIES TIMEOUT 30 LABELS fast)
 
 # Explicit opt-in target for profiling; not part of CTest or the default build.
 add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
 target_link_libraries(siliconforge_mcu_bench PRIVATE SiliconForge::mcu SiliconForge_options)
+
+# The dispatch comparison of docs/MCU-DESCRIPTIONS.md (Linux: CPU affinity, perf). A short run with the same binary in
+# the three roles keeps it working; real measures use three Release builds and the documented options.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(siliconforge_compare_dispatch bench/CompareDispatch.cpp)
+    target_link_libraries(siliconforge_compare_dispatch PRIVATE nlohmann_json::nlohmann_json SiliconForge_options)
+    if(SILICONFORGE_BUILD_APP)
+        add_test(NAME CompareDispatchSmoke COMMAND siliconforge_compare_dispatch
+            --baseline $<TARGET_FILE:siliconforge> --large $<TARGET_FILE:siliconforge> --compact $<TARGET_FILE:siliconforge>
+            --firmware ${SILICONFORGE_FIRMWARE_DIR}/blink.hex --output ${CMAKE_CURRENT_BINARY_DIR}/compare-dispatch-smoke.json
+            --blocks 6 --seconds 0.05 --warmup-seconds 0 --resamples 100)
+        set_tests_properties(CompareDispatchSmoke PROPERTIES TIMEOUT 60 LABELS fast)
+    endif()
+endif()
 
 if(SILICONFORGE_BUILD_APP)
     add_test(NAME CliHelpRejectsInvalidOptions

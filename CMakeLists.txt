@@ -31,6 +31,9 @@ target_compile_features(SiliconForge_options INTERFACE cxx_std_26)
 siliconforge_set_warnings(SiliconForge_options)
 
 add_subdirectory(src)
+if(PROJECT_IS_TOP_LEVEL OR SILICONFORGE_BUILD_TESTS)
+    add_subdirectory(tools)
+endif()
 
 if(SILICONFORGE_BUILD_APP)
     # The application opens a native window (WebKitGTK, WebView2 or WKWebView) when WebFront finds the platform's

@@ -1,50 +1,59 @@
-# Python, TypeScript et WebFront : bilan de l'étude #34
+# Sans Python ni Node.js : bilan de l'étude #34
 
 L'issue [#34](https://github.com/ambroise-leclerc/SiliconForge/issues/34) demandait si SiliconForge pouvait se passer
 de Python 3 au profit de TypeScript et des outils de WebFront. Mesures faites le 17 novembre 2026 sur WebFront 1.0.0,
 Linux, GCC 16.1, build Release, WebKitGTK 2.52 sous Xvfb.
 
-## Recommandation
+## Résultat
 
-**Ne pas retirer Python ; le rendre facultatif.** Le convertisseur ATDF (`tools/atdf2json`) et ses tests restent en
-Python, comme deux outils annexes hors CTest : `tools/captures2gif` (animation du README, Pillow) et
-`tests/bench/compare_dispatch.py` (mesures de performance). La compilation et les autres tests ne dépendent plus de
-Python ni de Node.js :
+**Le dépôt ne contient plus de Python ni de JavaScript pour Node.js.** Chaque usage a été remplacé par ce que le projet
+compile ou exécute déjà :
 
-- Les tests de la ligne de commande passent dans un script CMake, `tests/McuCliTests.cmake` (test `McuCommandLine`),
-  qui tourne sur toutes les plateformes, sans fenêtre.
-- Le scénario manuel Playwright (`tests/ui/mcu.playwright.cjs`) devient la suite Jasmine native `UI-Mcu`, lancée par
-  CTest et la CI.
-- `find_package(Python3)` n'est plus `REQUIRED` : sans Python, la configuration l'indique et seul `McuDescriptionTools`
-  (les tests du convertisseur) est omis.
+| Avant | Après | Où il tourne |
+| --- | --- | --- |
+| `tools/atdf2json` (Python) | `build/tools/atdf2json` (C++, pugixml) | Toutes les plateformes |
+| `tests/McuToolsTests.py`, tests du convertisseur | `tests/unit/AtdfTests.cpp` (Catch2) et `Atdf2JsonCommandLine` (`cmake -P`) | Toutes les plateformes |
+| `tests/McuToolsTests.py`, tests de la ligne de commande | `McuCommandLine` (`tests/McuCliTests.cmake`, `cmake -P`) | Toutes les plateformes |
+| `tools/captures2gif` (Python, Pillow) | `build/tools/captures2gif` (C++, stb_image) et `tests/unit/GifTests.cpp` | Toutes les plateformes |
+| `tests/bench/compare_dispatch.py` | `build/tests/siliconforge_compare_dispatch` (C++) et `CompareDispatchSmoke` | Linux (affinité CPU, `perf`) |
+| `tests/ui/mcu.playwright.cjs` (Node.js, Playwright, manuel) | `UI-Mcu` (`tests/ui/mcu.spec.js`, Jasmine dans la fenêtre native) | Linux/WebKitGTK |
 
-La suppression complète n'est pas favorable : aucune issue de mise en œuvre n'est donc ouverte. Les raisons suivent.
+Les deux workflows n'installent plus `python3` ni `python3-pil`. Sous Ubuntu 26.04, `python3` reste toutefois présent sur
+la machine, car `libwebkitgtk-6.0-dev` l'installe (`libgtk-4-dev` → `libglib2.0-dev` → `libgio-2.0-dev-bin`). Le projet
+n'en dépend plus. Les commentaires de `firmware/qualification/*.c` disent seulement que leurs valeurs attendues ont été
+calculées une fois avec Python ; elles sont versionnées.
 
-## Chiffres
+Deux dépendances CPM s'ajoutent, toutes deux épinglées : pugixml 1.15 (lecture XML) et stb (décodage PNG, un seul
+en-tête, commit `9600522`).
 
-| Mesure | Python | WebFront | Commentaire |
-| --- | --- | --- | --- |
-| Tests CLI (`--help`, chargement par fichier et par nom, description invalide) | 0,07 s | 2,8 s (`PROGRAMS`, 3 specs) | Script CMake retenu : **0,08 s**, toutes plateformes |
-| Coût fixe d'une suite Jasmine (une spec vide) | — | 2,6 s | Démarrage de la fenêtre, de Jasmine et du pont |
-| Tests du convertisseur (8 cas) | 0,06 s | non porté | — |
-| Conversion des 133 ATDF du pack `Microchip.ATmega_DFP.3.1.264` | 6,6 s (un processus par fichier) | identique | Portage JS : **133/133 sorties octet pour octet identiques** ; avec `--base`, JSON identique mais `5.0` devient `5` |
-| `UI-Mcu` (ancien scénario Playwright, 9 specs) | — | 4,6 s | Stable sur trois exécutions |
-| Paquets CI propres à Python (Ubuntu 26.04) | ≈ 24 Mo installés | — | **Déjà tirés par WebKitGTK** (voir ci-dessous) |
+## Vérifications
 
-### Le coût CI de Python est nul sous Linux
+| Outil | Comparaison avec l'outil Python | Résultat |
+| --- | --- | --- |
+| `atdf2json` | Les 133 ATDF du pack `Microchip.ATmega_DFP.3.1.264`, sans `--base` : sortie et stderr | **133/133 identiques octet pour octet** |
+| `atdf2json` | ATmega328P avec `--base mcus/atmega328p.json`, quatre boîtiers dont deux erreurs | Identiques (code de sortie, JSON, message) |
+| `atdf2json` | Durée des 133 conversions | 0,31 s contre 6,6 s |
+| `captures2gif` | Séquence de `UI-Tour` (28 images, 7 i/s), relue par Pillow | 28 images, 140 ms chacune, boucle infinie ; 315 Kio contre 305 Kio ; écart moyen à la source 0,9 contre 2,1 par canal |
+| `siliconforge_compare_dispatch` | Statistiques recalculées par les fonctions Python sur les mêmes mesures | Médianes, moyennes, écarts-types, quartiles et deltas identiques ; SHA-256 égal à `sha256sum` |
 
-Sous Ubuntu 26.04, `libwebkitgtk-6.0-dev` dépend de `libgtk-4-dev` → `libglib2.0-dev` → `libgio-2.0-dev-bin`, qui dépend
-de `python3` (outils `gdbus-codegen`, `glib-mkenums`). La configuration qui exécute les suites Jasmine installe donc
-Python, qu'on le demande ou non. Retirer `python3` de la liste `apt` du workflow n'économise rien. `python3-pil` reste
-nécessaire à `tools/captures2gif` (animation du README, [#10](https://github.com/ambroise-leclerc/SiliconForge/issues/10)).
+Le convertisseur garde l'ordre des clés et l'écriture des nombres (`5.0` reste `5.0`) : une réimportation avec `--base`
+ne réécrit pas la description livrée. Comme l'ancien outil, il ajoute `PSRASY` aux bits de `GTCCR`, absent de
+`mcus/atmega328p.json`. Cet écart est antérieur à ce changement.
 
-## Ce qui a été essayé
+L'encodeur GIF ne stocke que le rectangle modifié, rend transparents ses pixels inchangés et allonge l'image précédente
+quand une image se répète. Le redimensionnement est un Lanczos-3 et la palette, unique pour toute la séquence, vient d'une
+coupe médiane sur un échantillon d'images, comme dans l'ancien script. Les tests relisent le GIF avec un décodeur écrit à
+partir de la spécification GIF89a.
 
-### Tests CLI par `PROGRAMS` / `webFrontHost`
+Pour le banc, une même graine ne donne plus le même ordre de blocs ni les mêmes tirages bootstrap que le script Python.
+Le générateur ne dépend désormais pas de la bibliothèque standard, et une graine donne le même ordre partout.
 
-Un prototype `UI-McuTools` a reproduit les tests CLI de `McuToolsTests.py` avec
-`webfront_add_jasmine_test(... PROGRAMS "$<TARGET_FILE:siliconforge>")`, `webFrontHost.withTemp`, `writeFile` et `run`
-(environnement vide, `timeoutMs: 20000`) :
+## Pistes écartées
+
+### Programmes natifs depuis Jasmine (`PROGRAMS` / `webFrontHost`)
+
+Un prototype a reproduit les tests de la ligne de commande avec
+`webfront_add_jasmine_test(... PROGRAMS "$<TARGET_FILE:siliconforge>")`, `webFrontHost.withTemp`, `writeFile` et `run` :
 
 ```js
 const [siliconforge] = await webFrontHost.programs();
@@ -57,50 +66,23 @@ await webFrontHost.withTemp(async (dir) => {
 });
 ```
 
-Résultat : fonctionnel et bien diagnostiqué. Une assertion fausse remonte dans le rapport CTest avec le stderr complet
-du programme ; une suite sans `PROGRAMS` échoue avec « No native capability was granted ». Mais il coûte 40 fois le
-temps du script Python, ne tourne que là où une fenêtre native est qualifiée (Linux/WebKitGTK ou CEF aujourd'hui) et
-n'apporte rien que `cmake -P` ne fasse déjà : la fenêtre ne sert qu'à héberger les specs. Il n'a pas été conservé.
+Le prototype fonctionne et ses échecs sont lisibles : une assertion fausse remonte avec le stderr complet, et une suite
+sans `PROGRAMS` échoue avec « No native capability was granted ». Mais il prend 2,8 s, dont 2,6 s de démarrage de la
+fenêtre, contre 0,08 s pour `cmake -P`, et ne tourne que là où une fenêtre native est qualifiée. La fenêtre n'y sert qu'à
+héberger les specs.
 
-### Convertisseur ATDF en JavaScript
+### Convertisseur en JavaScript
 
-Le portage de `convert()` en JavaScript classique (≈ 130 lignes, `DOMParser` de la page Jasmine) a été comparé à l'outil
-Python sur les 133 ATDF du pack ATmega, l'outil Python étant lancé depuis la spec par `PROGRAMS`. Toutes les sorties sont
-identiques. Deux points de portage demandent de l'attention : `int(x, 0)` (préfixes `0x`, `0o`, `0b`, rejet de `010`) et
-le formatage des flottants (`5.0` en Python, `5` en JavaScript), qui modifierait `mcus/atmega328p.json` à la
-réimportation.
-
-Le convertisseur est pourtant un **outil en ligne de commande pour le développeur** (`tools/atdf2json fichier.atdf -o
-squelette.json`). Sans Python ni Node.js, WebFront ne peut l'exécuter :
-
-- dans une spec Jasmine, ce qui suppose une fenêtre native et une entrée CTest pour chaque conversion ;
-- avec `wf run` / `wf exec`, dans un Worker sans `DOMParser` : il faudrait un parseur XML JavaScript installé et
-  verrouillé par `wf install`, plus l'environnement développeur (`bootstrap("developer")`) et une compilation TS.
-
-Les deux voies remplacent un script de 150 lignes sans dépendance par une chaîne plus lourde, pour un outil qui sert à
-l'ajout d'une puce. Maintenir deux convertisseurs en parallèle doublerait la maintenance.
-
-### Scénario MCU Playwright
-
-Réécrit en `tests/ui/mcu.spec.js` (`UI-Mcu`) : sélection du catalogue, fichier modifié portant un nom du catalogue,
-absence d'écriture répétée du sélecteur, identifiants serveur exacts, ATmega168 choisi par `<input type="file">`, firmware
-exécuté sur la puce chargée, chemin JSON d'une description invalide, nouvelle tentative après un échec transitoire de
-`chip()`, étiquettes génériques d'une puce sans circuit, retour au catalogue. Le scénario n'avait pas été relancé depuis
-WebFront 0.9 ; seule l'attente de la liste des broches, remplie par une trame postérieure au changement de puce, a dû
-être ajoutée. Comme `UI-Files`, la boîte de dialogue système n'est pas pilotée.
+Un portage de `convert()` en JavaScript classique sous `DOMParser` donne lui aussi les mêmes sorties sur les 133 ATDF,
+au formatage des flottants près (`5.0` devient `5`). Sans Node.js, il ne s'exécute cependant que dans une spec, donc dans
+une fenêtre native, ou avec `wf run`, dont le Worker n'a pas de `DOMParser`. Pour un outil en ligne de commande, le C++
+s'impose.
 
 ## Plateformes
 
 | Parcours | Linux | Windows | macOS |
 | --- | --- | --- | --- |
-| `McuCommandLine` (`cmake -P`) | Vérifié | Attendu (CMake seul), non vérifié | Attendu, non vérifié |
-| `McuDescriptionTools` (Python, facultatif) | Vérifié | Si Python est installé | Si Python est installé |
+| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Attendu, non vérifié | Attendu, non vérifié |
+| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Attendu, non vérifié | Attendu, non vérifié |
+| `siliconforge_compare_dispatch` | Vérifié | Non compilé (Linux seulement) | Non compilé (Linux seulement) |
 | `UI-Mcu` (Jasmine) | Vérifié (WebKitGTK, Xvfb) | Non raccordé (WebView2) | Non raccordé (WKWebView) |
-| `PROGRAMS` / `webFrontHost` | Vérifié (prototype) | Non qualifié en amont | Non qualifié en amont |
-
-## Ce qui ferait réviser la recommandation
-
-- Un exécutable WebFront capable de lancer un module TS hors fenêtre avec un parseur XML : le convertisseur pourrait alors
-  devenir un outil TS distribué.
-- Une CI Windows ou macOS sans Python : seul `McuDescriptionTools` y manquerait, et le convertisseur pourrait être testé
-  par une spec Jasmine comparant sa sortie à des fixtures figées.
