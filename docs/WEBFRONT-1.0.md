@@ -59,4 +59,4 @@ et Linux.
 | WebKitGTK 2.52 (fenêtre native, Xvfb pour les specs) | 94 tests : 86 rapides et 8 suites Jasmine (`UI-Uart`, `UI-Blink`, `UI-Led`, `UI-LedRealtime`, `UI-Files`, `UI-Instruments`, `UI-Circuits`, `UI-Tour`), ces dernières rejouées trois fois de suite sans échec |
 | Sans moteur embarqué (`-DWEBFRONT_EMBED_WEBKITGTK=OFF -DWEBFRONT_AUTODETECT_NATIVE=OFF`) | 86 tests rapides ; aucune suite Jasmine |
 | CEF seul, Windows (WebView2), macOS (WKWebView) | **Non vérifiés** |
-| Workflow GitHub | **Non vérifié avant la pull request** : retrait de la variable de bac à sable et nouvelle étape d'animation (`python3-pil`) |
+| Workflow GitHub (Ubuntu 26.04, GCC 16) | Vérifié sur la pull request #46 : les suites Jasmine passent sans la variable de bac à sable, et l'étape d'animation (`python3-pil`) produit son artefact |

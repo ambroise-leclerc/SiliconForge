@@ -20,8 +20,10 @@ describe("Tour of the interface", () => {
     await sf().waitFor((state) => simulated(state) > 1.2 && document.querySelector('.bb-led[data-pin="D6"]') !== null, 8000);
     sf().instruments.set({mode: "logic", span: 0.001, trigger: {source: sf().state.pins.findIndex((pin) => pin.label === "D6"), rising: true, single: false}});
     await sf().waitFor(() => sf().instruments.view.triggered !== null, 3000);
-    await settle(200);
-    expect(Number(document.querySelector('.bb-led[data-pin="D6"]').dataset.level)).toBeGreaterThan(0.05);
+    // The green LED breathes with a 2 s period: take the picture while it is clearly lit, whenever the tour starts.
+    const green = () => Number(document.querySelector('.bb-led[data-pin="D6"]').dataset.level);
+    await sf().waitFor(() => green() > 0.3 && green() < 0.8, 4000);
+    expect(sf().instruments.measure("D6", sf().instruments.now - 0.005).frequency).toBeCloseTo(7812.5, 0);
     await webFrontCapture.screenshot("demo-logic");
     // The animation of the README (tools/captures2gif): four seconds of the LEDs and of the analyser, live.
     const frames = await webFrontCapture.record("demo", {seconds: 4, framesPerSecond: 10});
