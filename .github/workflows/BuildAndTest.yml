@@ -126,3 +126,30 @@ jobs:
         run: |
           build/tests/siliconforge_tests
           cd build && ctest --output-on-failure -R Atdf2JsonCommandLine
+
+  windows-msvc:
+    # The C++ tools, the unit tests and the application's command line on MSVC with /W4 /WX (#50). The WebView2 interface
+    # tests are not wired yet, and the bridge tests (tests/integration/WebBridgeTests.cpp) do not compile with MSVC yet.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/CPM
+          key: cpm-windows-${{ hashFiles('CMakeLists.txt', 'src/CMakeLists.txt', 'tools/CMakeLists.txt', 'tests/CMakeLists.txt') }}
+          restore-keys: cpm-windows-
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+      - name: Build
+        shell: bash
+        run: cmake --build build --target atdf2json captures2gif siliconforge siliconforge_tests
+      - name: Test
+        shell: bash
+        run: |
+          build/tests/siliconforge_tests
+          cd build && ctest --output-on-failure --no-tests=error -R "Atdf2JsonCommandLine|McuCommandLine|CliHelpRejectsInvalidOptions"

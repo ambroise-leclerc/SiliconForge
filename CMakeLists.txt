@@ -10,7 +10,13 @@ option(SILICONFORGE_BUILD_TESTS "Build the SiliconForge tests" ${PROJECT_IS_TOP_
 option(SILICONFORGE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 if(PROJECT_IS_TOP_LEVEL)
-    set(CMAKE_CXX_STANDARD 26)
+    # CMake 4.3 does not know CXX26 for MSVC: cmake/Cxx26.cmake passes /std:c++latest instead.
+    if(MSVC)
+        # Dependencies (Catch2 exports StringMaker<string_view> only from C++17) must see the same standard as our code.
+        string(APPEND CMAKE_CXX_FLAGS " /std:c++latest /bigobj")  # /bigobj: the WebFront/stdexec translation units are large
+    else()
+        set(CMAKE_CXX_STANDARD 26)
+    endif()
     set(CMAKE_CXX_STANDARD_REQUIRED ON)
     set(CMAKE_CXX_EXTENSIONS OFF)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -25,9 +31,10 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 include(CPM)
 include(Warnings)
+include(Cxx26)
 
 add_library(SiliconForge_options INTERFACE)
-target_compile_features(SiliconForge_options INTERFACE cxx_std_26)
+siliconforge_require_cxx26(SiliconForge_options INTERFACE)
 siliconforge_set_warnings(SiliconForge_options)
 
 add_subdirectory(src)

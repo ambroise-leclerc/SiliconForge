@@ -21,7 +21,7 @@ namespace {
 std::size_t peripheralIndex(const Json& d, std::string_view type) {
     const auto& list = d.at("peripherals");
     const auto  it   = std::ranges::find_if(list, [&](const Json& p) {
-        return p.at("type") == type;
+        return p.at("type") == std::string(type);
     });
     REQUIRE(it != list.end());
     return static_cast<std::size_t>(std::distance(list.begin(), it));
@@ -368,8 +368,8 @@ TEST_CASE("SPM and sleep control registers may be absent from a description", "[
     }
     auto  m   = device(d);
     auto& cpu = dynamic_cast<avr::Device&>(*m).avrCore();
-    CHECK(cpu.config().spmcsr == (d["cpu"].contains("spmcsr") ? 0x57 : 0));
-    CHECK(cpu.config().smcr == (d["cpu"].contains("smcr") ? 0x53 : 0));
+    CHECK(cpu.config().spmcsr == (d["cpu"].contains("spmcsr") ? 0x57u : 0u));
+    CHECK(cpu.config().smcr == (d["cpu"].contains("smcr") ? 0x53u : 0u));
     ProgramImage image;
     image.segments = {
         {MemorySpace::Program, 0, {0xE8, 0x95, 0x88, 0x95}}

@@ -37,7 +37,7 @@ Json demo() {
 Json& part(Json& circuit, std::string_view id) {
     auto&      components = circuit.at("components");
     const auto found      = std::ranges::find_if(components, [&](const Json& candidate) {
-        return candidate.at("id") == id;
+        return candidate.at("id") == std::string(id);
     });
     REQUIRE(found != components.end());
     return *found;
@@ -46,7 +46,7 @@ Json& part(Json& circuit, std::string_view id) {
 std::string partPath(const Json& circuit, std::string_view id) {
     const auto& components = circuit.at("components");
     const auto  found      = std::ranges::find_if(components, [&](const Json& candidate) {
-        return candidate.at("id") == id;
+        return candidate.at("id") == std::string(id);
     });
     REQUIRE(found != components.end());
     return "/components/" + std::to_string(std::distance(components.begin(), found));

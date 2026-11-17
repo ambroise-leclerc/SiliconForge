@@ -82,8 +82,8 @@ s'impose.
 
 | Parcours | Linux | Windows | macOS |
 | --- | --- | --- | --- |
-| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Attendu, non vérifié | Vérifié (AppleClang 21, libc++, `-Werror`) |
-| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Attendu, non vérifié | `Atdf2JsonCommandLine` vérifié ; `McuCommandLine` non exécutable (voir ci-dessous) |
+| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Vérifié (MSVC 19.51, `/W4 /WX`) | Vérifié (AppleClang 21, libc++, `-Werror`) |
+| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Vérifié (avec `CliHelpRejectsInvalidOptions`) | `Atdf2JsonCommandLine` vérifié ; `McuCommandLine` non exécutable (voir ci-dessous) |
 | `siliconforge_compare_dispatch` | Vérifié | Non compilé (Linux seulement) | Non compilé (Linux seulement) |
 | `UI-Mcu` (Jasmine) | Vérifié (WebKitGTK, Xvfb) | Non raccordé (WebView2) | Non raccordé (WKWebView) |
 
@@ -99,4 +99,23 @@ s'impose.
   (`webfront/frontend/Capture.hpp:109`, comparaison de `std::shared_ptr<CaptureProvider>` refusée par libc++).
   `McuCommandLine` et `CliHelpRejectsInvalidOptions` ont besoin de cet exécutable : ils restent à vérifier sous macOS,
   après correction en amont. `UI-Mcu` sous WKWebView reste non raccordé.
-- Windows (MSVC) n'a pas pu être vérifié depuis cette machine.
+
+### Windows (MSVC 19.51, Visual Studio 2026 Build Tools, CMake 4.3.4, Ninja)
+
+- Écarts corrigés pour que `/W4 /WX` passe :
+  - CMake 4.3 ne connaît pas `cxx_std_26` pour MSVC : `cmake/Cxx26.cmake` passe `/std:c++latest` à la place, et le niveau
+    d'entrée ajoute `/std:c++latest /bigobj` à tout le projet. Sans cela Catch2 est compilé en C++14 et n'exporte pas
+    `StringMaker<std::string_view>` (erreur d'édition de liens), et `main.cpp` dépasse la limite de sections d'un objet.
+  - `_CRT_SECURE_NO_WARNINGS` pour `getenv` (C4996).
+  - `json == std::string_view` est ambigu en C++20 (C2666) : comparaison avec `std::string` à quatre endroits
+    (`Description.cpp`, deux fichiers de tests).
+  - `std::ranges::fill(children, 0)` sur des `uint16_t` (C4244), comparaisons signé/non signé (C4389) et `SKIP` suivi
+    de code inatteignable (C4702) dans les tests.
+- `siliconforge_tests` : 92 cas, 91 réussis, 1 ignoré (les 195 901 assertions passent). `Atdf2JsonCommandLine`,
+  `McuCommandLine` et `CliHelpRejectsInvalidOptions` réussissent ; la cible `siliconforge` compile.
+- Comparaison avec l'outil Python historique sur les 133 ATDF : 65 produisent un JSON, **identique octet pour octet sur
+  la sortie standard** (CRLF des deux côtés, `std::cout` en mode texte comme Python) ; les 68 autres échouent de la même
+  façon (« ATDF contains no pinout », code 1, même stderr). Avec `-o`, Python écrit en CRLF et le C++ en LF : les
+  fichiers ne diffèrent que par les fins de ligne.
+- Non vérifié : `siliconforge_bridge_tests` ne compile pas sous MSVC (`tests/integration/WebBridgeTests.cpp:165`,
+  comparaison `json == std::string_view` dans une assertion Catch2) et `UI-Mcu` sous WebView2 reste non raccordé.
