@@ -148,7 +148,7 @@ select {
 .side { grid-area: side; display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
 .serial { flex: 1; display: flex; flex-direction: column; min-height: 230px; }
 .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-.hint .warning { color: var(--error); }
+.hint .warning { color: var(--accent-ink); }
 
 .tabs { display: inline-flex; padding: 2px; gap: 2px; border-radius: 8px; background: var(--bg); border: 1px solid var(--panel-edge); }
 .tabs button { border: 0; border-radius: 6px; padding: 3px 12px; font-size: 12.5px; height: 24px; background: transparent; color: var(--muted); }

@@ -137,10 +137,9 @@ le registre. Les adresses et valeurs de reset viennent du JSON.
 `port` (ou `null` pour l'alimentation), les `functions`, l'étiquette de carte `label` et
 les `labels` de présentation avec leurs `slotKinds`. Une étiquette `TXD:serial` choisit
 la couleur « serial ». `sf.chip()` sert ces données aux vues Pinout et Breadboard.
-Le champ facultatif `breadboard` conserve le circuit de démonstration existant ; une
-puce sans circuit affiche quand même son brochage et ses broches interactives. Ce champ est
-transitoire : les circuits ont désormais leur propre format ([guide](CIRCUITS.md)), que la vue
-Breadboard utilisera à la place.
+Le champ `breadboard` des premières descriptions est encore accepté par le schéma mais n'est plus lu : le
+circuit autour de la puce a son propre format ([guide](CIRCUITS.md)). Une puce sans circuit affiche son
+brochage et une plaque nue aux broches interactives.
 
 ## Ajouter une puce AVR depuis un ATDF
 

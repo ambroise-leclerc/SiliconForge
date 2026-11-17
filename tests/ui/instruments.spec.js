@@ -15,6 +15,7 @@ describe("Instruments", () => {
     await sf().waitFor((state) => state.mcu === "ATmega328P" && state.firmware === "demo.hex", 5000);
     await sf().pause();
     await sf().reset();
+    await sf().waitFor((state) => !state.running && state.cycles === 0, 5000);  // No frame from before the reset
     await sf().setSpeed(0);
     await sf().run();
     await sf().waitFor((state) => simulated(state) > 2.6, 10000);

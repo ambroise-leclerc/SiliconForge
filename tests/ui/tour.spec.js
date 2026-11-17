@@ -23,7 +23,10 @@ describe("Tour of the interface", () => {
     await settle(200);
     expect(Number(document.querySelector('.bb-led[data-pin="D6"]').dataset.level)).toBeGreaterThan(0.05);
     await webFrontCapture.screenshot("demo-logic");
-  });
+    // The animation of the README (tools/captures2gif): four seconds of the LEDs and of the analyser, live.
+    const frames = await webFrontCapture.record("demo", {seconds: 4, framesPerSecond: 10});
+    expect(frames).toBeGreaterThan(10);
+  }, 20000);
 
   it("shows the same signals as voltages on the oscilloscope", async () => {
     await sf().setComponent("pot-a0", "position", 0.66);

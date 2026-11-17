@@ -1,0 +1,52 @@
+#!/usr/bin/env python3
+"""Assembles the PNG sequence recorded by a UI spec (webFrontCapture.record) into an animated GIF.
+
+    tools/captures2gif build/tests/webfront-jasmine/UI-Tour/captures/demo docs/images/siliconforge.gif
+
+Needs Pillow (python3-pil). The frames are scaled to --width and share one palette, which keeps the file small.
+"""
+import argparse
+import pathlib
+import sys
+
+try:
+    from PIL import Image
+except ImportError:
+    sys.exit("captures2gif needs Pillow: apt install python3-pil, or pip install pillow")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("frames", type=pathlib.Path, help="directory of 0001.png, 0002.png...")
+    parser.add_argument("output", type=pathlib.Path)
+    parser.add_argument("--width", type=int, default=960)
+    parser.add_argument("--fps", type=float, default=10.0, help="rate the sequence was recorded at")
+    parser.add_argument("--colors", type=int, default=160)
+    arguments = parser.parse_args()
+
+    files = sorted(arguments.frames.glob("*.png"))
+    if not files:
+        sys.exit(f"{arguments.frames}: no PNG frame")
+    frames = []
+    for file in files:
+        with Image.open(file) as image:
+            height = round(image.height * arguments.width / image.width)
+            frames.append(image.convert("RGB").resize((arguments.width, height), Image.LANCZOS))
+    # One palette for the whole animation, so that unchanged areas compress to nothing. It is computed over a strip of
+    # frames spread along the sequence: a colour that only appears later (an LED that lights up) is in it.
+    sample = frames[:: max(1, len(frames) // 8)]
+    strip = Image.new("RGB", (arguments.width, sum(frame.height for frame in sample)))
+    offset = 0
+    for frame in sample:
+        strip.paste(frame, (0, offset))
+        offset += frame.height
+    palette = strip.quantize(colors=arguments.colors, method=Image.Quantize.MEDIANCUT)
+    indexed = [frame.quantize(palette=palette, dither=Image.Dither.NONE) for frame in frames]
+    indexed[0].save(arguments.output, save_all=True, append_images=indexed[1:], duration=round(1000 / arguments.fps), loop=0, optimize=True)
+    size = arguments.output.stat().st_size
+    print(f"{arguments.output}: {len(frames)} frames, {len(frames) / arguments.fps:.1f} s, {size / 1024:.0f} KiB")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

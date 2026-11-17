@@ -13,29 +13,44 @@ The first supported microcontroller is the **16 MHz ATmega328P**, used in the Ar
 
 ## Your code, a circuit, a visible result
 
-The breadboard brings together a microcontroller and simulated components. In this example, the same `blink.hex`
-firmware you would flash onto a board makes the D13 LED blink. Simulated time, cycles and registers update as
-the program runs.
+The breadboard brings together a microcontroller and simulated components. Start the application and pick
+**Open an example…**: the `demo.hex` firmware, the same one you would flash onto a board, blinks the red LED on
+D13 and makes the green LED on D6 "breathe" with PWM, while the logic analyser shows the signal.
 
-![SiliconForge on macOS: firmware blinking an LED on the breadboard](docs/images/siliconforge.gif)
+![SiliconForge: the firmware drives two LEDs on the breadboard, the logic analyser shows the PWM](docs/images/siliconforge.gif)
 
-The demonstration circuit already includes two LEDs, resistors, a push button and a potentiometer:
-
-- **Watch your outputs**: the D13 LED follows the program and the D6 LED reflects the PWM duty cycle.
-- **Try your inputs**: press the button connected to D2 or turn the potentiometer on A0.
+- **Watch your outputs**: the current of each LED is computed from the circuit (forward voltage, resistor), and a
+  PWM-driven LED is lit the way the eye sees it.
+- **Try your inputs**: press a button, turn the potentiometer, or click a pin to drive it.
 - **Talk to your code**: send text to the microcontroller and read its replies in the serial monitor.
 - **Investigate a problem**: pause execution, inspect registers and then step through one instruction.
+- **Spot a wiring mistake**: an output wired to a rail, or two opposite outputs, are reported as a short circuit.
 
-The aim is to let you **connect your own components and build a circuit around the microcontroller**. Today,
-the demonstration components are prewired; adding components and wiring them freely are planned next steps.
-Simulated displays and screens are also planned.
+## Measure, as on the bench
+
+Every pin change is recorded with the clock cycle it happens on: a 62.5 ns resolution at 16 MHz, with no sampling,
+whatever the emulation speed. The **Instruments** panel turns that capture into a logic analyser and an
+oscilloscope: frequency and duty cycle, cursors, edge trigger, UART frame decoding, VCD export for GTKWave or
+PulseView. See the [instruments guide](docs/INSTRUMENTS.md) (in French).
+
+![The 7-segment counter and the serial frame "3 CR LF" decoded by the logic analyser](docs/images/counter.png)
+
+![The oscilloscope: 3.3 V from the potentiometer on A0 and the 7.8 kHz PWM on D6](docs/images/oscilloscope.png)
+
+## Change the circuit
+
+A circuit is a JSON file: the chip, the components plugged in the holes of the board and the wires. Three are
+provided (LEDs and a potentiometer, a 7-segment display, an LED and two buttons); load your own with
+`--circuit circuit.json`, **Load circuit…** or drag and drop. The available components are the LED, the resistor, the
+push button, the potentiometer, the 7-segment display and the crystal; the [circuits guide](docs/CIRCUITS.md) (in
+French) explains how to add one. Graphical editing of the circuit and simulated screens are planned next steps.
 
 ## Check the pins
 
 The **Pinout** view shows physical pins, their functions and their Arduino names. Indicators follow the levels
 as the program runs. Click an input to drive it high or low, then release it, and observe how your code responds.
 
-![SiliconForge on macOS: pin levels and registers while the firmware runs](docs/images/pinout.gif)
+![The Pinout view in the light theme: the functions of each pin and its level while the firmware runs](docs/images/pinout.png)
 
 The pinout also labels functions of the physical chip that are not yet simulated.
 
@@ -48,9 +63,11 @@ The pinout also labels functions of the physical chip that are not yet simulated
 | Memories | 32 KiB flash, 2 KiB SRAM and 1 KiB EEPROM |
 | Inputs and outputs | Ports B, C and D, pull-ups, logic levels and analogue voltages |
 | PWM and timing | Timer0: normal, CTC, Fast PWM and Phase Correct PWM |
-| Serial communication | Asynchronous USART0, sending and receiving through the serial monitor |
+| Serial communication | Asynchronous USART0, sending and receiving through the serial monitor, frames visible bit by bit on TXD |
+| Circuits | Resistive electrical model: LEDs, resistors, buttons, potentiometers, 7-segment display, short-circuit detection |
+| Instruments | Cycle-exact logic analyser and oscilloscope, measurements, cursors, trigger, UART decoder, VCD export |
 | Analogue conversion | Single conversions on A0–A5 and the internal reference |
-| Automated tests | Control of simulated time, pins and serial communication from a C++ test bench |
+| Automated tests | Control of simulated time, pins, serial communication and circuit components from a C++ test bench |
 
 **Current limitations:** Timer1/2, SPI, I²C/TWI, watchdog, analogue comparator and external interrupts are not yet
 emulated. Their labels on the pinout do not mean they are available. Further microcontrollers, including the
@@ -59,7 +76,7 @@ ATmega2560, as well as ARM and RISC-V targets are planned.
 ## Try SiliconForge
 
 The project currently builds from source. You need **CMake 3.31+** and a compiler with a **C++26** standard library
-(GCC 16 in Linux CI, Apple Clang 21 for the macOS captures). Dependencies are downloaded automatically during
+(GCC 16 in Linux CI). Dependencies are downloaded automatically during
 configuration.
 
 On Linux, also install WebKitGTK 6.0 for the native window: `sudo apt install libwebkitgtk-6.0-dev` on Debian/Ubuntu,
@@ -70,13 +87,13 @@ From the repository root:
 ```bash
 cmake -S . -B build
 cmake --build build -j
-./build/apps/siliconforge/siliconforge firmware/prebuilt/blink.hex
+./build/apps/siliconforge/siliconforge
 ```
 
-The [prebuilt examples](firmware/README.md) let you try blinking, serial echo, Timer0 interrupts and PWM straight
-away, without installing an AVR compiler.
+The **Open an example…** menu loads a [prebuilt firmware](firmware/README.md) with its circuit: LEDs and PWM, the
+7-segment counter, buttons, serial echo, Timer0 interrupts. No AVR compiler is needed.
 
-To try your own code, replace the `blink.hex` path with your ATmega328P binary, or use **Load firmware…** in the
+To try your own code, give the path of your ATmega328P binary on the command line, or use **Load firmware…** in the
 application. You do not need to flash a physical board.
 
 ## Automate your checks
@@ -88,7 +105,8 @@ You can run firmware headlessly, accelerate simulated time and collect its seria
 ```
 
 The [C++ test bench](include/siliconforge/testing/Bench.hpp) lets you send data, change inputs and check replies
-or signal periods reproducibly. The [firmware tests](tests/integration/FirmwareTests.cpp) provide examples.
+or signal periods reproducibly. Plugged in a circuit, it sees what the user sees: `bench.press("button-d2")`,
+`bench.component("led-d13").brightness()`. The [firmware tests](tests/integration/FirmwareTests.cpp) provide examples.
 Run the project’s tests with:
 
 ```bash
@@ -100,8 +118,9 @@ ctest --test-dir build --output-on-failure
 - [Demonstration firmware](firmware/README.md)
 - [Microcontroller descriptions and model limitations](docs/MCU-DESCRIPTIONS.md)
 - [Component and circuit format](docs/CIRCUITS.md) (in French)
+- [Instruments: logic analyser and oscilloscope](docs/INSTRUMENTS.md) (in French)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
-- [WebFront 0.9: migration, adoption and decisions (French)](docs/WEBFRONT-0.9.md) (earlier reports: [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
+- [WebFront 1.0 candidate: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.0.md) (earlier reports: [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Project direction](docs/adr)
 
 ## Licence
@@ -109,4 +128,4 @@ ctest --test-dir build --output-on-failure
 SiliconForge is dual-licensed under **Apache-2.0 OR CECILL-B**, at your option. [LICENSE](LICENSE) contains the full
 texts, including the French and English versions of CeCILL-B. Third-party components retain their own licences.
 
-WebFront 0.9.0: [migration and adoption (French)](docs/WEBFRONT-0.9.md).
+WebFront 1.0 candidate: [upgrade and adoption (French)](docs/WEBFRONT-1.0.md).

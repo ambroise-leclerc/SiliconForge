@@ -473,7 +473,8 @@ window.SiliconForgeInstruments = (root, host) => {
     $("[data-readout=cursors]").textContent = a !== null && b !== null
       ? `Δt ${si(Math.abs(b - a), "s", 4)}   1/Δt ${si(1 / Math.abs(b - a), "Hz", 4)}`
       : a !== null ? `A ${a.toFixed(6)} s — shift-click places B` : "click places cursor A, shift-click B";
-    $("[data-readout=capture]").textContent = capture.lost ? "capture truncated" : "";
+    $("[data-readout=capture]").textContent = capture.lost ? "capture truncated"
+      : performance.now() - exported < 6000 ? "siliconforge-capture.vcd saved to your downloads" : "";
   }
   let painted = null;
 
@@ -605,7 +606,11 @@ window.SiliconForgeInstruments = (root, host) => {
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 10000);
+    exported = performance.now();
+    draw();
+    setTimeout(draw, 6100);
   }
+  let exported = -Infinity;
 
   function remember() {
     try { localStorage.setItem("siliconforge.instrument", view.mode); } catch { /* Storage may be unavailable */ }

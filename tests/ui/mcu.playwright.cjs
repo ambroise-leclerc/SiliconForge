@@ -123,7 +123,9 @@ const root = path.resolve(__dirname, "../..");
     await page.waitForFunction(() => document.querySelector("#mcu-error").textContent === "test: transient chip failure");
     await page.waitForSelector('#pinout svg[aria-label="BareAVR pinout"]');
     await page.waitForFunction(() => document.querySelector("#mcu-error").hidden);
-    await page.waitForFunction(() => !document.querySelector("#breadboard svg"));
+    // A chip the circuit was not made for sits alone on a bare board.
+    await page.waitForFunction(() => document.querySelector("#breadboard .bb-chip-name")?.textContent === "bareavr");
+    await page.waitForFunction(() => !document.querySelector("#breadboard .bb-led"));
     await page.waitForFunction(() => document.querySelector("#mcu-select").selectedOptions[0]?.text === "BareAVR (loaded)");
     assert.ok(await page.evaluate(() => window.chipAttempts >= 2));
     const pinLabels = await page.locator("#digital .pin .label").allTextContents();

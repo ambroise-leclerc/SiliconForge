@@ -29,7 +29,7 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
-            ca-certificates git cmake ninja-build gcc-16 g++-16 gcc-avr avr-libc binutils-avr make python3 libwebkitgtk-6.0-dev xvfb xauth
+            ca-certificates git cmake ninja-build gcc-16 g++-16 gcc-avr avr-libc binutils-avr make python3 python3-pil libwebkitgtk-6.0-dev xvfb xauth
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
         with:
@@ -44,10 +44,27 @@ jobs:
         run: cd build && ctest --output-on-failure -LE ui
       - name: Test native UI
         if: success() || failure()
-        # The runner's kernel forbids the user namespaces WebKit's bubblewrap sandbox needs; the page under test is our own.
-        env:
-          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
+        # WebFront opens WebKitGTK in development mode, without its sandbox (docs/WEBFRONT-1.0.md): the runner's kernel
+        # forbids the user namespaces the sandbox needs, and the page under test is our own.
         run: cd build && ctest --output-on-failure --no-tests=error -L ui
+      - name: Animate the tour of the interface
+        # The demo animation of the README, from the sequence UI-Tour recorded in the real window (#10).
+        if: always()
+        continue-on-error: true
+        run: |
+          frames=build/tests/webfront-jasmine/UI-Tour/captures/demo
+          count=$(ls "$frames" | wc -l)
+          tools/captures2gif "$frames" build/siliconforge.gif --fps "$(python3 -c "print($count / 4)")"
+          [ "$(stat -c %s build/siliconforge.gif)" -lt 2000000 ] || { echo "The animation is over 2 MB"; exit 1; }
+      - name: Upload the captures of the interface
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-captures
+          path: |
+            build/siliconforge.gif
+            build/tests/webfront-jasmine/UI-Tour/captures/*.png
+          if-no-files-found: warn
       - name: Upload UI test reports
         if: always()
         uses: actions/upload-artifact@v4

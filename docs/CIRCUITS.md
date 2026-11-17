@@ -5,14 +5,22 @@ Un **composant** est un type de pièce (LED, résistance, bouton…) décrit dan
 `circuits/<nom>.json` : la puce, les composants posés sur des trous et les fils. Les deux formats
 sont validés par un JSON Schema Draft 7 (`schemas/component.schema.json`,
 `schemas/circuit.schema.json`), puis par des contrôles de cohérence en C++. Les schémas, les
-composants de `components/` et `circuits/arduino-demo.json` sont embarqués par CMake : une
+composants de `components/` et les circuits de `circuits/` sont embarqués par CMake : une
 installation ne dépend pas du répertoire source. La décision est décrite dans
 l'[ADR 0005](adr/0005-composants-et-circuits.md).
 
-> État : les descriptions sont chargées et validées (#18). Le modèle électrique (#19), le rendu par
-> type (#20) et le chargement d'un circuit par l'application (#21) suivent. En attendant, la vue
-> Breadboard dessine encore la section `breadboard` de la description du MCU ; un test vérifie
-> qu'elle place les mêmes pièces aux mêmes trous que `circuits/arduino-demo.json`.
+Le circuit est calculé en C++ par un modèle électrique (`circuit::Circuit`) : l'interface et le banc de test
+voient le même. Trois circuits sont fournis : `arduino-demo` (par défaut), `seven-segment` et `led-buttons`.
+
+```sh
+siliconforge --circuit seven-segment firmware/prebuilt/counter.hex   # un circuit embarqué, par son nom
+siliconforge --circuit circuits/mon-montage.json firmware.hex       # ou un fichier
+siliconforge --circuit none firmware.hex                             # plaque nue
+```
+
+Le circuit choisit son microcontrôleur (`chip.mcu`) sauf si `--mcu` est donné. Dans l'interface, la liste
+**Circuit**, le bouton **Load circuit…** ou le dépôt d'un fichier JSON changent de circuit ; un circuit invalide est
+signalé avec le chemin JSON de la faute. Un microcontrôleur autre que celui du circuit reçoit une plaque nue.
 
 ## Trous de la plaque
 
@@ -109,13 +117,64 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
   | `switch` | 2 | — | `pressed` (booléen) |
   | `potentiometer` | extrémité, curseur, extrémité | `resistance` | `position` (nombre) |
 
+  Un élément `led` peut porter `swapWhen`, le nom d'une propriété booléenne qui inverse anode et cathode quand elle
+  est vraie (afficheur à anode commune). Une LED peut aussi déclarer l'état `current` (ampères) et un potentiomètre
+  l'état `voltage` (tension du curseur) : le modèle les renseigne.
+
   Une liste vide décrit une pièce seulement dessinée (quartz). Quand un modèle a plusieurs
   éléments, chacun porte un `name` et son état est préfixé : `a.brightness`.
 - **`state`** : ce que le composant expose à l'interface et aux tests. `interactive: true` marque
   ce que l'utilisateur modifie (appui, position). Le type `bytes` est réservé aux états binaires
   volumineux (mémoire d'image d'un écran).
 
+## Modèle électrique
+
+- Les rangées `f` à `j` d'une colonne, les rangées `a` à `e`, et chaque rail forment un nœud ; les fils et les
+  boutons appuyés les réunissent en nets.
+- Sources idéales : rails `+` (5 V) et `−` (0 V), sorties du MCU, sondes posées depuis l'interface ou le banc.
+- Entre les nets : résistances, deux moitiés de potentiomètre, LED (tension de seuil puis 5 Ω), résistance de rappel
+  de 35 kΩ d'une entrée qui l'active.
+- La luminosité d'une LED est son courant rapporté à `nominalCurrent`, bornée à 1 ; l'interface en reçoit la moyenne
+  sur la trame, ce qui rend une PWM comme l'œil la voit.
+- Deux sources de tensions différentes sur un même net sont un **court-circuit**, signalé dans un bandeau et par
+  `circuit.shorts()`.
+- Le modèle est résistif et logique : pas de condensateur, pas de transitoire, pas de courant maximal de sortie.
+
+## Rendu
+
+`components/<type>/render.js` dessine le composant. Le module s'enregistre et reçoit l'état calculé en C++ :
+
+```js
+SiliconForge.components.define("led", {
+  create(ctx, component) {            // ctx.layer : groupe SVG ; ctx.at : coordonnées des bornes ; ctx.el : création SVG
+    const lens = ctx.el("circle", {cx: ctx.at.anode.x, cy: ctx.at.anode.y - 20, r: 8}, ctx.layer);
+    return {update(state) { lens.setAttribute("fill-opacity", state.brightness); }};
+  },
+});
+```
+
+`ctx.set(nom, valeur)` transmet une interaction (`pressed`, `position`) au modèle. `component` porte `id`, `type`,
+`properties` (valeurs par défaut comprises), `view` et `pin`, la broche du MCU à laquelle le composant est relié à
+travers fils et résistances. Un type sans `render.js` est simulé mais pas dessiné.
+
 ## En C++
+
+```cpp
+#include <siliconforge/testing/Bench.hpp>
+
+testing::Bench bench{mcu::create("atmega328p")};
+bench.attach(circuit::builtinDescription("arduino-demo"));   // ou circuit::loadDescription(chemin).value()
+bench.load("blink.hex");
+bench.runFor(250ms);
+CHECK(bench.component("led-d13").brightness() == 1.0);
+bench.press("button-d2");                                    // release(), turn("pot-a0", 0.5)
+CHECK(bench.circuit().shorts().empty());
+```
+
+Sans banc, `circuit::Circuit::create(description)` puis `attach(mcu)` ; appeler `update()` depuis
+`Pin::subscribeDrive` de chaque broche.
+
+### Descriptions
 
 ```cpp
 #include <siliconforge/circuit/Description.hpp>
@@ -138,6 +197,7 @@ Cible CMake : `SiliconForge::circuit`.
 ## Ajouter un type de composant
 
 1. Créer `components/<type>/component.json` ; le nom du répertoire est le `type`.
-2. Relancer CMake : le fichier est embarqué et validé par les tests (`ctest -R component`).
-3. Si le comportement n'est pas exprimable avec les éléments ci-dessus, il faudra un nouvel
-   élément dans le modèle C++ (#19).
+2. Ajouter `components/<type>/render.js` pour le dessiner.
+3. Relancer CMake : les deux fichiers sont embarqués et la description validée par les tests (`ctest -R component`).
+4. Si le comportement n'est pas exprimable avec les éléments ci-dessus, il faut un nouvel élément dans
+   `src/circuit/Circuit.cpp`.

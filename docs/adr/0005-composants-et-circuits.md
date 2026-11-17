@@ -47,6 +47,26 @@ dire « la LED est allumée » ni « j'appuie sur le bouton ».
 - Les bornes de bus (`role: "bus"`) et l'état binaire volumineux (`type: "bytes"`) sont acceptés par le schéma et
   n'ont pas encore de modèle.
 
+### Réalisation (17 novembre 2026)
+
+- **Modèle électrique (#19)** : `circuit::Circuit`. Les trous et les fils forment des nets ; rails, sorties du MCU et
+  sondes sont des sources idéales ; résistances, potentiomètres, LED (seuil et 5 Ω en série) et résistances de rappel
+  (35 kΩ) relient les nets. Les tensions sont résolues par analyse nodale à chaque changement, et chaque solution est
+  mémorisée par état des sorties : une PWM coûte deux résolutions, pas une par front. Un net qu'aucune source
+  n'atteint laisse l'entrée du MCU flottante.
+- **Rendu par type (#20)** : `components/<type>/render.js`, embarqué et servi par une route de `WebBridge`.
+  `ui/breadboard.js` ne connaît aucun type. L'état arrive dans chaque trame (`components`), les interactions repartent
+  par `sf.component.set`.
+- **Chargement (#21)** : `--circuit`, liste et fichier dans l'interface. Un circuit nomme son MCU ; une autre puce
+  reçoit une plaque nue. La section `breadboard` des descriptions de MCU n'est plus lue.
+- **Afficheur 7 segments (#22)** : huit éléments `led` et un `wire` entre ses deux communs, sans code C++ nouveau.
+  L'anode commune est une propriété (`commonAnode`) qui retourne les LED par `swapWhen`.
+- **Écrans à venir** : un contrôleur d'écran aura son modèle C++ et un état de type `bytes`. Sa mémoire d'image
+  suivra le chemin ouvert par `sf.signals` : une fonction du pont qui renvoie un `Uint8Array` (tableau typé, sans
+  limite de 64 Kio depuis WebFront 0.9), tirée par le module de rendu quand la trame d'état annonce une nouvelle
+  révision, plutôt que poussée dans le JSON de chaque trame. Un rappel asynchrone (`ResultTask`) reste possible si la
+  lecture devient longue.
+
 ## Conséquences
 
 - Les tests de firmware pourront porter sur le circuit : `bench.component("led-d13").brightness()`,

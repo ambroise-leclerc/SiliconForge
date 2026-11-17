@@ -14,22 +14,38 @@ Le premier microcontrôleur pris en charge est l’**ATmega328P à 16 MHz**, uti
 
 ## Votre code, un circuit, un résultat visible
 
-La plaque d’essai réunit un microcontrôleur et des composants simulés. Dans cet exemple, le même firmware
-`blink.hex` que vous chargeriez sur une carte fait clignoter la LED sur D13. Le temps simulé, les cycles et les
-registres évoluent pendant l’exécution.
+La plaque d’essai réunit un microcontrôleur et des composants simulés. Lancez l’application, choisissez
+**Open an example…** : le firmware `demo.hex`, le même que vous chargeriez sur une carte, fait clignoter la LED
+rouge sur D13 et « respirer » la LED verte sur D6 par PWM, pendant que l’analyseur logique affiche le signal.
 
-![SiliconForge sous macOS : le firmware fait clignoter une LED sur la plaque d’essai](docs/images/siliconforge.gif)
+![SiliconForge : le firmware anime deux LED sur la plaque d’essai, l’analyseur logique affiche la PWM](docs/images/siliconforge.gif)
 
-Le circuit de démonstration comprend déjà deux LED, des résistances, un bouton et un potentiomètre :
-
-- **Observez vos sorties** : la LED sur D13 suit le programme et celle sur D6 reflète le rapport cyclique PWM.
-- **Essayez vos entrées** : appuyez sur le bouton relié à D2 ou tournez le potentiomètre sur A0.
+- **Observez vos sorties** : le courant de chaque LED est calculé à partir du circuit (tension de seuil, résistance),
+  et une LED en PWM s’éclaire comme l’œil la voit.
+- **Essayez vos entrées** : appuyez sur un bouton, tournez le potentiomètre, ou cliquez sur une broche pour la forcer.
 - **Dialoguez avec votre code** : envoyez du texte au microcontrôleur et lisez ses réponses dans le moniteur série.
 - **Comprenez une anomalie** : suspendez l’exécution et inspectez les registres, puis avancez d’une instruction.
+- **Repérez une erreur de câblage** : une sortie reliée à un rail, ou deux sorties opposées, sont signalées comme
+  un court-circuit.
 
-L’objectif est de vous permettre de **connecter vos propres composants et construire votre circuit autour du
-microcontrôleur**. Aujourd’hui, les composants du circuit de démonstration sont précâblés ; l’ajout et le câblage
-libres de composants font partie des prochaines étapes. Des afficheurs et des écrans simulés sont également prévus.
+## Mesurer, comme sur l’établi
+
+Chaque changement d’une broche est enregistré avec le cycle d’horloge où il se produit : 62,5 ns de résolution à
+16 MHz, sans échantillonnage, quelle que soit la vitesse de l’émulation. Le panneau **Instruments** en fait un
+analyseur logique et un oscilloscope : fréquence et rapport cyclique, curseurs, déclenchement sur front, décodage des
+trames UART, export VCD pour GTKWave ou PulseView. Voir le [guide des instruments](docs/INSTRUMENTS.md).
+
+![Le compteur 7 segments et la trame série « 3 CR LF » décodée par l’analyseur logique](docs/images/counter.png)
+
+![L’oscilloscope : 3,3 V du potentiomètre sur A0 et la PWM à 7,8 kHz sur D6](docs/images/oscilloscope.png)
+
+## Changer de circuit
+
+Un circuit est un fichier JSON : la puce, les composants posés sur les trous de la plaque et les fils. Trois sont
+fournis (LED et potentiomètre, afficheur 7 segments, LED et deux boutons) ; chargez le vôtre par
+`--circuit montage.json`, **Load circuit…** ou glisser-déposer. Les composants disponibles sont la LED, la résistance,
+le bouton-poussoir, le potentiomètre, l’afficheur 7 segments et le quartz ; le [guide des circuits](docs/CIRCUITS.md)
+explique comment en ajouter. L’édition graphique du circuit et les écrans simulés font partie des prochaines étapes.
 
 ## Vérifier les broches
 
@@ -37,7 +53,7 @@ La vue **Pinout** montre les broches physiques, leurs fonctions et leurs noms Ar
 les niveaux pendant l’exécution. Cliquez sur une entrée pour la forcer à l’état haut ou bas, puis la libérer,
 et observez la réaction de votre code.
 
-![SiliconForge sous macOS : niveaux des broches et registres pendant l’exécution du firmware](docs/images/pinout.gif)
+![La vue Pinout en thème clair : fonctions de chaque broche et niveaux pendant l’exécution](docs/images/pinout.png)
 
 Le brochage indique aussi les fonctions du composant réel qui ne sont pas encore simulées.
 
@@ -50,9 +66,11 @@ Le brochage indique aussi les fonctions du composant réel qui ne sont pas encor
 | Mémoires | Flash de 32 Kio, SRAM de 2 Kio et EEPROM de 1 Kio |
 | Entrées-sorties | Ports B, C et D, résistances de rappel, niveaux logiques et tensions analogiques |
 | PWM et temporisation | Timer0 : normal, CTC, Fast PWM et Phase Correct PWM |
-| Liaison série | USART0 asynchrone, envoi et réception dans le moniteur série |
+| Liaison série | USART0 asynchrone, envoi et réception dans le moniteur série, trames visibles bit par bit sur TXD |
+| Circuits | Modèle électrique résistif : LED, résistances, boutons, potentiomètres, afficheur 7 segments, détection des courts-circuits |
+| Instruments | Analyseur logique et oscilloscope au cycle près, mesures, curseurs, déclenchement, décodeur UART, export VCD |
 | Conversion analogique | Conversions simples sur A0–A5 et référence interne |
-| Tests automatisés | Pilotage du temps simulé, des broches et de la liaison série depuis un banc de test C++ |
+| Tests automatisés | Pilotage du temps simulé, des broches, de la liaison série et des composants du circuit depuis un banc de test C++ |
 
 **Limites actuelles :** Timer1/2, SPI, I²C/TWI, watchdog, comparateur analogique et interruptions externes ne sont
 pas encore émulés. Leurs noms sur le brochage ne signifient pas qu’ils sont utilisables. D’autres microcontrôleurs,
@@ -61,7 +79,7 @@ dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
 ## Essayer SiliconForge
 
 Le projet se compile actuellement depuis les sources. Il faut **CMake 3.31+** et un compilateur avec bibliothèque
-standard compatible **C++26** (GCC 16 sur la CI Linux, Apple Clang 21 pour les captures macOS). Les dépendances
+standard compatible **C++26** (GCC 16 sur la CI Linux). Les dépendances
 sont téléchargées automatiquement lors de la configuration. **Python 3** est requis pour les tests et pour
 l’importeur ATDF.
 
@@ -74,13 +92,13 @@ Depuis la racine du dépôt :
 ```bash
 cmake -S . -B build
 cmake --build build -j
-./build/apps/siliconforge/siliconforge firmware/prebuilt/blink.hex
+./build/apps/siliconforge/siliconforge
 ```
 
-Les [exemples précompilés](firmware/README.md) permettent d’essayer immédiatement le clignotement, l’écho série,
-les interruptions Timer0 et la PWM, sans installer de compilateur AVR.
+Le menu **Open an example…** charge un [firmware précompilé](firmware/README.md) avec son circuit : LED et PWM,
+compteur 7 segments, boutons, écho série, interruptions Timer0. Aucun compilateur AVR n’est nécessaire.
 
-Pour essayer votre propre code, remplacez le chemin de `blink.hex` par celui de votre binaire ATmega328P, ou
+Pour essayer votre propre code, donnez le chemin de votre binaire ATmega328P sur la ligne de commande, ou
 utilisez **Load firmware…** dans l’application. Aucune opération de programmation sur une carte n’est nécessaire.
 
 ## Automatiser vos vérifications
@@ -92,7 +110,8 @@ Vous pouvez exécuter un firmware sans affichage, accélérer le temps simulé e
 ```
 
 Le [banc de test C++](include/siliconforge/testing/Bench.hpp) permet d’envoyer des données, de modifier des entrées
-et de vérifier les réponses ou la période d’un signal de façon reproductible. Les [tests de firmwares](tests/integration/FirmwareTests.cpp)
+et de vérifier les réponses ou la période d’un signal de façon reproductible. Branché sur un circuit, il voit ce
+que voit l’utilisateur : `bench.press("button-d2")`, `bench.component("led-d13").brightness()`. Les [tests de firmwares](tests/integration/FirmwareTests.cpp)
 fournissent des exemples. Pour exécuter les tests du projet :
 
 ```bash
@@ -111,8 +130,9 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Firmwares de démonstration](firmware/README.md)
 - [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
 - [Format des composants et des circuits](docs/CIRCUITS.md)
+- [Instruments : analyseur logique et oscilloscope](docs/INSTRUMENTS.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
-- [WebFront 0.9 : migration, adoption et décisions](docs/WEBFRONT-0.9.md) (bilans précédents : [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
+- [WebFront 1.0 (candidate) : passage, adoption et décisions](docs/WEBFRONT-1.0.md) (bilans précédents : [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Orientations du projet](docs/adr)
 
 ## Licence
@@ -121,4 +141,4 @@ SiliconForge est proposé sous double licence **Apache-2.0 OR CECILL-B**, au cho
 contient les textes complets, dont les versions française et anglaise de CeCILL-B. Les composants tiers conservent
 leurs propres licences.
 
-WebFront 0.9.0 : [migration et adoption](docs/WEBFRONT-0.9.md).
+Candidate WebFront 1.0 : [passage et adoption](docs/WEBFRONT-1.0.md).
