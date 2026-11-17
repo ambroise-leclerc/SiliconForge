@@ -83,7 +83,8 @@ ATmega2560, as well as ARM and RISC-V targets are planned.
 
 The project currently builds from source. You need **CMake 3.31+** and a compiler with a **C++26** standard library
 (GCC 16 in Linux CI). Dependencies are downloaded automatically during
-configuration.
+configuration. **Python 3** is optional: only the ATDF importer, its tests and two side tools use it
+([study, French](docs/PYTHON-STUDY.md)).
 
 On Linux, also install WebKitGTK 6.0 for the native window: `sudo apt install libwebkitgtk-6.0-dev` on Debian/Ubuntu,
 or `webkitgtk6.0-devel` on Fedora. Without an available native engine, the application opens the system browser.

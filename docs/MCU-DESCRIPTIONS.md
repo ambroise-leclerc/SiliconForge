@@ -143,7 +143,8 @@ brochage et une plaque nue aux broches interactives.
 
 ## Ajouter une puce AVR depuis un ATDF
 
-Le convertisseur Python 3 n'a aucune dépendance externe :
+Le convertisseur Python 3 n'a aucune dépendance externe. Python n'est pas nécessaire au reste de la compilation ni
+des tests ([bilan](PYTHON-STUDY.md)).
 
 ```sh
 tools/atdf2json ATmega168.atdf --package PDIP28 -o squelette.json

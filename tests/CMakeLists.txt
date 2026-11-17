@@ -52,13 +52,14 @@ catch_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast
 
 add_subdirectory(qualification)
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
-if(SILICONFORGE_BUILD_APP)
-    add_test(NAME McuDescriptionTools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/McuToolsTests.py $<TARGET_FILE:siliconforge>)
-else()
+# Python 3 is only needed by the ATDF converter, tools/atdf2json, and its tests (docs/PYTHON-STUDY.md).
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
     add_test(NAME McuDescriptionTools COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/McuToolsTests.py)
+    set_tests_properties(McuDescriptionTools PROPERTIES TIMEOUT 30 LABELS fast)
+else()
+    message(STATUS "Python 3 not found: the tests of the ATDF converter (tools/atdf2json) are skipped")
 endif()
-set_tests_properties(McuDescriptionTools PROPERTIES TIMEOUT 30 LABELS fast)
 
 # Explicit opt-in target for profiling; not part of CTest or the default build.
 add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
@@ -68,6 +69,10 @@ if(SILICONFORGE_BUILD_APP)
     add_test(NAME CliHelpRejectsInvalidOptions
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -P ${CMAKE_CURRENT_SOURCE_DIR}/CliHelpTests.cmake)
     set_tests_properties(CliHelpRejectsInvalidOptions PROPERTIES TIMEOUT 15 LABELS fast)
+    add_test(NAME McuCommandLine
+        COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
+                -DWORK=${CMAKE_CURRENT_BINARY_DIR}/McuCommandLine -P ${CMAKE_CURRENT_SOURCE_DIR}/McuCliTests.cmake)
+    set_tests_properties(McuCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
     add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp)
     target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options Catch2::Catch2WithMain)
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
@@ -108,10 +113,13 @@ if(SILICONFORGE_BUILD_APP)
         webfront_add_jasmine_test(NAME UI-Circuits TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js ui/circuits.spec.js
             ARGS --port 0 --circuit seven-segment ${SILICONFORGE_FIRMWARE_DIR}/counter.hex)
+        # MCU descriptions selected, loaded and rejected in the window (the former manual Playwright scenario).
+        webfront_add_jasmine_test(NAME UI-Mcu TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js ui/mcu.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/blink.hex)
         # Screenshots of the real window for the documentation, each backed by an assertion.
         webfront_add_jasmine_test(NAME UI-Tour TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/tour.spec.js ARGS --port 0)
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Tour APPEND PROPERTY LABELS ui)
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour APPEND PROPERTY LABELS ui)
     else()
         message(STATUS "Native UI tests skipped: they need Linux and WebFront's WebKitGTK frontend")
     endif()

@@ -1,17 +1,13 @@
-"""Offline ATDF conversion and end-to-end CLI discovery tests (standard library only)."""
+"""Offline tests of the ATDF converter, tools/atdf2json (standard library only).
+
+The command line of the application is tested by McuCliTests.cmake, without Python."""
 import copy
-import json
 import runpy
-import subprocess
-import sys
-import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-# CTest passes the application as the last argument; unittest options and test names are left alone.
-APP = Path(sys.argv.pop()) if len(sys.argv) > 1 and Path(sys.argv[-1]).is_file() else None
 CONVERT = runpy.run_path(str(ROOT / 'tools/atdf2json'))['convert']
 # Synthetic fixture: offset register groups, a 16-bit register, vector and signal, two packages.
 ATDF = '''<avr-tools-device-file><devices><device name="TestAVR" architecture="AVR8">
@@ -104,38 +100,6 @@ class AtDFTests(unittest.TestCase):
     def test_bad_package_is_explicit(self):
         with self.assertRaisesRegex(ValueError, 'Unknown package'):
             CONVERT(ET.fromstring(ATDF), 'missing')
-
-
-@unittest.skipIf(APP is None, 'application not built')
-class CliTests(unittest.TestCase):
-    def run_app(self, *args):
-        result = subprocess.run([str(APP), *args], capture_output=True, text=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        return result
-
-    def test_discovery_help_load_and_invalid_description(self):
-        with tempfile.TemporaryDirectory(prefix='siliconforge-mcus-') as temp:
-            directory = Path(temp)
-            d = json.loads((ROOT / 'mcus/atmega328p.json').read_text())
-            d['name'] = 'ATmega168'
-            d['memories']['flash']['size'] = 16384
-            d['memories']['sram']['size'] = 1024
-            d['memories']['eeprom']['size'] = 512
-            d['registers']['SPH']['reset'] = 4
-            chip = directory / 'atmega168.json'
-            chip.write_text(json.dumps(d))
-            for args in [('--help', '--mcu-path', temp), ('--mcu-path', temp, '--help')]:
-                help_result = self.run_app(*args)
-                self.assertIn('atmega328p atmega168', help_result.stdout)
-                self.assertIn('--mcu-file', help_result.stdout)
-            for args in [('--mcu-file', str(chip)), ('--mcu-path', temp, '--mcu', 'ATMEGA168')]:
-                self.run_app(*args, '--headless', '--speed', 'max', '--duration', '0.1', str(ROOT / 'firmware/prebuilt/blink.hex'))
-            adc_index = next(i for i, p in enumerate(d['peripherals']) if p['type'] == 'avr.adc')
-            d['peripherals'][adc_index]['vector'] = 'missing'
-            chip.write_text(json.dumps(d))
-            result = subprocess.run([str(APP), '--mcu-file', str(chip)], capture_output=True, text=True)
-            self.assertEqual(result.returncode, 1)
-            self.assertIn(f'/peripherals/{adc_index}/vector', result.stderr)
 
 
 if __name__ == '__main__':
