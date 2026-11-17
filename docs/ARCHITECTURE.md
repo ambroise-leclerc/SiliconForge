@@ -125,4 +125,5 @@ could deadlock.
 | Instruments | `tests/unit/SignalRecorderTests.cpp` | The capture ring, the pin observers, the UART waveform decoded from TXD |
 | Bridge | `tests/integration/WebBridgeTests.cpp` | `sf.*` functions without a browser: frames, typed errors, circuits, capture |
 | Firmware | `tests/integration/FirmwareTests.cpp` | Real avr-gcc binaries checked through the bench (1 Hz blink, echo, ISR, PWM) |
+| Qualification | `tests/unit/OpcodeClassTests.cpp`, `tests/qualification/`, `firmware/qualification/` | The 65 536 opcodes classified, cycles against the manual, differential tests against simavr, compiled programs with a verdict; consolidated in `docs/qualification/` ([QUALIFICATION.md](QUALIFICATION.md)) |
 | Interface | `tests/ui/` | Jasmine specs driving the page and the firmware through `window.siliconForge` |

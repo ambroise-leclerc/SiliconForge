@@ -242,6 +242,35 @@ l'objectif de ±3 % de l'ADR ; la mesure initiale de +0,2 % ne permet donc pas d
 Les échantillons et les empreintes des exécutables sont conservés dans
 [le relevé du benchmark](benchmarks/mcu-json-l2-512k.json).
 
+## Flash prédécodée
+
+Depuis #13, chaque cœur décode sa flash une fois, avec les cycles de sa description : un emplacement par mot de flash
+réunit le handler, le timing compacté et l'opcode (16 octets). La boucle d'émulation fait une seule lecture par
+instruction, au lieu de la lecture de l'opcode, puis de son indice, puis de l'entrée handler/timing. Le décodage est
+refait par `setTiming()`, par chaque chargement (`loadFlash`, `eraseFlash`, sur la seule zone écrite) et par chaque
+effacement ou écriture de page SPM ; un test exécute du code réécrit par SPM. Le coût mémoire est de 256 Kio pour les
+16 Ki mots de l'ATmega328P. La table partagée des 65 536 indices ne sert plus qu'au décodage.
+
+Deux autres changements accompagnent la mesure : `Debugger::takeStopRequest()` lit l'indicateur avant de tenter
+l'échange atomique, qui n'a lieu que lorsqu'un arrêt est demandé, et l'enregistrement de la couverture des opcodes
+(qualification, ADR 0006) passe par une seconde instance de la boucle, choisie une fois par appel de `run()`.
+
+Même protocole que ci-dessous (24 blocs équilibrés, graine 1729, 5 s d'échauffement puis 30 s simulées de `blink` par
+exécution, CPU 3, GCC 16.1 Release, hôte partagé) :
+
+| Variante | n | Médiane MHz | Écart-type MHz | Minimum–maximum MHz |
+| --- | ---: | ---: | ---: | ---: |
+| Moteur initial (avant l'épique #3) | 24 | 160,85 | 6,61 | 137,4–165,0 |
+| Table compacte (`develop` avant #13) | 24 | 149,35 | 11,25 | 111,8–157,0 |
+| Flash prédécodée | 24 | 186,95 | 6,93 | 168,1–194,1 |
+
+Flash prédécodée / moteur initial : **+16,2 %** en rapport des médianes [+13,4 ; +20,6] %, **+17,4 %** en médiane des
+écarts par bloc [+13,5 ; +20,5] %. Par rapport à la table compacte : +25,2 % [+18,9 ; +29,1] %. Les intervalles
+excluent zéro et l'objectif « aucun coût mesurable, ±3 % » est tenu avec de la marge : les cycles viennent du JSON et
+l'émulation est plus rapide qu'avant l'épique. Les compteurs matériels restent inaccessibles sur l'hôte
+(`perf_event_paranoid=4`). Les échantillons sont dans [le relevé](benchmarks/mcu-predecoded-24blocks.json) ; des
+compilations ont occupé d'autres cœurs pendant les blocs 19 à 23.
+
 ## Mesures de la table compacte
 
 Le premier relevé alterné ne contient que quatre exécutions par variante : médianes
@@ -269,7 +298,7 @@ bootstrap exploratoire à 95 % de [−5,85 ; −1,64] %. Un autre estimateur, la
 des écarts relatifs calculés dans chaque bloc, donne **−5,02 %** [−5,73 ; −3,22] %.
 Ces estimateurs distincts sont fournis avec leurs propres intervalles dans
 [le relevé complet](benchmarks/mcu-dispatch-24blocks.json). Ils ne démontrent pas
-le respect de l'objectif ±3 % ; le critère de #13 reste ouvert.
+le respect de l'objectif ±3 % ; la [flash prédécodée](#flash-prédécodée) l'a ensuite atteint.
 
 Pour compacte/table privée, le rapport des médianes vaut −1,94 % [−3,06 ; +0,51] % ;
 la médiane des écarts par bloc vaut −1,41 % [−2,65 ; +0,21] %. Les deux intervalles

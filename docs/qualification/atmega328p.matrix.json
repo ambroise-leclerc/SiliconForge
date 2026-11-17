@@ -1,0 +1,861 @@
+{
+  "exceptions": 11,
+  "instructions": 85,
+  "level": "qualifié, avec exceptions documentées",
+  "mcu": "ATmega328P",
+  "programs": 18,
+  "programsPassed": 18,
+  "qualified": 85,
+  "rows": [
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "adc",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 11
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "add",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 7
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "adiw",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "and",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "andi",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 8
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "asr",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "bclr",
+      "opcodes": 8,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "bld",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "brbc",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 11
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "brbs",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 9
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "break",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "bset",
+      "opcodes": 8,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "bst",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 4
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "call",
+      "opcodes": 64,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "cbi",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "com",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "cp",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 8
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "cpc",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 11
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "cpi",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 10
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "cpse",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 5
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "dec",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "eor",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 7
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "fmul",
+      "opcodes": 64,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "fmuls",
+      "opcodes": 64,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "fmulsu",
+      "opcodes": 64,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "icall",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ijmp",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "in",
+      "opcodes": 2048,
+      "semantics": "pass",
+      "testedOpcodes": 16
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "inc",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 5
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "jmp",
+      "opcodes": 64,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "ld -x",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "ld -y",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "ld -z",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ld x",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ld x+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ld y+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ld z+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ldd y",
+      "opcodes": 2048,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ldd z",
+      "opcodes": 2048,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ldi",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 112
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "lds",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 10
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "lpm",
+      "opcodes": 33,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "lpm z+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "lsr",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "mov",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 10
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "movw",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 14
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "mul",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "muls",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "mulsu",
+      "opcodes": 64,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "neg",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "nop",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "or",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ori",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 5
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "out",
+      "opcodes": 2048,
+      "semantics": "pass",
+      "testedOpcodes": 25
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "pop",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 6
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "push",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 6
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "rcall",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ret",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "reti",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "rjmp",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 15
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "ror",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbc",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbci",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 7
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbi",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 8
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbic",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbis",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbiw",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 5
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbrc",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sbrs",
+      "opcodes": 256,
+      "semantics": "pass",
+      "testedOpcodes": 3
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "sleep",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "exception",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "spm",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "st -x",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "st -y",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "st -z",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "st x",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "st x+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 5
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "st y+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "st z+",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "std y",
+      "opcodes": 2048,
+      "semantics": "pass",
+      "testedOpcodes": 0
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "std z",
+      "opcodes": 2048,
+      "semantics": "pass",
+      "testedOpcodes": 4
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sts",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 6
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "sub",
+      "opcodes": 1024,
+      "semantics": "pass",
+      "testedOpcodes": 4
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "subi",
+      "opcodes": 4096,
+      "semantics": "pass",
+      "testedOpcodes": 15
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "pass",
+      "flags": "pass",
+      "mnemonic": "swap",
+      "opcodes": 32,
+      "semantics": "pass",
+      "testedOpcodes": 2
+    },
+    {
+      "cycles": "pass",
+      "decoding": "pass",
+      "differential": "exception",
+      "flags": "pass",
+      "mnemonic": "wdr",
+      "opcodes": 1,
+      "semantics": "pass",
+      "testedOpcodes": 1
+    }
+  ]
+}

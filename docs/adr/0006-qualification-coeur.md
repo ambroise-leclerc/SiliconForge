@@ -3,6 +3,7 @@
 - Statut : acceptée
 - Date : 2026-10-28
 - Épique : [#5](https://github.com/ambroise-leclerc/SiliconForge/issues/5)
+- Mise en œuvre : [guide de la qualification](../QUALIFICATION.md), [matrice](../qualification/README.md)
 
 ## Contexte
 

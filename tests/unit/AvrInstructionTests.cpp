@@ -350,3 +350,48 @@ TEST_CASE("Every opcode decodes to a mnemonic", "[avr][decoder]") {
     CHECK(isTwoWord(0x940E));
     CHECK_FALSE(isTwoWord(0x9001));
 }
+
+SCENARIO("WDR only resets the watchdog, which is not emulated", "[avr][mcu-control]") {
+    GIVEN("a state set by a few instructions") {
+        AvrFixture avr{AvrAssembler{}.ldi(16, 0xA5).sec().wdr().nop()};
+        avr.execute(2);
+        const auto before = avr.core.sreg;
+        WHEN("WDR executes") {
+            const auto cycles = avr.execute();
+            THEN("it takes one cycle and changes nothing but the program counter") {
+                CHECK(cycles == 1);
+                CHECK(avr.core.pc == 3);
+                CHECK(avr.core.r(16) == 0xA5);
+                CHECK(avr.core.sreg == before);
+                CHECK(avr.core.sp == avr.core.config().ramEnd);
+            }
+        }
+    }
+}
+
+SCENARIO("Code written by SPM is executed, not the instructions it replaced", "[avr][spm]") {
+    // The core decodes the flash once (AvrCore::decodeFlash): a page erase or write must decode that page again.
+    GIVEN("a page that holds LDI r20, 0x11 and a program that rewrites it with LDI r20, 0x5A") {
+        constexpr u16 replacement = 0xE54A;  // LDI r20, 0x5A
+        constexpr unsigned spmcsr = 0x37;      // I/O address
+        AvrAssembler program;
+        program.ldi(16, 0x01).ldi(30, 0x00).ldi(31, 0x02)  // Z = byte 0x0200, the page of word 0x0100
+            .ldi(24, replacement & 0xFF).ldi(25, replacement >> 8).movw(0, 24).out(spmcsr, 16).raw(0x95E8)  // fill the buffer
+            .ldi(30, 0x02).ldi(24, 0x98).ldi(25, 0x95).movw(0, 24).out(spmcsr, 16).raw(0x95E8)            // BREAK after it
+            .ldi(30, 0x00).ldi(16, 0x03).out(spmcsr, 16).raw(0x95E8)                                       // page erase
+            .ldi(16, 0x05).out(spmcsr, 16).raw(0x95E8)                                                     // page write
+            .jmp(0x0100)
+            .org(0x0100)
+            .ldi(20, 0x11)
+            .break_();
+        AvrFixture avr{program};
+        WHEN("it runs") {
+            const auto result = avr.mcu.run(1000);
+            THEN("the new instruction executes") {
+                CHECK(result.reason == StopReason::BreakInstruction);
+                CHECK(avr.core.r(20) == 0x5A);
+                CHECK(avr.core.flash()[0x0100] == replacement);
+            }
+        }
+    }
+}

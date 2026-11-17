@@ -72,6 +72,12 @@ Le brochage indique aussi les fonctions du composant réel qui ne sont pas encor
 | Conversion analogique | Conversions simples sur A0–A5 et référence interne |
 | Tests automatisés | Pilotage du temps simulé, des broches, de la liaison série et des composants du circuit depuis un banc de test C++ |
 
+**Qualification du cœur :** l’ATmega328P est **qualifié, avec exceptions documentées** : ses 85 instructions sont
+vérifiées contre le manuel AVR (cycles de chaque cas), contre le simulateur simavr (instruction par instruction sur des
+programmes aléatoires : 150 000 instructions à chaque build, 74 millions en campagne longue) et par des programmes C
+compilés en `-O0`, `-O2` et `-Os`. Voir la
+[matrice de qualification](docs/qualification/README.md).
+
 **Limites actuelles :** Timer1/2, SPI, I²C/TWI, watchdog, comparateur analogique et interruptions externes ne sont
 pas encore émulés. Leurs noms sur le brochage ne signifient pas qu’ils sont utilisables. D’autres microcontrôleurs,
 dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
@@ -131,6 +137,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
 - [Format des composants et des circuits](docs/CIRCUITS.md)
 - [Instruments : analyseur logique et oscilloscope](docs/INSTRUMENTS.md)
+- [Qualification du cœur : méthode](docs/QUALIFICATION.md) et [matrice par puce](docs/qualification/README.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
 - [WebFront 1.0 (candidate) : passage, adoption et décisions](docs/WEBFRONT-1.0.md) (bilans précédents : [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Orientations du projet](docs/adr)

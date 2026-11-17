@@ -556,6 +556,8 @@ void AvrCore::setTiming(const nlohmann::json& timing) {
         configured.push_back({d.handler, it->second});
     }
     decoded = std::move(configured);
+    program.resize(flashWords.size());
+    decodeFlash(0, flashWords.size());
 }
 
 std::string_view mnemonic(u16 opcode) { return decode(opcode).name; }

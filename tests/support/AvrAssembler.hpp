@@ -117,6 +117,7 @@ public:
     AvrAssembler& clc() { return raw(0x9488); }
     AvrAssembler& set() { return raw(0x9468); }
     AvrAssembler& sleep() { return raw(0x9588); }
+    AvrAssembler& wdr() { return raw(0x95A8); }
     AvrAssembler& break_() { return raw(0x9598); }
 
     /// Pads with NOPs up to a word address (to place code at an interrupt vector).

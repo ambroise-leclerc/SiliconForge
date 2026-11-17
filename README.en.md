@@ -69,6 +69,12 @@ The pinout also labels functions of the physical chip that are not yet simulated
 | Analogue conversion | Single conversions on A0–A5 and the internal reference |
 | Automated tests | Control of simulated time, pins, serial communication and circuit components from a C++ test bench |
 
+**Core qualification:** the ATmega328P is **qualified, with documented exceptions**: its 85 instructions are checked
+against the AVR manual (cycles of every case), against the simavr simulator (instruction by instruction on random
+programs: 150,000 instructions on every build, 74 million in the long campaign) and by C programs compiled at `-O0`,
+`-O2` and `-Os`. See the
+[qualification matrix (French)](docs/qualification/README.md).
+
 **Current limitations:** Timer1/2, SPI, I²C/TWI, watchdog, analogue comparator and external interrupts are not yet
 emulated. Their labels on the pinout do not mean they are available. Further microcontrollers, including the
 ATmega2560, as well as ARM and RISC-V targets are planned.
@@ -119,6 +125,7 @@ ctest --test-dir build --output-on-failure
 - [Microcontroller descriptions and model limitations](docs/MCU-DESCRIPTIONS.md)
 - [Component and circuit format](docs/CIRCUITS.md) (in French)
 - [Instruments: logic analyser and oscilloscope](docs/INSTRUMENTS.md) (in French)
+- [Core qualification: method (French)](docs/QUALIFICATION.md) and [matrix per chip](docs/qualification/README.md)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
 - [WebFront 1.0 candidate: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.0.md) (earlier reports: [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Project direction](docs/adr)

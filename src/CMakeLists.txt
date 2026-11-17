@@ -77,6 +77,7 @@ add_library(SiliconForge_avr STATIC
     arch/avr/Device.cpp
     arch/avr/AvrCore.cpp
     arch/avr/Instructions.cpp
+    arch/avr/Opcodes.cpp
     arch/avr/peripherals/Gpio.cpp
     arch/avr/peripherals/Timer8.cpp
     arch/avr/peripherals/Usart.cpp)

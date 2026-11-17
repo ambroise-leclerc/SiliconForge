@@ -1,9 +1,12 @@
 #include <siliconforge/arch/avr/AvrCore.hpp>
+#include <siliconforge/arch/avr/Opcodes.hpp>
 
 #include <algorithm>
 #include <stdexcept>
 
 namespace siliconforge::avr {
+
+void recordOpcode(u16 opcode) noexcept;  // Opcodes.cpp
 
 AvrCore::AvrCore(const AvrCoreConfig& config, DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, Debugger& debugger)
     : data(data), scheduler(scheduler), interrupts(interrupts), debugger(debugger), cfg(config), regs(data.registers()),
@@ -33,15 +36,47 @@ void AvrCore::loadFlash(Address address, std::span<const u8> bytes) {
         auto&      word        = flashWords[(byteAddress >> 1) & pcMask()];
         word = byteAddress & 1 ? static_cast<u16>((word & 0x00FF) | bytes[i] << 8) : static_cast<u16>((word & 0xFF00) | bytes[i]);
     }
+    if (bytes.size() >= flashWords.size() * 2)
+        decodeFlash(0, flashWords.size());
+    else if (!bytes.empty()) {
+        const auto first = (address >> 1) & pcMask();
+        const auto last  = ((address + bytes.size() - 1) >> 1) & pcMask();
+        if (first <= last)
+            decodeFlash(first, last - first + 1);
+        else {  // The segment wraps around the end of the flash.
+            decodeFlash(first, flashWords.size() - first);
+            decodeFlash(0, last + 1);
+        }
+    }
 }
 
-void AvrCore::eraseFlash() { std::ranges::fill(flashWords, u16{0xFFFF}); }
+void AvrCore::eraseFlash() {
+    std::ranges::fill(flashWords, u16{0xFFFF});
+    decodeFlash(0, flashWords.size());
+}
+
+void AvrCore::decodeFlash(std::size_t first, std::size_t count) {
+    if (decoded.empty())
+        return;  // Decoded as a whole by setTiming().
+    const auto* indices = instructionIndices().data();
+    for (auto at = first; at < first + count; ++at) {
+        const auto  opcode = flashWords[at];
+        const auto& entry  = decoded[indices[opcode]];
+        program[at]        = {entry.handler, entry.timing, opcode};
+    }
+}
 
 RunResult AvrCore::run(Cycles budget, bool honourBreakpoints) {
     if (decoded.empty())
         throw std::logic_error("AVR instruction timings are not configured");
-    const auto* indices = instructionIndices().data();
-    const auto* table = decoded.data();
+    // Two instances of the same loop: the usual one pays nothing for the coverage of the qualification reports.
+    return OpcodeCoverage::recording() ? execute<true>(budget, honourBreakpoints) : execute<false>(budget, honourBreakpoints);
+}
+
+template <bool Recorded>
+RunResult AvrCore::execute(Cycles budget, bool honourBreakpoints) {
+    const auto* slots = program.data();
+    const auto  mask  = pcMask();
     const auto  start = cycles;
     const auto  end   = cycles + budget;
 
@@ -70,9 +105,10 @@ RunResult AvrCore::run(Cycles budget, bool honourBreakpoints) {
         resumeAt.reset();
 
         interruptDelay    = false;
-        const auto opcode = fetch();
-        const auto& entry  = table[indices[opcode]];
-        cycles            += entry.handler(*this, opcode, entry.timing);
+        const auto& slot = slots[pc++ & mask];
+        if constexpr (Recorded)
+            recordOpcode(slot.opcode);
+        cycles          += slot.handler(*this, slot.opcode, slot.timing);
 
         if (stopRequest) [[unlikely]]
             return {*std::exchange(stopRequest, std::nullopt), cycles - start};
@@ -119,9 +155,11 @@ void AvrCore::executeSpm() {
         case 0x01: pageBuffer[(z >> 1) & (pageWords - 1)] = pair(0); break;  // Fill the temporary page buffer
         case 0x03:  // Page erase
             std::fill_n(flashWords.begin() + pageStart, pageWords, u16{0xFFFF});
+            decodeFlash(pageStart, pageWords);
             break;
         case 0x05:  // Page write
             std::ranges::copy(pageBuffer, flashWords.begin() + pageStart);
+            decodeFlash(pageStart, pageWords);
             std::ranges::fill(pageBuffer, u16{0xFFFF});
             break;
         default: break;  // RWW re-enable, lock and fuse bits: nothing to emulate.
