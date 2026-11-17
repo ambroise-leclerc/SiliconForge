@@ -143,10 +143,11 @@ brochage et une plaque nue aux broches interactives.
 
 ## Ajouter une puce AVR depuis un ATDF
 
-Le convertisseur Python 3 n'a aucune dépendance externe :
+Le convertisseur `atdf2json` est compilé avec le projet dans `build/tools/` ; il ne demande ni Python ni autre
+interpréteur ([bilan](PYTHON-STUDY.md)).
 
 ```sh
-tools/atdf2json ATmega168.atdf --package PDIP28 -o squelette.json
+build/tools/atdf2json ATmega168.atdf --package PDIP28 -o squelette.json
 # Compléter les champs manquants puis valider en chargeant la description.
 ```
 
@@ -159,7 +160,7 @@ les étiquettes Arduino, le circuit ni toujours les resets.
 Pour conserver ces compléments manuels en réimportant les données du constructeur :
 
 ```sh
-tools/atdf2json ATmega328P.atdf --package PDIP28 \
+build/tools/atdf2json ATmega328P.atdf --package PDIP28 \
   --base mcus/atmega328p.json -o reimporte.json
 ```
 
@@ -330,15 +331,18 @@ Le protocole et les tentatives `perf stat` sont reproductibles sous Linux avec
 les trois binaires Release conservés (empreintes SHA-256 dans le relevé) :
 
 ```sh
-python3 tests/bench/compare_dispatch.py \
+build/tests/siliconforge_compare_dispatch \
   --baseline /path/to/initial --large /path/to/large --compact /path/to/compact \
   --firmware firmware/prebuilt/blink.hex --output /tmp/dispatch.json \
   --cpu 0 --blocks 24 --seconds 30 --seed 1729 --perf --perf-repeats 20
 ```
 
-Le script mesure le débit annoncé par la boucle d'émulation et conserve également
-les temps CPU et muraux du processus (démarrage compris). `--perf` collecte les
-événements ci-dessus, ou leur diagnostic d'échec ; il ne change aucune permission.
+L'outil (`tests/bench/CompareDispatch.cpp`, compilé sous Linux) mesure le débit
+annoncé par la boucle d'émulation et conserve également les temps CPU et muraux du
+processus (démarrage compris). `--perf` collecte les événements ci-dessus, ou leur
+diagnostic d'échec ; il ne change aucune permission. Il remplace un script Python :
+statistiques et format du relevé sont les mêmes, mais une même graine ne donne plus
+le même ordre des blocs ni les mêmes tirages bootstrap que ce script.
 Les variantes d'architecture de dispatch suggérées restent des expériences futures.
 
 ### Temps de construction

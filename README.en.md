@@ -83,7 +83,8 @@ ATmega2560, as well as ARM and RISC-V targets are planned.
 
 The project currently builds from source. You need **CMake 3.31+** and a compiler with a **C++26** standard library
 (GCC 16 in Linux CI). Dependencies are downloaded automatically during
-configuration.
+configuration. Neither Python nor Node.js is needed: the repository's
+tools are written in C++ and built with the rest into `build/tools/` ([study, French](docs/PYTHON-STUDY.md)).
 
 On Linux, also install WebKitGTK 6.0 for the native window: `sudo apt install libwebkitgtk-6.0-dev` on Debian/Ubuntu,
 or `webkitgtk6.0-devel` on Fedora. Without an available native engine, the application opens the system browser.

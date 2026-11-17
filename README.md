@@ -86,8 +86,8 @@ dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
 
 Le projet se compile actuellement depuis les sources. Il faut **CMake 3.31+** et un compilateur avec bibliothèque
 standard compatible **C++26** (GCC 16 sur la CI Linux). Les dépendances
-sont téléchargées automatiquement lors de la configuration. **Python 3** est requis pour les tests et pour
-l’importeur ATDF.
+sont téléchargées automatiquement lors de la configuration. Ni Python ni Node.js ne sont
+nécessaires : les outils du dépôt sont en C++ et compilés avec le reste dans `build/tools/` ([bilan](docs/PYTHON-STUDY.md)).
 
 Sous Linux, installez aussi WebKitGTK 6.0 pour la fenêtre native : `sudo apt install libwebkitgtk-6.0-dev` sur
 Debian/Ubuntu, ou `webkitgtk6.0-devel` sur Fedora. Sans moteur natif disponible, l’application ouvre le navigateur
