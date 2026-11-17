@@ -4,6 +4,7 @@ include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
 # Firmware: compiled from firmware/src when avr-gcc is available, otherwise the committed firmware/prebuilt is used.
 find_program(AVR_GCC avr-gcc)
 find_program(AVR_OBJCOPY avr-objcopy)
+find_program(AVR_OBJDUMP avr-objdump)
 find_program(MAKE_PROGRAM NAMES make gmake)
 if(AVR_GCC AND AVR_OBJCOPY AND MAKE_PROGRAM)
     set(SILICONFORGE_FIRMWARE_DIR ${PROJECT_BINARY_DIR}/firmware)
@@ -20,6 +21,7 @@ endif()
 
 add_executable(siliconforge_tests
     support/PublicHeaders.cpp
+    support/OpcodeCoverageListener.cpp
     unit/DescriptionTests.cpp
     unit/CircuitDescriptionTests.cpp
     unit/CircuitModelTests.cpp
@@ -27,6 +29,7 @@ add_executable(siliconforge_tests
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp
     unit/AvrInstructionTests.cpp
+    unit/OpcodeClassTests.cpp
     unit/AvrInterruptTests.cpp
     unit/GpioTests.cpp
     unit/Timer0Tests.cpp
@@ -39,7 +42,15 @@ if(SILICONFORGE_FIRMWARE_FROM_SOURCE)
     target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_FIRMWARE_FROM_SOURCE)
     add_dependencies(siliconforge_tests firmware)
 endif()
-catch_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast)
+if(AVR_OBJDUMP)
+    # An independent reading of the instruction set for the classification of the opcodes (ADR 0006).
+    target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_AVR_OBJDUMP="${AVR_OBJDUMP}")
+endif()
+# The opcodes executed by the tests feed the qualification matrix (ADR 0006): one file per test process.
+catch_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast
+    ENVIRONMENT "SILICONFORGE_OPCODE_COVERAGE=${PROJECT_BINARY_DIR}/qualification/coverage/tests")
+
+add_subdirectory(qualification)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 if(SILICONFORGE_BUILD_APP)

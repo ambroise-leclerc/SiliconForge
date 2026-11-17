@@ -56,7 +56,8 @@ struct InstructionEntry {
 /// AVRe+ CPU core (megaAVR with MUL and MOVW, 16-bit program counter), precise to the cycle at instruction
 /// granularity: every instruction accounts for its configured number of cycles, taken branches and skips included.
 /// Call setTiming() before run() or step(); either throws std::logic_error if timings are not configured.
-/// Opcode indices occupy 128 KiB shared by all cores; each core owns only the small handler/timing table.
+/// Opcode indices occupy 128 KiB shared by all cores; each core owns the small handler/timing table of its device and
+/// the flash decoded with it, one slot per word, so that executing an instruction costs a single load.
 class AvrCore {
 public:
     AvrCore(const AvrCoreConfig& config, DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, Debugger& debugger);
@@ -134,8 +135,19 @@ public:
 private:
     friend struct siliconforge::testing::AvrCoreAccess;
     void serviceInterrupt();
+    template <bool Recorded>
+    RunResult execute(Cycles budget, bool honourBreakpoints);
+
+    /// One flash word decoded for this device: what run() needs to execute it, on one cache line.
+    struct Slot {
+        InstructionHandler handler;
+        u32                timing;
+        u16                opcode;
+    };
+    void decodeFlash(std::size_t first, std::size_t count);
 
     std::vector<InstructionEntry> decoded;
+    std::vector<Slot>             program;  ///< Same size as flashWords once the timings are configured.
 
     AvrCoreConfig    cfg;
     u8*              regs;

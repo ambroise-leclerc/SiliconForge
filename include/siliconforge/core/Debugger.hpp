@@ -54,7 +54,11 @@ public:
 
     /// Thread-safe: asks a running emulation to stop at the next instruction boundary.
     void requestStop() noexcept { stopFlag.store(true, std::memory_order_relaxed); }
-    bool takeStopRequest() noexcept { return stopFlag.exchange(false, std::memory_order_relaxed); }
+    /// Consumes a pending stop request. Called between instructions: the plain load keeps the common case, no request,
+    /// free of the locked exchange.
+    bool takeStopRequest() noexcept {
+        return stopFlag.load(std::memory_order_relaxed) && stopFlag.exchange(false, std::memory_order_relaxed);
+    }
     [[nodiscard]] bool stopRequested() const noexcept { return stopFlag.load(std::memory_order_relaxed); }
 
 private:

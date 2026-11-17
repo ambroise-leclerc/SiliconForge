@@ -56,6 +56,20 @@ jobs:
           count=$(ls "$frames" | wc -l)
           tools/captures2gif "$frames" build/siliconforge.gif --fps "$(python3 -c "print($count / 4)")"
           [ "$(stat -c %s build/siliconforge.gif)" -lt 2000000 ] || { echo "The animation is over 2 MB"; exit 1; }
+      - name: Qualification matrix
+        # Consolidates what the tests above measured (ADR 0006): opcode coverage, cycles, programs, simavr differential.
+        if: always()
+        run: build/tests/qualification/siliconforge_qualification matrix --results build/qualification --out build/qualification/matrix
+      - name: Upload the qualification matrix
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qualification
+          path: |
+            build/qualification/matrix
+            build/qualification/*.json
+            build/qualification/programs
+          if-no-files-found: warn
       - name: Upload the captures of the interface
         if: always()
         uses: actions/upload-artifact@v4

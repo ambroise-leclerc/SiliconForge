@@ -1,0 +1,935 @@
+{
+  "created_utc": "2026-11-17T11:12:37.055250+00:00",
+  "configuration": {
+    "cpu": 3,
+    "blocks": 24,
+    "simulated_seconds": 30.0,
+    "warmup_seconds": 5,
+    "seed": 1729,
+    "bootstrap_resamples": 10000,
+    "firmware": "${REPO}/firmware/prebuilt/blink.hex",
+    "perf_event_paranoid": "4",
+    "host": {
+      "cpu_model": "AMD Ryzen 9 3900X 12-Core Processor",
+      "kernel": "7.0.0-38-generic",
+      "compiler": "GCC 16.1 Release",
+      "frequency_and_background_load_controlled": false,
+      "note": "Shared host; builds and tests ran on other cores during blocks 19-23."
+    }
+  },
+  "binaries": {
+    "baseline": {
+      "path": "${SCRATCH}/sf-initial",
+      "sha256": "321425116ff81bbc580ef755213130ab6b9c0154de978c6cce16aaf165d5547d"
+    },
+    "large": {
+      "path": "${SCRATCH}/sf-compact",
+      "sha256": "ae3dd143ee7095c4754e47484e2e22a515eefb966f8da29fec8ddb0e2939923c"
+    },
+    "compact": {
+      "path": "${SCRATCH}/sf-new",
+      "sha256": "283f7e4ac8e9932fcbac9c276755c930275c4d0302cea4a820e399a9e5d4bdc9"
+    }
+  },
+  "perf_stat": {},
+  "blocks": [
+    {
+      "index": 0,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 175.6,
+          "process_wall_seconds": 2.7397048820275813,
+          "process_cpu_seconds": 2.7388290000000004,
+          "voluntary_switches": 1,
+          "involuntary_switches": 32
+        },
+        "baseline": {
+          "MHz": 154.4,
+          "process_wall_seconds": 3.1114968409528956,
+          "process_cpu_seconds": 3.110422,
+          "voluntary_switches": 1,
+          "involuntary_switches": 42
+        },
+        "large": {
+          "MHz": 156.7,
+          "process_wall_seconds": 3.0678031170973554,
+          "process_cpu_seconds": 3.066693999999999,
+          "voluntary_switches": 1,
+          "involuntary_switches": 49
+        }
+      }
+    },
+    {
+      "index": 1,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 160.8,
+          "process_wall_seconds": 2.9870945940492675,
+          "process_cpu_seconds": 2.9854689999999993,
+          "voluntary_switches": 1,
+          "involuntary_switches": 69
+        },
+        "compact": {
+          "MHz": 182.5,
+          "process_wall_seconds": 2.638054091949016,
+          "process_cpu_seconds": 2.6368,
+          "voluntary_switches": 1,
+          "involuntary_switches": 51
+        },
+        "large": {
+          "MHz": 141.7,
+          "process_wall_seconds": 3.3930615610443056,
+          "process_cpu_seconds": 3.388448,
+          "voluntary_switches": 1,
+          "involuntary_switches": 79
+        }
+      }
+    },
+    {
+      "index": 2,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 154.7,
+          "process_wall_seconds": 3.1069277320057154,
+          "process_cpu_seconds": 3.1058149999999998,
+          "voluntary_switches": 1,
+          "involuntary_switches": 51
+        },
+        "baseline": {
+          "MHz": 165.0,
+          "process_wall_seconds": 2.911885828943923,
+          "process_cpu_seconds": 2.910742,
+          "voluntary_switches": 1,
+          "involuntary_switches": 58
+        },
+        "compact": {
+          "MHz": 192.5,
+          "process_wall_seconds": 2.499696647049859,
+          "process_cpu_seconds": 2.498596000000002,
+          "voluntary_switches": 1,
+          "involuntary_switches": 48
+        }
+      }
+    },
+    {
+      "index": 3,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 149.1,
+          "process_wall_seconds": 3.2236514929682016,
+          "process_cpu_seconds": 3.2045779999999993,
+          "voluntary_switches": 1,
+          "involuntary_switches": 130
+        },
+        "compact": {
+          "MHz": 178.5,
+          "process_wall_seconds": 2.6964645530097187,
+          "process_cpu_seconds": 2.6953450000000005,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41
+        },
+        "baseline": {
+          "MHz": 160.6,
+          "process_wall_seconds": 2.9915981489466503,
+          "process_cpu_seconds": 2.990530999999999,
+          "voluntary_switches": 1,
+          "involuntary_switches": 43
+        }
+      }
+    },
+    {
+      "index": 4,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 162.9,
+          "process_wall_seconds": 2.9493524510180578,
+          "process_cpu_seconds": 2.948254000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 40
+        },
+        "large": {
+          "MHz": 154.5,
+          "process_wall_seconds": 3.112358770915307,
+          "process_cpu_seconds": 3.1108849999999983,
+          "voluntary_switches": 1,
+          "involuntary_switches": 57
+        },
+        "compact": {
+          "MHz": 171.1,
+          "process_wall_seconds": 2.8104826480848715,
+          "process_cpu_seconds": 2.791657000000001,
+          "voluntary_switches": 1,
+          "involuntary_switches": 119
+        }
+      }
+    },
+    {
+      "index": 5,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 183.6,
+          "process_wall_seconds": 2.621058998047374,
+          "process_cpu_seconds": 2.6139770000000038,
+          "voluntary_switches": 1,
+          "involuntary_switches": 85
+        },
+        "large": {
+          "MHz": 156.9,
+          "process_wall_seconds": 3.064686412923038,
+          "process_cpu_seconds": 3.0635380000000043,
+          "voluntary_switches": 1,
+          "involuntary_switches": 52
+        },
+        "baseline": {
+          "MHz": 164.1,
+          "process_wall_seconds": 2.926480564987287,
+          "process_cpu_seconds": 2.9254329999999946,
+          "voluntary_switches": 1,
+          "involuntary_switches": 45
+        }
+      }
+    },
+    {
+      "index": 6,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 190.7,
+          "process_wall_seconds": 2.523057868005708,
+          "process_cpu_seconds": 2.521669000000002,
+          "voluntary_switches": 1,
+          "involuntary_switches": 47
+        },
+        "baseline": {
+          "MHz": 148.7,
+          "process_wall_seconds": 3.231353073962964,
+          "process_cpu_seconds": 3.1968710000000016,
+          "voluntary_switches": 1,
+          "involuntary_switches": 228
+        },
+        "large": {
+          "MHz": 149.6,
+          "process_wall_seconds": 3.2136634670896456,
+          "process_cpu_seconds": 3.1976270000000033,
+          "voluntary_switches": 1,
+          "involuntary_switches": 168
+        }
+      }
+    },
+    {
+      "index": 7,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 156.1,
+          "process_wall_seconds": 3.078845444950275,
+          "process_cpu_seconds": 3.0758759999999894,
+          "voluntary_switches": 1,
+          "involuntary_switches": 101
+        },
+        "baseline": {
+          "MHz": 163.0,
+          "process_wall_seconds": 2.946769217029214,
+          "process_cpu_seconds": 2.9441970000000137,
+          "voluntary_switches": 1,
+          "involuntary_switches": 89
+        },
+        "compact": {
+          "MHz": 181.1,
+          "process_wall_seconds": 2.657063203980215,
+          "process_cpu_seconds": 2.6301319999999935,
+          "voluntary_switches": 1,
+          "involuntary_switches": 197
+        }
+      }
+    },
+    {
+      "index": 8,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 140.6,
+          "process_wall_seconds": 3.4176382099976763,
+          "process_cpu_seconds": 3.3961980000000014,
+          "voluntary_switches": 1,
+          "involuntary_switches": 107
+        },
+        "compact": {
+          "MHz": 192.0,
+          "process_wall_seconds": 2.5051758469780907,
+          "process_cpu_seconds": 2.504050000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 76
+        },
+        "baseline": {
+          "MHz": 161.9,
+          "process_wall_seconds": 2.9668587520718575,
+          "process_cpu_seconds": 2.9656429999999907,
+          "voluntary_switches": 1,
+          "involuntary_switches": 51
+        }
+      }
+    },
+    {
+      "index": 9,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 189.5,
+          "process_wall_seconds": 2.539547155960463,
+          "process_cpu_seconds": 2.538542,
+          "voluntary_switches": 1,
+          "involuntary_switches": 43
+        },
+        "large": {
+          "MHz": 145.2,
+          "process_wall_seconds": 3.3114266759948805,
+          "process_cpu_seconds": 3.298270999999996,
+          "voluntary_switches": 1,
+          "involuntary_switches": 100
+        },
+        "baseline": {
+          "MHz": 154.6,
+          "process_wall_seconds": 3.106540580978617,
+          "process_cpu_seconds": 3.1051990000000123,
+          "voluntary_switches": 1,
+          "involuntary_switches": 69
+        }
+      }
+    },
+    {
+      "index": 10,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 164.2,
+          "process_wall_seconds": 2.9251958060776815,
+          "process_cpu_seconds": 2.9241600000000076,
+          "voluntary_switches": 1,
+          "involuntary_switches": 53
+        },
+        "large": {
+          "MHz": 157.0,
+          "process_wall_seconds": 3.060935690999031,
+          "process_cpu_seconds": 3.0598569999999965,
+          "voluntary_switches": 1,
+          "involuntary_switches": 49
+        },
+        "compact": {
+          "MHz": 187.4,
+          "process_wall_seconds": 2.566697732079774,
+          "process_cpu_seconds": 2.5657099999999935,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38
+        }
+      }
+    },
+    {
+      "index": 11,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 154.3,
+          "process_wall_seconds": 3.1134776059770957,
+          "process_cpu_seconds": 3.092966,
+          "voluntary_switches": 1,
+          "involuntary_switches": 117
+        },
+        "compact": {
+          "MHz": 185.9,
+          "process_wall_seconds": 2.588723868946545,
+          "process_cpu_seconds": 2.5878889999999886,
+          "voluntary_switches": 1,
+          "involuntary_switches": 34
+        },
+        "large": {
+          "MHz": 155.4,
+          "process_wall_seconds": 3.093310154043138,
+          "process_cpu_seconds": 3.092374000000001,
+          "voluntary_switches": 1,
+          "involuntary_switches": 42
+        }
+      }
+    },
+    {
+      "index": 12,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 163.6,
+          "process_wall_seconds": 2.9366964109940454,
+          "process_cpu_seconds": 2.9358710000000077,
+          "voluntary_switches": 1,
+          "involuntary_switches": 40
+        },
+        "large": {
+          "MHz": 146.0,
+          "process_wall_seconds": 3.291574210044928,
+          "process_cpu_seconds": 3.2903039999999986,
+          "voluntary_switches": 1,
+          "involuntary_switches": 44
+        },
+        "compact": {
+          "MHz": 179.7,
+          "process_wall_seconds": 2.6771827259799466,
+          "process_cpu_seconds": 2.676212000000002,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38
+        }
+      }
+    },
+    {
+      "index": 13,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 156.9,
+          "process_wall_seconds": 3.063038707943633,
+          "process_cpu_seconds": 3.0621469999999964,
+          "voluntary_switches": 1,
+          "involuntary_switches": 42
+        },
+        "compact": {
+          "MHz": 192.7,
+          "process_wall_seconds": 2.4965118559775874,
+          "process_cpu_seconds": 2.4957929999999875,
+          "voluntary_switches": 1,
+          "involuntary_switches": 30
+        },
+        "baseline": {
+          "MHz": 159.4,
+          "process_wall_seconds": 3.0134479419793934,
+          "process_cpu_seconds": 3.0124969999999895,
+          "voluntary_switches": 1,
+          "involuntary_switches": 43
+        }
+      }
+    },
+    {
+      "index": 14,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 183.8,
+          "process_wall_seconds": 2.618039848981425,
+          "process_cpu_seconds": 2.617251000000004,
+          "voluntary_switches": 1,
+          "involuntary_switches": 30
+        },
+        "large": {
+          "MHz": 148.0,
+          "process_wall_seconds": 3.247307430021465,
+          "process_cpu_seconds": 3.2463579999999808,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41
+        },
+        "baseline": {
+          "MHz": 162.4,
+          "process_wall_seconds": 2.957910311059095,
+          "process_cpu_seconds": 2.956901000000013,
+          "voluntary_switches": 1,
+          "involuntary_switches": 41
+        }
+      }
+    },
+    {
+      "index": 15,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 190.1,
+          "process_wall_seconds": 2.5313925370573997,
+          "process_cpu_seconds": 2.530585000000016,
+          "voluntary_switches": 1,
+          "involuntary_switches": 34
+        },
+        "baseline": {
+          "MHz": 160.9,
+          "process_wall_seconds": 2.984604405006394,
+          "process_cpu_seconds": 2.983596000000013,
+          "voluntary_switches": 1,
+          "involuntary_switches": 45
+        },
+        "large": {
+          "MHz": 134.5,
+          "process_wall_seconds": 3.5740217390703037,
+          "process_cpu_seconds": 3.5696259999999973,
+          "voluntary_switches": 1,
+          "involuntary_switches": 66
+        }
+      }
+    },
+    {
+      "index": 16,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 162.7,
+          "process_wall_seconds": 2.9534330369206145,
+          "process_cpu_seconds": 2.9526369999999797,
+          "voluntary_switches": 1,
+          "involuntary_switches": 38
+        },
+        "compact": {
+          "MHz": 194.1,
+          "process_wall_seconds": 2.478808030951768,
+          "process_cpu_seconds": 2.4780310000000165,
+          "voluntary_switches": 1,
+          "involuntary_switches": 40
+        },
+        "large": {
+          "MHz": 156.3,
+          "process_wall_seconds": 3.0754257190274075,
+          "process_cpu_seconds": 3.0742490000000218,
+          "voluntary_switches": 1,
+          "involuntary_switches": 58
+        }
+      }
+    },
+    {
+      "index": 17,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 146.6,
+          "process_wall_seconds": 3.2795187749434263,
+          "process_cpu_seconds": 3.2783749999999863,
+          "voluntary_switches": 1,
+          "involuntary_switches": 54
+        },
+        "baseline": {
+          "MHz": 152.2,
+          "process_wall_seconds": 3.1560148060088977,
+          "process_cpu_seconds": 3.1300569999999857,
+          "voluntary_switches": 1,
+          "involuntary_switches": 170
+        },
+        "compact": {
+          "MHz": 190.6,
+          "process_wall_seconds": 2.526960426941514,
+          "process_cpu_seconds": 2.5253859999999912,
+          "voluntary_switches": 1,
+          "involuntary_switches": 63
+        }
+      }
+    },
+    {
+      "index": 18,
+      "order": [
+        "compact",
+        "large",
+        "baseline"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 190.7,
+          "process_wall_seconds": 2.5231393319554627,
+          "process_cpu_seconds": 2.5158570000000022,
+          "voluntary_switches": 1,
+          "involuntary_switches": 130
+        },
+        "large": {
+          "MHz": 155.3,
+          "process_wall_seconds": 3.094821962993592,
+          "process_cpu_seconds": 3.090304999999989,
+          "voluntary_switches": 1,
+          "involuntary_switches": 115
+        },
+        "baseline": {
+          "MHz": 149.5,
+          "process_wall_seconds": 3.2129585340153426,
+          "process_cpu_seconds": 3.2008140000000154,
+          "voluntary_switches": 1,
+          "involuntary_switches": 94
+        }
+      }
+    },
+    {
+      "index": 19,
+      "order": [
+        "large",
+        "baseline",
+        "compact"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 147.6,
+          "process_wall_seconds": 3.256600421969779,
+          "process_cpu_seconds": 3.2553090000000218,
+          "voluntary_switches": 1,
+          "involuntary_switches": 58
+        },
+        "baseline": {
+          "MHz": 164.2,
+          "process_wall_seconds": 2.925497986958362,
+          "process_cpu_seconds": 2.923476000000003,
+          "voluntary_switches": 1,
+          "involuntary_switches": 70
+        },
+        "compact": {
+          "MHz": 188.9,
+          "process_wall_seconds": 2.547112951055169,
+          "process_cpu_seconds": 2.5461879999999795,
+          "voluntary_switches": 1,
+          "involuntary_switches": 37
+        }
+      }
+    },
+    {
+      "index": 20,
+      "order": [
+        "baseline",
+        "compact",
+        "large"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 159.9,
+          "process_wall_seconds": 3.003501685918309,
+          "process_cpu_seconds": 3.002366000000019,
+          "voluntary_switches": 1,
+          "involuntary_switches": 51
+        },
+        "compact": {
+          "MHz": 168.1,
+          "process_wall_seconds": 2.8608623639447615,
+          "process_cpu_seconds": 2.821697000000001,
+          "voluntary_switches": 1,
+          "involuntary_switches": 204
+        },
+        "large": {
+          "MHz": 123.5,
+          "process_wall_seconds": 3.8926263730973005,
+          "process_cpu_seconds": 3.8906799999999726,
+          "voluntary_switches": 1,
+          "involuntary_switches": 69
+        }
+      }
+    },
+    {
+      "index": 21,
+      "order": [
+        "large",
+        "compact",
+        "baseline"
+      ],
+      "runs": {
+        "large": {
+          "MHz": 111.8,
+          "process_wall_seconds": 4.298816901980899,
+          "process_cpu_seconds": 4.2972579999999905,
+          "voluntary_switches": 1,
+          "involuntary_switches": 67
+        },
+        "compact": {
+          "MHz": 184.4,
+          "process_wall_seconds": 2.608496063039638,
+          "process_cpu_seconds": 2.607091000000012,
+          "voluntary_switches": 1,
+          "involuntary_switches": 79
+        },
+        "baseline": {
+          "MHz": 137.4,
+          "process_wall_seconds": 3.4956110500497743,
+          "process_cpu_seconds": 3.438110999999989,
+          "voluntary_switches": 1,
+          "involuntary_switches": 339
+        }
+      }
+    },
+    {
+      "index": 22,
+      "order": [
+        "compact",
+        "baseline",
+        "large"
+      ],
+      "runs": {
+        "compact": {
+          "MHz": 190.8,
+          "process_wall_seconds": 2.5218364889733493,
+          "process_cpu_seconds": 2.520005000000006,
+          "voluntary_switches": 1,
+          "involuntary_switches": 78
+        },
+        "baseline": {
+          "MHz": 161.4,
+          "process_wall_seconds": 2.9768359770532697,
+          "process_cpu_seconds": 2.9706629999999987,
+          "voluntary_switches": 1,
+          "involuntary_switches": 149
+        },
+        "large": {
+          "MHz": 155.6,
+          "process_wall_seconds": 3.0887326400261372,
+          "process_cpu_seconds": 3.0873340000000007,
+          "voluntary_switches": 1,
+          "involuntary_switches": 55
+        }
+      }
+    },
+    {
+      "index": 23,
+      "order": [
+        "baseline",
+        "large",
+        "compact"
+      ],
+      "runs": {
+        "baseline": {
+          "MHz": 154.4,
+          "process_wall_seconds": 3.1112520589958876,
+          "process_cpu_seconds": 3.0715320000000244,
+          "voluntary_switches": 1,
+          "involuntary_switches": 198
+        },
+        "large": {
+          "MHz": 145.9,
+          "process_wall_seconds": 3.2952819110359997,
+          "process_cpu_seconds": 3.292796999999985,
+          "voluntary_switches": 1,
+          "involuntary_switches": 69
+        },
+        "compact": {
+          "MHz": 186.5,
+          "process_wall_seconds": 2.579810976050794,
+          "process_cpu_seconds": 2.578545999999986,
+          "voluntary_switches": 1,
+          "involuntary_switches": 47
+        }
+      }
+    }
+  ],
+  "interval_scope": "Exploratory paired-block bootstrap on this session only; drift/autocorrelation may remain. No sample exclusion.",
+  "summary": {
+    "baseline": {
+      "n": 24,
+      "median_MHz": 160.85000000000002,
+      "mean_MHz": 158.4375,
+      "stdev_MHz": 6.605584758369238,
+      "min_MHz": 137.4,
+      "max_MHz": 165.0,
+      "q1_MHz": 154.4,
+      "q3_MHz": 162.925
+    },
+    "large": {
+      "n": 24,
+      "median_MHz": 149.35,
+      "mean_MHz": 147.72916666666666,
+      "stdev_MHz": 11.248825220465458,
+      "min_MHz": 111.8,
+      "max_MHz": 157.0,
+      "q1_MHz": 145.725,
+      "q3_MHz": 155.725
+    },
+    "compact": {
+      "n": 24,
+      "median_MHz": 186.95,
+      "mean_MHz": 185.45,
+      "stdev_MHz": 6.9329082924343055,
+      "min_MHz": 168.1,
+      "max_MHz": 194.1,
+      "q1_MHz": 182.15,
+      "q3_MHz": 190.7
+    }
+  },
+  "comparisons": {
+    "compact_vs_baseline": {
+      "ratio_of_medians_delta_percent": 16.226297792974798,
+      "ratio_bootstrap_95_ci_percent": [
+        13.351834720937417,
+        20.633893919793024
+      ],
+      "paired_median_delta_percent": 17.4072923140667,
+      "paired_bootstrap_95_ci_percent": [
+        13.495024875621887,
+        20.479585223590412
+      ],
+      "paired_deltas_percent": [
+        13.73056994818651,
+        13.495024875621887,
+        16.666666666666675,
+        11.145703611457037,
+        5.033763044812756,
+        11.882998171846438,
+        28.244788164088774,
+        11.10429447852761,
+        18.591723285979,
+        22.57438551099613,
+        14.129110840438507,
+        20.479585223590412,
+        9.841075794621034,
+        20.890840652446663,
+        13.177339901477826,
+        18.14791796146673,
+        19.29932390903504,
+        25.229960578186606,
+        27.55852842809363,
+        15.042630937880652,
+        5.12820512820511,
+        34.20669577874818,
+        18.215613382899633,
+        20.790155440414495
+      ]
+    },
+    "large_vs_baseline": {
+      "ratio_of_medians_delta_percent": -7.1495181846441,
+      "ratio_bootstrap_95_ci_percent": [
+        -9.197321145448862,
+        -2.751334789467311
+      ],
+      "paired_median_delta_percent": -5.3308595501865454,
+      "paired_bootstrap_95_ci_percent": [
+        -8.866995073891626,
+        -3.9336201598033083
+      ],
+      "paired_deltas_percent": [
+        1.489637305699465,
+        -11.878109452736329,
+        -6.242424242424249,
+        -7.1606475716064715,
+        -5.156537753222834,
+        -4.387568555758681,
+        0.605245460659054,
+        -4.233128834355837,
+        -13.156269302038304,
+        -6.080206985769731,
+        -4.384896467722288,
+        0.712896953985731,
+        -10.757946210268942,
+        -1.5683814303638632,
+        -8.866995073891626,
+        -16.407706650093225,
+        -3.9336201598033083,
+        -3.6793692509855425,
+        3.879598662207373,
+        -10.109622411693053,
+        -22.764227642276424,
+        -18.63173216885008,
+        -3.5935563816604787,
+        -5.505181347150256
+      ]
+    },
+    "compact_vs_large": {
+      "ratio_of_medians_delta_percent": 25.17576163374624,
+      "ratio_bootstrap_95_ci_percent": [
+        18.89967637540453,
+        29.05866302864939
+      ],
+      "paired_median_delta_percent": 24.186725112828753,
+      "paired_bootstrap_95_ci_percent": [
+        21.35231107123127,
+        27.981029810298107
+      ],
+      "paired_deltas_percent": [
+        12.061263560944479,
+        28.793225123500356,
+        24.434389140271495,
+        19.718309859154925,
+        10.744336569579293,
+        17.017208413001896,
+        27.473262032085554,
+        16.015374759769372,
+        36.55761024182078,
+        30.509641873278248,
+        19.36305732484076,
+        19.626769626769637,
+        23.082191780821915,
+        22.81708094327597,
+        24.189189189189197,
+        41.33828996282527,
+        24.184261036468314,
+        30.01364256480219,
+        22.794591113972928,
+        27.981029810298107,
+        36.11336032388663,
+        64.93738819320217,
+        22.62210796915167,
+        27.827278958190526
+      ]
+    }
+  },
+  "labels": {
+    "baseline": "initial engine, before epic #3 (9b88897)",
+    "large": "compact opcode table, develop eb1a497 (as measured in mcu-dispatch-24blocks.json under 'compact')",
+    "compact": "predecoded flash, one slot per flash word (#13)"
+  }
+}
