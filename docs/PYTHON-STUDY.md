@@ -82,7 +82,21 @@ s'impose.
 
 | Parcours | Linux | Windows | macOS |
 | --- | --- | --- | --- |
-| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Attendu, non vérifié | Attendu, non vérifié |
-| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Attendu, non vérifié | Attendu, non vérifié |
+| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Attendu, non vérifié | Vérifié (AppleClang 21, libc++, `-Werror`) |
+| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Attendu, non vérifié | `Atdf2JsonCommandLine` vérifié ; `McuCommandLine` non exécutable (voir ci-dessous) |
 | `siliconforge_compare_dispatch` | Vérifié | Non compilé (Linux seulement) | Non compilé (Linux seulement) |
 | `UI-Mcu` (Jasmine) | Vérifié (WebKitGTK, Xvfb) | Non raccordé (WebView2) | Non raccordé (WKWebView) |
+
+### macOS (AppleClang 21, arm64, macOS 27)
+
+- Compilation de `atdf2json`, `captures2gif` et `siliconforge_tests` avec `-DSILICONFORGE_WARNINGS_AS_ERRORS=ON` :
+  `<print>`, `std::ranges::next_permutation` et le formatage `chrono` sont disponibles. 92 cas de test, 91 réussis, 1 ignoré.
+- `Atdf2JsonCommandLine` réussit. Comparaison avec l'outil Python historique (`git show be5b3a7:tools/atdf2json`) sur les
+  133 ATDF de `Microchip.ATmega_DFP.3.1.264` : **133/133 identiques octet pour octet** (sortie et stderr), comme sous Linux.
+- Écart corrigé : `cmake/Warnings.cmake` passait `-Wshadow=local`, option propre à GCC, que Clang rejette. Clang reçoit
+  désormais `-Wshadow`, qui couvre aussi les champs ; trois paramètres de `Circuit.cpp` (`supply`, `source`) ont été renommés.
+- Écart non corrigé : la cible `siliconforge` ne compile pas, à cause de la dépendance WebFront
+  (`webfront/frontend/Capture.hpp:109`, comparaison de `std::shared_ptr<CaptureProvider>` refusée par libc++).
+  `McuCommandLine` et `CliHelpRejectsInvalidOptions` ont besoin de cet exécutable : ils restent à vérifier sous macOS,
+  après correction en amont. `UI-Mcu` sous WKWebView reste non raccordé.
+- Windows (MSVC) n'a pas pu être vérifié depuis cette machine.

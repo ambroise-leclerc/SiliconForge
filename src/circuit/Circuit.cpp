@@ -192,26 +192,26 @@ struct Circuit::Model {
         return result;
     }
 
-    Solution solve(double supply) {
+    Solution solve(double supplyVolts) {
         Solution result;
         fixed.assign(netCount, std::nullopt);
-        std::vector<std::string> source(netCount);
+        std::vector<std::string> origin(netCount);
         const auto               impose = [&](std::size_t target, double volts, std::string what) {
             if (!fixed[target]) {
                 fixed[target]  = volts;
-                source[target] = std::move(what);
+                origin[target] = std::move(what);
             } else if (std::abs(*fixed[target] - volts) > shortTolerance) {
-                result.shorts.push_back(std::format("Short circuit: {} ({:.3g} V) and {} ({:.3g} V) are connected together", source[target],
+                result.shorts.push_back(std::format("Short circuit: {} ({:.3g} V) and {} ({:.3g} V) are connected together", origin[target],
                                                     *fixed[target], what, volts));
             }
         };
         for (int rail = 0; rail < 4; ++rail) {
             const auto nodeIndex = 2 * static_cast<int>(columns) + rail;
-            impose(net(nodeIndex), isSupplyRail(nodeIndex) ? supply : 0.0, isSupplyRail(nodeIndex) ? "the supply rail" : "the ground rail");
+            impose(net(nodeIndex), isSupplyRail(nodeIndex) ? supplyVolts : 0.0, isSupplyRail(nodeIndex) ? "the supply rail" : "the ground rail");
         }
         for (const auto& entry : chip)
             if (entry.pin && entry.pin->isOutput())
-                impose(net(entry.node), entry.pin->state() == PinState::High ? supply : 0.0, "output " + (entry.label.empty() ? entry.name : entry.label));
+                impose(net(entry.node), entry.pin->state() == PinState::High ? supplyVolts : 0.0, "output " + (entry.label.empty() ? entry.name : entry.label));
         for (const auto& entry : chip)
             if (entry.force)
                 impose(net(entry.node), *entry.force, "the probe on " + (entry.label.empty() ? entry.name : entry.label));
@@ -301,7 +301,7 @@ struct Circuit::Model {
                 if (entry.pin && !entry.pin->isOutput() && entry.pin->hasPullUp() && row[net(entry.node)] >= 0) {
                     const auto r = static_cast<std::size_t>(row[net(entry.node)]);
                     matrix[r * unknowns + r] += 1.0 / pullUpResistance;
-                    right[r] += supply / pullUpResistance;
+                    right[r] += supplyVolts / pullUpResistance;
                 }
             solveLinear(matrix, right);
             for (std::size_t i = 0; i < netCount; ++i)
@@ -397,7 +397,7 @@ struct Circuit::Model {
         }
     }
 
-    void drivePins(const Solution& solution, double supply) {
+    void drivePins(const Solution& solution, double supplyVolts) {
         for (auto& entry : chip) {
             if (!entry.pin || entry.pin->isOutput())
                 continue;
@@ -407,7 +407,7 @@ struct Circuit::Model {
                 if (entry.applied != 2 || entry.appliedVolts != volts) {
                     entry.applied      = 2;
                     entry.appliedVolts = volts;
-                    entry.pin->setVoltage(volts, supply);
+                    entry.pin->setVoltage(volts, supplyVolts);
                 }
             } else if (entry.applied != 1) {
                 entry.applied = 1;

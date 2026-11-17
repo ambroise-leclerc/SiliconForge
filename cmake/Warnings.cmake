@@ -9,7 +9,7 @@ function(siliconforge_set_warnings target)
         target_compile_options(${target} INTERFACE
             -Wall
             -Wextra
-            -Wshadow=local
+            $<IF:$<CXX_COMPILER_ID:GNU>,-Wshadow=local,-Wshadow>
             -Wpedantic
             -Wold-style-cast
             -Wnon-virtual-dtor
