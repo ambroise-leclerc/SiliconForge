@@ -66,10 +66,21 @@ see [the format and import guide](MCU-DESCRIPTIONS.md).
 `SiliconForge::circuit` loads what is plugged around the chip ([ADR 0005](adr/0005-composants-et-circuits.md)):
 component types from `components/<type>/component.json` and circuits from `circuits/<name>.json`, each validated by
 its JSON Schema and then checked for consistency (known types and terminals, footprints, holes used once, property
-bounds). `circuit::Library::builtin()` holds the embedded types and `circuits/arduino-demo.json` is the embedded
-demonstration circuit. Errors carry a JSON Pointer, like the MCU loader, through the shared `DescriptionError`.
-See [the format guide](CIRCUITS.md). The electrical model and the bench access come with #19; until the interface
-renders circuits (#20), the breadboard view still draws the `breadboard` section of the MCU description.
+bounds). `circuit::Library::builtin()` holds the embedded types with their rendering modules, and every
+`circuits/<name>.json` is embedded (`circuit::builtinNames()`). Errors carry a JSON Pointer, like the MCU loader,
+through the shared `DescriptionError`. See [the format guide](CIRCUITS.md).
+
+`circuit::Circuit` is the electrical model: nets from holes and wires, ideal sources (rails, MCU outputs, probes),
+resistors, potentiometers, LEDs and pull-ups solved by nodal analysis, each solution remembered per output state. It
+reads the MCU outputs, applies the net voltages to its inputs, and reports short circuits. `testing::Bench::attach()`
+plugs it in a test (`bench.component("led-d13").brightness()`, `bench.press("button-d2")`); `WebBridge` plugs the
+same model in the application.
+
+## instruments: the capture
+
+`instruments::SignalRecorder` ([ADR 0007](adr/0007-instruments.md)) keeps the most recent pin changes, each with its
+clock cycle, in a ring. `Pin::subscribeSignal` feeds it; the USART draws its frames bit by bit on TXD so that they can
+be decoded. See [the instruments guide](INSTRUMENTS.md).
 
 ## Application and interface
 
@@ -79,16 +90,21 @@ renders circuits (#20), the breadboard view still draws the `breadboard` section
   with `siliconForge.onState(json)`. Each pin carries the fraction of the frame it spent high: a PWM-driven LED is
   shown with its average brightness. `sf.selectMcu`, `sf.loadMcu` and `sf.loadFirmware` reject their Promise with a
   `webfront::BridgeError` whose `code` is one of the `siliconforge.*` codes of `WebBridge.hpp`; strings crossing the
-  bridge have no 64 KiB limit since WebFront 0.9, and a frame only caps the serial bytes it carries.
+  bridge have no 64 KiB limit since WebFront 0.9, and a frame only caps the serial bytes it carries. The frame also
+  carries the state of every component of the circuit and its short circuits; `sf.component.set` forwards the user's
+  interactions to the model, `sf.selectCircuit` / `sf.loadCircuit` / `sf.loadExample` change the circuit, and
+  `sf.signals` returns the capture of the instruments as typed arrays. A dynamic route serves
+  `components/<type>/render.js` from the component library.
 - `main.cpp` shows the interface in a native window (`webfront::frontend::NativeWebViewFrontend`: WebKitGTK, WebView2
   or WKWebView) when WebFront found the platform's engine at configuration time, and falls back to the system browser
   when it was not built or no graphical session is available. The application code is the same for both: `WebBridge`
   is a template over the WebFront application type.
 - `ui/` is plain HTML/CSS/JavaScript served from a document root. `window.siliconForge` is both the page's model and
   the automation API used by UI tests.
-- The board views are generic and driven by the JSON description served through `sf.chip()`: package pins and
-  labels for the **pinout** view, and the optional demonstration circuit for the **breadboard** view. A dynamically
-  loaded MCU needs no JavaScript file. Replacing a chip under the simulation lock rebuilds its observers and the
+- The board views are generic: `sf.chip()` gives the package pins and labels for the **pinout** view, `sf.circuit()`
+  the circuit for the **breadboard** view, which draws each component with the rendering module of its type and knows
+  none itself. `ui/instruments.js` draws the logic analyser and the oscilloscope. A dynamically loaded MCU needs no
+  JavaScript file. Replacing a chip under the simulation lock rebuilds its observers and the
   browser views, pauses execution and clears the firmware.
 
 ## Threads and locks
@@ -105,5 +121,8 @@ could deadlock.
 | Instruction | `tests/unit/AvrInstructionTests.cpp` | Results, flags and cycles of each instruction family, encoded with `tests/support/AvrAssembler.hpp` |
 | Peripheral | `tests/unit/*Tests.cpp` | GPIO, Timer0 modes, USART timing, EEPROM, ADC, interrupts, sleep |
 | Descriptions | `tests/unit/DescriptionTests.cpp`, `tests/unit/CircuitDescriptionTests.cpp` | Committed MCU, component and circuit files are valid; each consistency rule reports its JSON Pointer |
+| Circuits | `tests/unit/CircuitModelTests.cpp` | The electrical model with real firmware: LED currents, buttons, the 7-segment digits, short circuits |
+| Instruments | `tests/unit/SignalRecorderTests.cpp` | The capture ring, the pin observers, the UART waveform decoded from TXD |
+| Bridge | `tests/integration/WebBridgeTests.cpp` | `sf.*` functions without a browser: frames, typed errors, circuits, capture |
 | Firmware | `tests/integration/FirmwareTests.cpp` | Real avr-gcc binaries checked through the bench (1 Hz blink, echo, ISR, PWM) |
 | Interface | `tests/ui/` | Jasmine specs driving the page and the firmware through `window.siliconForge` |

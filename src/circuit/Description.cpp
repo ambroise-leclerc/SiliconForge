@@ -130,6 +130,13 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
         for (const auto property : rule.properties)
             if (!properties.contains(property) || properties.at(std::string(property)).at("type") != "number")
                 fail(path + "/type", "A " + type + " needs the numeric property '" + std::string(property) + "'");
+        if (element.contains("swapWhen")) {
+            const std::string property = element.at("swapWhen");
+            if (type != "led")
+                fail(path + "/swapWhen", "Only a led can be reversed");
+            if (!properties.contains(property) || properties.at(property).at("type") != "boolean")
+                fail(path + "/swapWhen", "A reversed led needs the boolean property '" + property + "'");
+        }
         if (!rule.state.empty()) {
             const auto key = name.empty() ? std::string(rule.state) : name + "." + std::string(rule.state);
             if (!state.contains(key) || state.at(key).at("type") != rule.stateType)
@@ -338,6 +345,8 @@ const Library& Library::builtin() {
         for (const auto text : embedded::components)
             if (auto added = result.add(Json::parse(text)); !added)
                 throw std::logic_error("Invalid built-in component at " + added.error().path + ": " + added.error().message);
+        for (const auto& [type, script] : embedded::renderers)
+            result.setRenderer(type, std::string{script});
         return result;
     }();
     return library;
@@ -363,6 +372,15 @@ std::expected<void, LoadError> Library::addFile(const std::filesystem::path& pat
 const Json* Library::find(std::string_view type) const noexcept {
     const auto found = components.find(type);
     return found == components.end() ? nullptr : &found->second;
+}
+
+std::string_view Library::renderer(std::string_view type) const noexcept {
+    const auto found = renderers.find(type);
+    return found == renderers.end() ? std::string_view{} : std::string_view{found->second};
+}
+
+void Library::setRenderer(std::string_view type, std::string script) {
+    renderers.insert_or_assign(std::string{type}, std::move(script));
 }
 
 std::vector<std::string> Library::types() const {
@@ -393,9 +411,17 @@ std::expected<Json, LoadError> loadDescription(const std::filesystem::path& path
 }
 
 Json builtinDescription(std::string_view name) {
-    if (name == "arduino-demo")
-        return Json::parse(embedded::arduinoDemo);
+    for (const auto& [circuit, text] : embedded::circuits)
+        if (circuit == name)
+            return Json::parse(text);
     throw std::invalid_argument("Unknown built-in circuit");
+}
+
+std::vector<std::string> builtinNames() {
+    std::vector<std::string> names;
+    for (const auto& [circuit, text] : embedded::circuits)
+        names.emplace_back(circuit);
+    return names;
 }
 
 }  // namespace siliconforge::circuit

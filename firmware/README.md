@@ -10,6 +10,11 @@ Small avr-gcc programs for the ATmega328P (Arduino Uno, 16 MHz) used by the inte
 | `timer0_isr` | Timer0 CTC, compare-match interrupt, idle sleep: prints `t=<ms>` every second |
 | `demo` | The demonstration circuit: red LED on D13 blinks at 1 Hz, green LED on D6 breathes with Timer0 PWM (2 s period) |
 | `pwm` | Timer0 Fast PWM on D6 (25 %) and D5 (75 %) |
+| `counter` | The 7-segment circuit (`circuits/seven-segment.json`): counts 0 to 9 every 500 ms, each digit also sent at 9600 bauds |
+| `buttons` | The `led-buttons` circuit: inputs with pull-ups, the LED on D9 follows the D2 button and is latched by D3 |
+
+The binaries of `prebuilt/` are also embedded in the application, which offers them with their circuit in its
+**Example** menu.
 
 When avr-gcc is installed, CMake builds these sources (target `firmware`, output in `<build>/firmware`) and the tests and
 UI specs run on those binaries, so editing a `.c` file is visible in the next test run. Without avr-gcc, CMake says so and

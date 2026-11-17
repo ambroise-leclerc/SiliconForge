@@ -3,11 +3,13 @@
 #include "Simulation.hpp"
 #include "WebBridge.hpp"
 
+#include <siliconforge/circuit/Circuit.hpp>
 #include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/WebFront.hpp>
 #include <webfront/testing/Jasmine.hpp>
 
+#include <algorithm>
 #include <charconv>
 #include <chrono>
 #include <cstdio>
@@ -33,6 +35,7 @@ struct Options {
     bool                         explicitMcu{false};
     std::optional<std::filesystem::path> mcuFile;
     std::vector<std::filesystem::path>   mcuPaths;
+    std::optional<std::string>   circuit;  ///< A built-in circuit name or a circuit file; the demonstration circuit by default.
     Display                      display{webfront::embeddedFrontendAvailable ? Display::Window : Display::Browser};
     double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
     double                       speed{1.0};   ///< 0 = as fast as possible.
@@ -51,6 +54,8 @@ Options:
   --mcu <name>        Microcontroller to emulate (default atmega328p)
   --mcu-file <file>   Load a JSON MCU description
   --mcu-path <dir>    Discover JSON MCU descriptions (repeatable)
+  --circuit <c>       Circuit the chip is plugged in: a JSON file or a built-in name (default arduino-demo);
+                      "none" for a bare board. The circuit chooses the microcontroller unless --mcu is given
   --headless          No interface: run, print the serial output on stdout and report the emulation speed
   --duration <s>      Simulated seconds to run in headless mode (default: until interrupted)
   --speed <factor>    1 = real time (default), 0 or "max" = as fast as possible
@@ -63,6 +68,10 @@ Options:
                  webfront::embeddedFrontendAvailable ? "" : " (this build has no native window engine: the system browser)");
     std::print("Available microcontrollers:");
     for (auto name : mcu::available())
+        std::print(" {}", name);
+    std::println();
+    std::print("Built-in circuits:");
+    for (const auto& name : circuit::builtinNames())
         std::print(" {}", name);
     std::println();
 }
@@ -95,7 +104,7 @@ std::optional<Options> parseOptions(int argc, char** argv) {
         } else if (argument == "--no-browser") {
             options.display = Display::None;
         } else if (argument == "--mcu" || argument == "--address" || argument == "--port" || argument == "--ui" || argument == "--mcu-file"
-                   || argument == "--mcu-path") {
+                   || argument == "--mcu-path" || argument == "--circuit") {
             const auto text = value();
             if (!text)
                 return std::nullopt;
@@ -110,6 +119,8 @@ std::optional<Options> parseOptions(int argc, char** argv) {
                 options.mcuFile = std::filesystem::path{*text};
             else if (argument == "--mcu-path")
                 options.mcuPaths.emplace_back(*text);
+            else if (argument == "--circuit")
+                options.circuit = std::string{*text};
             else
                 options.ui = *text;
         } else if (argument == "--duration" || argument == "--speed") {
@@ -158,14 +169,38 @@ int runHeadless(Mcu& mcu, const Options& options) {
 }
 
 webfront::WebFrontConfig webConfig(const Options& options) {
-    return {.address = options.address, .port = options.port, .documentRoot = options.ui};
+    return {.address = options.address, .port = options.port, .documentRoot = options.ui, .window = {.title = "SiliconForge", .width = 1480, .height = 960}};
+}
+
+/// The circuit of the command line: its description and the name the interface shows.
+struct SelectedCircuit {
+    nlohmann::json description;  ///< Null for a bare board.
+    std::string    name;
+};
+
+/// Resolves --circuit. A missing option means the demonstration circuit. Returns nullopt after reporting an invalid
+/// circuit with the JSON Pointer of its fault.
+std::optional<SelectedCircuit> selectCircuit(const Options& options) {
+    const auto wanted = options.circuit.value_or("arduino-demo");
+    if (wanted == "none")
+        return SelectedCircuit{};
+    const auto names = circuit::builtinNames();
+    if (std::ranges::find(names, wanted) != names.end())
+        return SelectedCircuit{circuit::builtinDescription(wanted), wanted};
+    auto loaded = circuit::loadDescription(wanted);
+    if (!loaded) {
+        std::println(stderr, "{}{}: {}", wanted, loaded.error().path, loaded.error().message);
+        return std::nullopt;
+    }
+    return SelectedCircuit{std::move(*loaded), std::filesystem::path{wanted}.filename().string()};
 }
 
 /// Serves the interface until the window is closed or, without a window, until the program is stopped.
 template <typename App>
-int serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName) {
+int serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName, SelectedCircuit circuit) {
     app::WebBridge<App> bridge{web, simulation, firmwareName,
-                               options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu}};
+                               options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu},
+                               std::move(circuit.description), std::move(circuit.name)};
     webfront::testing::JasmineTest tests{web};  // Inert unless the build is a WebFront Jasmine test target.
     if (options.firmware)
         simulation.run();
@@ -181,7 +216,7 @@ int serve(App& web, app::Simulation& simulation, const Options& options, const s
 }  // namespace
 
 int main(int argc, char** argv) {
-    const auto options = parseOptions(argc, argv);
+    auto options = parseOptions(argc, argv);
     if (!options) {
         printUsage();
         return 1;
@@ -193,6 +228,11 @@ int main(int argc, char** argv) {
         printUsage();
         return 0;
     }
+    auto selected = selectCircuit(*options);
+    if (!selected)
+        return 1;
+    if (selected->description.is_object() && !options->explicitMcu && !options->mcuFile)
+        options->mcu = selected->description.at("chip").at("mcu").get<std::string>();  // The circuit chooses its chip.
     std::unique_ptr<Mcu> device;
     if (options->mcuFile) {
         if (options->explicitMcu)
@@ -230,8 +270,25 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    if (options->headless)
+    if (options->headless) {
+        // Without an interface the circuit still matters to the firmware: pull-downs, dividers and what its inputs read.
+        std::unique_ptr<circuit::Circuit> wiring;
+        if (options->circuit && selected->description.is_object()) {
+            auto created = circuit::Circuit::create(selected->description);
+            if (created) {
+                if (auto attached = (*created)->attach(*device); !attached)
+                    created = std::unexpected(attached.error());
+            }
+            if (!created) {
+                std::println(stderr, "{}{}: {}", *options->circuit, created.error().path, created.error().message);
+                return 1;
+            }
+            wiring = std::move(*created);
+            for (auto& pin : device->pins())
+                pin.subscribeDrive([&wiring](const Pin&, Cycles) { wiring->update(); });
+        }
         return runHeadless(*device, *options);
+    }
 
     try {
         app::Simulation simulation{std::move(device)};
@@ -246,12 +303,12 @@ int main(int argc, char** argv) {
                     std::println(stderr, "siliconforge: no native window ({}), using the system browser", error.what());
                 }
                 if (window) {
-                    return serve(*window, simulation, *options, firmwareName);
+                    return serve(*window, simulation, *options, firmwareName, std::move(*selected));
                 }
             }
         }
         webfront::WebFront web{webConfig(*options)};
-        return serve(web, simulation, *options, firmwareName);
+        return serve(web, simulation, *options, firmwareName, std::move(*selected));
     } catch (const std::exception& error) {
         std::println(stderr, "siliconforge: {}", error.what());
         return 1;

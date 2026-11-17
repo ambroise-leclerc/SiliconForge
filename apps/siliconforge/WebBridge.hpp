@@ -2,8 +2,12 @@
 
 #include "Simulation.hpp"
 
+#include "EmbeddedFirmware.hpp"
+
 #include <nlohmann/json.hpp>
+#include <siliconforge/circuit/Circuit.hpp>
 #include <siliconforge/core/loader/ProgramImage.hpp>
+#include <siliconforge/instruments/SignalRecorder.hpp>
 #include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/WebFront.hpp>
@@ -19,6 +23,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -30,24 +35,55 @@ inline constexpr std::string_view unknownMcu       = "siliconforge.unknownMcu"; 
 inline constexpr std::string_view invalidMcu       = "siliconforge.invalidMcu";        ///< sf.loadMcu: message is "<JSON path>: <reason>".
 inline constexpr std::string_view invalidFirmware  = "siliconforge.invalidFirmware";   ///< sf.loadFirmware: unparsable image, message ends with "(line N)" when known.
 inline constexpr std::string_view firmwareRejected = "siliconforge.firmwareRejected";  ///< sf.loadFirmware: the MCU refused the image.
+inline constexpr std::string_view unknownCircuit   = "siliconforge.unknownCircuit";    ///< sf.selectCircuit: not a built-in circuit.
+inline constexpr std::string_view invalidCircuit   = "siliconforge.invalidCircuit";    ///< sf.loadCircuit: message is "<JSON path>: <reason>".
+inline constexpr std::string_view unknownComponent = "siliconforge.unknownComponent";  ///< sf.component.set: no such component or state.
+inline constexpr std::string_view invalidValue     = "siliconforge.invalidValue";      ///< sf.component.set: read-only state or value out of bounds.
+inline constexpr std::string_view unknownExample   = "siliconforge.unknownExample";    ///< sf.loadExample: not in sf.examples.
 }  // namespace error_code
+
+/// A firmware shipped with the application together with the circuit it was written for: one click in the interface.
+struct Example {
+    std::string_view id;
+    std::string_view title;
+    std::string_view circuit;
+    std::string_view firmware;
+    std::string_view description;
+};
+inline constexpr Example examples[] = {
+    {"demo", "Blink + breathing LED", "arduino-demo", "demo.hex", "Red LED at 1 Hz on D13, green LED breathing with a 7.8 kHz PWM on D6"},
+    {"counter", "7-segment counter", "seven-segment", "counter.hex", "Counts 0 to 9 on a 7-segment display and on the serial port"},
+    {"buttons", "LED and buttons", "led-buttons", "buttons.hex", "Hold the D2 button to light the LED, press D3 to latch it"},
+    {"uart_echo", "UART echo", "arduino-demo", "uart_echo.hex", "Echoes the lines of the serial monitor in upper case, 9600 baud"},
+    {"pwm", "PWM 62.5 kHz", "arduino-demo", "pwm.hex", "Timer0 Fast PWM: 25 % on D6 and 75 % on D5"},
+    {"blink", "Blink", "arduino-demo", "blink.hex", "The LED on D13 at 1 Hz"},
+    {"timer0_isr", "Timer interrupt", "arduino-demo", "timer0_isr.hex", "A Timer0 interrupt service routine toggling a pin"},
+};
 
 /// Connects a Simulation to the browsers of a WebFront application.
 ///
 /// The browser calls `sf.*` C++ functions to control the MCU; the bridge pushes the MCU state to every connected
 /// browser about 30 times per second by calling `siliconForge.onState(json)`. Each pin carries the fraction of the
-/// last frame it spent high, so that a PWM-driven LED is displayed with its average brightness.
+/// last frame it spent high, and each component of the circuit its state from the electrical model (ADR 0005), so
+/// that a PWM-driven LED is displayed with its average brightness.
+///
+/// The bridge also owns the capture memory of the instruments: every pin change is recorded with its cycle, and the
+/// page reads it with `sf.signals` as typed arrays.
 template <typename App>
 class WebBridge {
 public:
     using UI = typename App::UI;
 
-    WebBridge(App& app, Simulation& simulation, std::string firmware, std::optional<std::string_view> catalogName = std::nullopt)
-        : app(app), simulation(simulation), firmwareName(std::move(firmware)), mcuId(catalogName ? catalogId(*catalogName) : std::nullopt) {
+    /// `circuit` is the description of the circuit the chip is plugged in (already validated), null for a bare board.
+    WebBridge(App& app, Simulation& simulation, std::string firmware, std::optional<std::string_view> catalogName = std::nullopt,
+              nlohmann::json circuit = nullptr, std::string circuitLabel = {})
+        : app(app), simulation(simulation), firmwareName(std::move(firmware)), mcuId(catalogName ? catalogId(*catalogName) : std::nullopt),
+          description(std::move(circuit)), circuitName(std::move(circuitLabel)) {
         simulation.access([this](Mcu& mcu) {
             observe(mcu);
         });
         registerFunctions();
+        serveRenderers();
         app.onUIStarted([this](UI ui) {
             std::scoped_lock lock{clientsMutex};
             clients.emplace(ui.id(), Client{ui, 0});
@@ -73,6 +109,9 @@ public:
 
     /// Serial bytes sent in one frame; the rest follows in the next ones.
     static constexpr std::size_t maxSerialPerFrame = 64 * 1024;
+    /// Samples returned by one call of sf.signals; the page calls again while it is behind.
+    static constexpr std::size_t maxSignalsPerCall = 32 * 1024;
+    static constexpr double      supplyVoltage     = 5.0;
 
 private:
     /// High time of one pin over the current frame.
@@ -125,12 +164,61 @@ private:
 
     void observe(Mcu& mcu) {
         std::vector<Activity> prepared(mcu.pins().size());
-        for (std::size_t index = 0; index < mcu.pins().size(); ++index)
-            mcu.pins()[index].subscribe([this, index](const Pin& p, Cycles at) {
+        for (std::size_t index = 0; index < mcu.pins().size(); ++index) {
+            auto& pin = mcu.pins()[index];
+            pin.subscribe([this, index](const Pin& p, Cycles at) {
                 activity[index].change(p.state() == PinState::High, at);
             });
+            pin.subscribeDrive([this](const Pin&, Cycles) {
+                if (circuit)
+                    circuit->update();
+            });
+            pin.subscribeSignal([this, index](const Pin& p, Cycles at) {
+                recorder.record(static_cast<u16>(index), at, p.state(), p.voltage(supplyVoltage));
+            });
+        }
         activity = std::move(prepared);
         ++chipRevision;
+        plug(mcu);
+        restartCapture(mcu);
+    }
+
+    /// Starts a new capture with the present level of every pin, so that each trace has a first point.
+    void restartCapture(Mcu& mcu) {
+        recorder.restart();
+        for (std::size_t index = 0; index < mcu.pins().size(); ++index)
+            recorder.record(static_cast<u16>(index), mcu.cycles(), mcu.pins()[index].state(), mcu.pins()[index].voltage(supplyVoltage));
+    }
+
+    static bool sameName(std::string_view a, std::string_view b) {
+        return std::ranges::equal(a, b, [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); });
+    }
+
+    /// The selected circuit is drawn for the MCU it names; another chip gets a bare board.
+    [[nodiscard]] bool circuitFits(const Mcu& mcu) const {
+        if (!description.is_object())
+            return false;
+        const std::string wanted = description.at("chip").at("mcu");
+        return (mcuId && sameName(*mcuId, wanted)) || sameName(mcu.name(), wanted);
+    }
+
+    /// Plugs `mcu` in the selected circuit. The simulation lock is held. Returns what prevented it, if anything.
+    std::optional<DescriptionError> plug(Mcu& mcu) {
+        circuit.reset();
+        circuitView = "null";
+        ++circuitRevision;
+        if (!circuitFits(mcu))
+            return std::nullopt;
+        auto created = circuit::Circuit::create(description);
+        if (!created)
+            return created.error();
+        if (auto attached = (*created)->attach(mcu); !attached)
+            return attached.error();
+        circuit     = std::move(*created);
+        auto view   = circuit->view();
+        view["id"]  = circuitName;
+        circuitView = view.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
+        return std::nullopt;
     }
 
     /// Starts a new window on every pin. The simulation lock is held, so no pin changes in between: whatever the pins
@@ -151,16 +239,103 @@ private:
         return std::nullopt;
     }
 
-    void replace(std::unique_ptr<Mcu> next, std::optional<std::string> id = std::nullopt) {
-        simulation.replace(std::move(next), [this, &id](Mcu& mcu) {
+    /// `next`, when given, is the circuit (description and name) to plug the new MCU in.
+    void replace(std::unique_ptr<Mcu> next, std::optional<std::string> id = std::nullopt,
+                 std::optional<std::pair<nlohmann::json, std::string>> nextCircuit = std::nullopt) {
+        simulation.replace(std::move(next), [&](Mcu& mcu) {
             // Always acquire the simulation lock before clientsMutex, as pushState does.
             std::scoped_lock lock{clientsMutex};
-            observe(mcu);  // Publishes observers only after all allocations and subscriptions succeed.
             mcuId.swap(id);
+            if (nextCircuit) {
+                description = std::move(nextCircuit->first);
+                circuitName = std::move(nextCircuit->second);
+            }
+            observe(mcu);  // Publishes observers only after all allocations and subscriptions succeed.
             firmwareName.clear();
             resetSerialOffsetsLocked();
         });
     }
+
+    /// Selects a validated circuit. The MCU is replaced when the circuit names another one of the catalog.
+    void useCircuit(nlohmann::json next, std::string name) {
+        const auto fail = [](const DescriptionError& error) -> webfront::BridgeError {
+            return {std::string{error_code::invalidCircuit}, error.path + ": " + error.message};
+        };
+        auto trial = circuit::Circuit::create(next);
+        if (!trial)
+            throw fail(trial.error());
+        const std::string wanted = next.at("chip").at("mcu");
+        const auto same = simulation.access([&](Mcu& mcu) { return (mcuId && sameName(*mcuId, wanted)) || sameName(mcu.name(), wanted); });
+        if (!same) {
+            auto device = mcu::create(wanted);
+            if (!device)
+                throw fail({"/chip/mcu", "Unknown MCU: " + wanted});
+            if (auto fits = (*trial)->attach(*device); !fits)
+                throw fail(fits.error());
+            trial->reset();  // It refers to the pins of `device`, which the bridge is about to own.
+            replace(std::move(device), catalogId(wanted), std::pair{std::move(next), std::move(name)});
+            return;
+        }
+        simulation.access([&](Mcu& mcu) {
+            if (circuit)
+                circuit->detach();
+            std::swap(description, next);
+            std::swap(circuitName, name);
+            if (const auto error = plug(mcu)) {
+                std::swap(description, next);
+                std::swap(circuitName, name);
+                plug(mcu);
+                throw fail(*error);
+            }
+            restartActivity(mcu);
+        });
+    }
+
+    void installFirmware(std::string name, const ProgramImage& image) {
+        simulation.pause();
+        try {
+            simulation.access([&](Mcu& mcu) {
+                mcu.load(image);
+                if (circuit)
+                    circuit->restart();
+                restartActivity(mcu);
+                restartCapture(mcu);
+                std::scoped_lock lock{clientsMutex};
+                firmwareName = std::move(name);
+                resetSerialOffsetsLocked();
+            });
+        } catch (const std::exception& e) {
+            throw webfront::BridgeError{std::string{error_code::firmwareRejected}, e.what()};
+        }
+    }
+
+    /// Serves components/<type>/render.js from the component library (ADR 0005): a dynamic route, since the modules
+    /// are embedded in the binary and not files of the interface directory.
+    void serveRenderers() {
+        if constexpr (requires { app.addRoute(std::string{}, webfront::http::RouteHandler{}); }) {
+            renderers.emplace(app.addRoute("/components/", [](const webfront::http::RouteRequest& request) {
+                webfront::http::RouteReply reply;
+                auto                       path = request.path.substr(std::string_view{"/components/"}.size());
+                const std::string_view     file = "/render.js";
+                const auto script = path.ends_with(file) ? circuit::Library::builtin().renderer(path.substr(0, path.size() - file.size())) : std::string_view{};
+                if (script.empty()) {
+                    reply.status        = webfront::http::Response::notFound;
+                    reply.contentLength = 0;
+                    return reply;
+                }
+                reply.headers       = {{"Content-Type", "text/javascript; charset=utf-8"}, {"Cache-Control", "no-cache"}};
+                reply.contentLength = script.size();
+                reply.body          = [script, sent = std::size_t{0}](std::span<char> buffer) mutable {
+                    const auto count = std::min(buffer.size(), script.size() - sent);
+                    std::copy_n(script.data() + sent, count, buffer.data());
+                    sent += count;
+                    return count;
+                };
+                return reply;
+            }));
+        }
+    }
+
     void registerFunctions() {
         app.cppFunction("sf.chip", [this] {
             return simulation.access([](Mcu& mcu) {
@@ -186,11 +361,83 @@ private:
                 throw webfront::BridgeError{std::string{error_code::invalidMcu}, device.error().path + ": " + device.error().message};
             replace(std::move(*device));
         });
+        // The circuit the chip is plugged in, as JSON ("null" for a bare board), and the built-in ones.
+        app.cppFunction("sf.circuit", [this] { return simulation.access([this](Mcu&) { return circuitView; }); });
+        app.cppFunction("sf.circuits", [] { return circuit::builtinNames(); });
+        app.cppFunction("sf.selectCircuit", [this](std::string name) {
+            const auto names = circuit::builtinNames();
+            if (std::ranges::find(names, name) == names.end())
+                throw webfront::BridgeError{std::string{error_code::unknownCircuit}, "Unknown circuit: " + name};
+            useCircuit(circuit::builtinDescription(name), name);
+        });
+        app.cppFunction("sf.loadCircuit", [this](std::string name, std::string text) {
+            auto parsed = circuit::parseDescription(text);
+            if (!parsed)
+                throw webfront::BridgeError{std::string{error_code::invalidCircuit}, parsed.error().path + ": " + parsed.error().message};
+            useCircuit(std::move(*parsed), std::move(name));
+        });
+        // An interaction of the user with a component: a button press (1 or 0), a potentiometer position (0 to 1).
+        app.cppFunction("sf.component.set", [this](std::string id, std::string name, double value) {
+            const auto result = simulation.access([&](Mcu&) -> std::expected<void, circuit::SetError> {
+                if (!circuit)
+                    return std::unexpected(circuit::SetError::UnknownComponent);
+                return circuit->set(id, name, value);
+            });
+            if (result)
+                return;
+            const auto unknown = result.error() == circuit::SetError::UnknownComponent || result.error() == circuit::SetError::UnknownState;
+            throw webfront::BridgeError{std::string{unknown ? error_code::unknownComponent : error_code::invalidValue},
+                                        std::format("{}.{} cannot be set to {}{}", id, name, value,
+                                                    result.error() == circuit::SetError::UnknownComponent ? ": unknown component"
+                                                    : result.error() == circuit::SetError::UnknownState   ? ": unknown state"
+                                                    : result.error() == circuit::SetError::NotInteractive ? ": read-only state"
+                                                                                                          : ": out of bounds")};
+        });
+        app.cppFunction("sf.examples", [] {
+            auto list = nlohmann::json::array();
+            for (const auto& example : examples)
+                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"description", example.description}});
+            return list.dump();
+        });
+        app.cppFunction("sf.loadExample", [this](std::string id) {
+            const auto example = std::ranges::find(examples, id, &Example::id);
+            const auto hex     = example == std::end(examples) ? std::string_view{} : embedded::firmware(example->firmware);
+            if (hex.empty())
+                throw webfront::BridgeError{std::string{error_code::unknownExample}, "Unknown example: " + id};
+            useCircuit(circuit::builtinDescription(example->circuit), std::string{example->circuit});
+            installFirmware(std::string{example->firmware}, parseIntelHex(hex).value());
+            simulation.run();
+        });
+        // The capture of the instruments after sample `cursor` of capture `epoch`: [epoch, first sample held, next
+        // cursor, present cycle, cycles (Float64Array), pin indexes (Uint16Array), volts (Float32Array), states
+        // (Uint8Array)]. A cursor older than the first sample held means that the page missed some.
+        app.cppFunction("sf.signals", [this](double epoch, double cursor) {
+            return simulation.access([&](Mcu& mcu) {
+                std::vector<double>        at;
+                std::vector<std::uint16_t> channel;
+                std::vector<float>         volts;
+                std::vector<std::uint8_t>  state;
+                const auto current = static_cast<double>(recorder.epoch()) == epoch && cursor >= 0;
+                const auto next    = recorder.read(current ? static_cast<u64>(cursor) : 0, maxSignalsPerCall, [&](const instruments::Sample& sample) {
+                    at.push_back(static_cast<double>(sample.at));
+                    channel.push_back(sample.channel);
+                    volts.push_back(sample.volts);
+                    state.push_back(static_cast<std::uint8_t>(sample.state));
+                });
+                return std::tuple{static_cast<double>(recorder.epoch()), static_cast<double>(recorder.first()), static_cast<double>(next),
+                                  static_cast<double>(mcu.cycles()), std::move(at), std::move(channel), std::move(volts), std::move(state)};
+            });
+        });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
         app.cppFunction("sf.step", [this] { simulation.step(); });
         app.cppFunction("sf.reset", [this] {
-            simulation.reset([this](Mcu& mcu) { restartActivity(mcu); });
+            simulation.reset([this](Mcu& mcu) {
+                if (circuit)
+                    circuit->restart();
+                restartActivity(mcu);
+                restartCapture(mcu);
+            });
             resetSerialOffsets();
         });
         app.cppFunction("sf.setSpeed", [this](double factor) { simulation.setSpeed(factor); });
@@ -200,21 +447,24 @@ private:
                     port->send(text);
             });
         });
-        // level: 0 low, 1 high, anything else releases the pin.
+        // level: 0 low, 1 high, anything else releases the pin. In a circuit this is a probe on the net of the pin.
         app.cppFunction("sf.setPin", [this](std::string name, int level) {
             return simulation.access([&](Mcu& mcu) {
                 auto* pin = mcu.pin(name);
                 if (!pin)
                     return false;
-                pin->setExternal(level == 0 || level == 1 ? std::optional<bool>{level == 1} : std::nullopt);
+                const auto forced = level == 0 || level == 1 ? std::optional<bool>{level == 1} : std::nullopt;
+                if (!circuit || !circuit->force(name, forced ? std::optional{*forced ? supplyVoltage : 0.0} : std::nullopt))
+                    pin->setExternal(forced);
                 return true;
             });
         });
+        // In a circuit, the voltage is applied by turning the potentiometer that feeds the pin, when there is one.
         app.cppFunction("sf.setVoltage", [this](std::string name, double volts) {
             return simulation.access([&](Mcu& mcu) {
                 auto* pin = mcu.pin(name);
-                if (pin)
-                    pin->setVoltage(volts, 5.0);
+                if (pin && (!circuit || !circuit->drive(name, volts)))
+                    pin->setVoltage(volts, supplyVoltage);
                 return pin != nullptr;
             });
         });
@@ -225,17 +475,7 @@ private:
             if (!image)
                 throw webfront::BridgeError{std::string{error_code::invalidFirmware},
                                             image.error().line ? std::format("{} (line {})", image.error().message, image.error().line) : image.error().message};
-            simulation.pause();
-            try {
-                simulation.access([&](Mcu& mcu) {
-                    mcu.load(*image);
-                    std::scoped_lock lock{clientsMutex};
-                    firmwareName = std::move(name);
-                    resetSerialOffsetsLocked();
-                });
-            } catch (const std::exception& e) {
-                throw webfront::BridgeError{std::string{error_code::firmwareRejected}, e.what()};
-            }
+            installFirmware(std::move(name), *image);
         });
         app.cppFunction("sf.addBreakpoint", [this](double address) {
             simulation.access([&](Mcu& mcu) { mcu.debugger().addBreakpoint(static_cast<Address>(address)); });
@@ -281,6 +521,9 @@ private:
                 {"symbol", mcu.symbolAt(mcu.programCounter())},
                 {"firmware", firmwareName},
                 {"chipRevision", chipRevision},
+                {"circuitRevision", circuitRevision},
+                {"components", circuit ? circuit->frame() : nlohmann::json::object()},
+                {"shorts", circuit ? nlohmann::json(circuit->shorts()) : nlohmann::json::array()},
                 {"frame", ++frameCounter}  // Consecutive numbers received by a client prove that no frame was skipped.
             };
             state["stop"] = reason ? nlohmann::json(toString(*reason)) : nlohmann::json(nullptr);
@@ -296,6 +539,7 @@ private:
                     {"output", pin.isOutput()},
                     {"pullUp", pin.hasPullUp()},
                     {"duty", std::round(sample.duty * 1000.0) / 1000.0},
+                    {"volts", std::round(pin.voltage(supplyVoltage) * 1000.0) / 1000.0},
                     {"edges", sample.edges}
                 });
             }
@@ -342,6 +586,14 @@ private:
     std::string              firmwareName;
     std::optional<std::string> mcuId;  // Catalog ID, or null for a directly loaded description; simulation lock.
     std::vector<Activity>    activity;
+    // The circuit and the capture are only touched with the simulation lock held.
+    nlohmann::json                     description;  // Selected circuit, null for none.
+    std::string                        circuitName;
+    std::unique_ptr<circuit::Circuit>  circuit;      // The selected circuit when the present MCU is the one it names.
+    std::string                        circuitView{"null"};
+    unsigned                           circuitRevision{0};
+    instruments::SignalRecorder        recorder;
+    std::optional<webfront::http::RouteTable::Registration> renderers;
     unsigned                 chipRevision{0};
     std::uint64_t            serialEpoch{0};  // Protected by clientsMutex.
     std::uint64_t            frameCounter{0};  // Only touched by the pushing thread.

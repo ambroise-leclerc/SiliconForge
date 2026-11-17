@@ -48,8 +48,14 @@ public:
     [[nodiscard]] const nlohmann::json*    find(std::string_view type) const noexcept;
     [[nodiscard]] std::vector<std::string> types() const;
 
+    /// The rendering module of a type (`components/<type>/render.js`), empty when the type has none. Built-in types
+    /// carry theirs; setRenderer gives one to a type added with add().
+    [[nodiscard]] std::string_view renderer(std::string_view type) const noexcept;
+    void                           setRenderer(std::string_view type, std::string script);
+
 private:
     std::map<std::string, nlohmann::json, std::less<>> components;
+    std::map<std::string, std::string, std::less<>>    renderers;
 };
 
 /// Schema, then consistency: terminals, property defaults and bounds, footprint, model elements and their state.
@@ -62,7 +68,10 @@ private:
 [[nodiscard]] std::expected<nlohmann::json, LoadError> parseDescription(std::string_view text, const Library& library = Library::builtin());
 [[nodiscard]] std::expected<nlohmann::json, LoadError> loadDescription(const std::filesystem::path& path, const Library& library = Library::builtin());
 
-/// A circuit embedded in the binary ("arduino-demo"). Throws std::invalid_argument for an unknown name.
+/// A circuit embedded in the binary ("arduino-demo"): every `circuits/<name>.json` of the source tree. Throws
+/// std::invalid_argument for an unknown name.
 [[nodiscard]] nlohmann::json builtinDescription(std::string_view name);
+/// Names of the embedded circuits, sorted.
+[[nodiscard]] std::vector<std::string> builtinNames();
 
 }  // namespace siliconforge::circuit

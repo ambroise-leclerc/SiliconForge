@@ -43,8 +43,6 @@ Device::Device(Json d, u64 clockOverride)
       eeprom(description->at("memories").at("eeprom").at("size"), 0xFF) {
     auto view    = description->at("package");
     view["name"] = deviceName;
-    if (description->contains("breadboard"))
-        view["breadboard"] = description->at("breadboard");
     chip = view.dump();
     for (const auto& p : description->at("peripherals"))
         if (p.at("type") == "avr.gpio")

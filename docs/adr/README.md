@@ -8,3 +8,4 @@
 | [0004](0004-description-mcu-json.md) | Description normalisée des MCU en JSON (épique #3) |
 | [0005](0005-composants-et-circuits.md) | Composants et circuits décrits en JSON (épique #4) |
 | [0006](0006-qualification-coeur.md) | Qualification de la simulation du cœur CPU (épique #5) |
+| [0007](0007-instruments.md) | Instruments : capture au cycle près, analyseur logique et oscilloscope |

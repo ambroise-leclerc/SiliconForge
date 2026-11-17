@@ -1,5 +1,6 @@
-// SiliconForge web interface. The C++ side (apps/siliconforge/WebBridge.hpp) pushes the MCU state about 30 times
-// per second through siliconForge.onState(json) and exposes the controls as sf.* C++ functions.
+// SiliconForge web interface. The C++ side (apps/siliconforge/WebBridge.hpp) pushes the state of the MCU and of the
+// components of its circuit about 30 times per second through siliconForge.onState(json) and exposes the controls as
+// sf.* C++ functions. The circuit is computed in C++ (ADR 0005): this page draws it and forwards the interactions.
 //
 // window.siliconForge is also the automation API used by UI tests (tests/ui): it can drive the firmware like a user,
 // and wait for serial output or pin states in simulated time.
@@ -15,8 +16,9 @@
   let serial = "";
   let previousRegisters = new Map();
   let lastRate = null;  // Cycles and wall time of the last speed measurement
+  let circuit = null;  // The circuit the chip is plugged in (sf.circuit()), null for a bare board
+  let instruments = null;
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
-  const voltages = new Map();  // Pin name -> voltage applied from this page, shared by every control of that pin
   const waiters = new Set();
 
   // Automation API ------------------------------------------------------------------------------------------------
@@ -35,9 +37,27 @@
     },
     chip: async () => JSON.parse(await call("sf.chip")),
     mcus: () => call("sf.mcus"),
-    // loadMcu, selectMcu and load reject with an Error whose `code` is one of the siliconforge.* codes of WebBridge.hpp.
+    // The functions that load or select something reject with an Error whose `code` is one of the siliconforge.* codes
+    // of WebBridge.hpp; for a description the message starts with the JSON path of the fault.
     loadMcu: (text) => call("sf.loadMcu", text),
     selectMcu: (name) => call("sf.selectMcu", name),
+    /** The circuit the chip is plugged in, with the MCU pin of each component; null for a bare board. */
+    circuit: async () => JSON.parse(await call("sf.circuit")),
+    circuits: () => call("sf.circuits"),
+    selectCircuit: (name) => call("sf.selectCircuit", name),
+    loadCircuit: (name, text) => call("sf.loadCircuit", name, text),
+    examples: async () => JSON.parse(await call("sf.examples")),
+    /** Loads a built-in firmware with its circuit and runs it. */
+    loadExample: async (id) => {
+      await call("sf.loadExample", id);
+      serial = "";
+      $("serial-output").textContent = "";
+    },
+    /** State of a component of the circuit in the last frame: {brightness}, {pressed}, {position, voltage}... */
+    component: (id) => state?.components?.[id],
+    /** What the user does to a component: setComponent("button-d2", "pressed", 1), ("pot-a0", "position", 0.5). */
+    setComponent: (id, name, value) => call("sf.component.set", id, name, Number(value)),
+    get instruments() { return instruments; },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -49,12 +69,9 @@
     setSpeed: (factor) => call("sf.setSpeed", factor),
     send: (text) => call("sf.serialSend", text),
     setPin: (name, level) => call("sf.setPin", name, level === undefined || level === null ? -1 : Number(level)),
-    setVoltage: (name, volts) => {
-      voltages.set(api.pin(name)?.name ?? name, volts);
-      return call("sf.setVoltage", name, volts);
-    },
-    /** Voltage last applied to an analog input from this page (0 if none). */
-    voltage: (name) => voltages.get(api.pin(name)?.name ?? name) ?? 0,
+    setVoltage: (name, volts) => call("sf.setVoltage", name, volts),
+    /** Voltage on a pin in the last frame. */
+    voltage: (name) => api.pin(name)?.volts ?? 0,
     load: async (name, bytes) => {
       await call("sf.loadFirmware", name, bytes);
       serial = "";
@@ -159,46 +176,51 @@
     api.setPin(name, next);
   }
 
-  // Board views (breadboard, pinout) built from the chip description once the first state names the chip ---------
+  // Board views (breadboard, pinout) built from the chip description and the circuit, once a state names them -----
   const viewContext = {
     pin: (name) => api.pin(name),
     cycle: cycleInput,
     forced: (name) => (forced.has(name) ? (forced.get(name) ? "high" : "low") : ""),
     setPin: (name, level) => api.setPin(name, level),
-    setVoltage: (name, volts) => api.setVoltage(name, volts),
-    voltage: (name) => api.voltage(name),
+    setComponent: (id, name, value) => api.setComponent(id, name, value).catch((error) => console.warn(error.message)),
   };
   let views = null;
 
-  let chipRevision = null;
+  let boardRevision = null;  // Chip and circuit revisions the views were built for
   let chipRequest = 0;
-  let pendingChipRevision = null;
+  let pendingRevision = null;
   let chipRetryAt = 0;
   function renderViews(s) {
-    if (chipRevision !== s.chipRevision && pendingChipRevision !== s.chipRevision && performance.now() >= chipRetryAt) {
-      pendingChipRevision = s.chipRevision;
+    const revision = `${s.chipRevision}:${s.circuitRevision}`;
+    if (boardRevision !== revision && pendingRevision !== revision && performance.now() >= chipRetryAt) {
+      pendingRevision = revision;
       const request = ++chipRequest;
+      const chipChanged = !boardRevision || boardRevision.split(":")[0] !== String(s.chipRevision);
       views = [];
       forced.clear();
-      voltages.clear();
-      $("digital").replaceChildren();
-      $("analog").replaceChildren();
+      if (chipChanged) {
+        $("digital").replaceChildren();
+        $("analog").replaceChildren();
+      }
       for (const name of ["breadboard", "pinout"]) {
         const container = $(name);
         container.querySelectorAll("svg").forEach((svg) => svg.remove());
         container.querySelector(".hint").textContent = "Loading chip description…";
       }
-      api.chip().then((chip) => {
-        if (request !== chipRequest || state?.chipRevision !== s.chipRevision) return;
-        for (const name of ["breadboard", "pinout"]) {
-          const container = $(name);
-          const available = chip && (name !== "breadboard" || chip.breadboard);
-          container.querySelector(".hint").textContent = available
-            ? "Click a port to drive it: released → high → low → released."
-            : `No ${name} configuration for ${s.mcu}: see the Pins tab.`;
-          if (available && window.SiliconForgeViews?.[name]) views.push(window.SiliconForgeViews[name](container, chip, viewContext));
+      Promise.all([api.chip(), api.circuit()]).then(([chip, plugged]) => {
+        if (request !== chipRequest || `${state?.chipRevision}:${state?.circuitRevision}` !== revision) return;
+        circuit = plugged;
+        $("breadboard").querySelector(".hint").textContent = !chip ? `No package description for ${s.mcu}: see the Pins tab.`
+          : plugged ? `${plugged.description || plugged.name} Click a chip pin to drive it.`
+          : "A bare board: no circuit is plugged for this microcontroller. Click a chip pin to drive it.";
+        $("pinout").querySelector(".hint").textContent = chip
+          ? "Click a port to drive it: released → high → low → released." : `No package description for ${s.mcu}: see the Pins tab.`;
+        if (chip) {
+          views.push(window.SiliconForgeViews.breadboard($("breadboard"), chip, viewContext, plugged));
+          views.push(window.SiliconForgeViews.pinout($("pinout"), chip, viewContext));
         }
-        chipRevision = s.chipRevision;
+        syncCircuitSelection(plugged);
+        boardRevision = revision;
         chipRetryAt = 0;
         showMcuError(null);
         for (const view of views) view.update(state);
@@ -207,10 +229,30 @@
         chipRetryAt = performance.now() + 1000;
         showMcuError(error);
       }).finally(() => {
-        if (request === chipRequest) pendingChipRevision = null;
+        if (request === chipRequest) pendingRevision = null;
       });
     }
     for (const view of views || []) view.update(s);
+  }
+
+  function syncCircuitSelection(plugged) {
+    const select = $("circuit-select");
+    select.querySelector("option[data-loaded]")?.remove();
+    const id = plugged?.id ?? "";
+    $("circuit-name").textContent = plugged?.name ?? "";
+    if (![...select.options].some((option) => option.value === id)) {
+      const loaded = new Option(plugged ? `${plugged.name} (loaded)` : "bare board", id);
+      loaded.dataset.loaded = "true";
+      select.add(loaded);
+    }
+    select.value = id;
+  }
+
+  function showShorts(shorts) {
+    const banner = $("shorts");
+    const text = (shorts ?? []).join(" · ");
+    banner.hidden = !text;
+    if (banner.textContent !== text) banner.textContent = text;
   }
 
   function syncMcuSelection(s) {
@@ -243,6 +285,15 @@
     $("firmware-error").textContent = error?.message ?? "";
   }
 
+  function showCircuitError(error) {
+    $("circuit-error").hidden = !error;
+    $("circuit-error").textContent = error?.message ?? "";
+  }
+
+  function applyTheme(theme) {
+    document.documentElement.dataset.theme = theme;
+  }
+
   function selectView(name) {
     for (const element of document.querySelectorAll("[data-view]")) {
       const selected = element.dataset.view === name;
@@ -272,9 +323,9 @@
       element.style.setProperty("--duty", `${(pin.duty * 100).toFixed(1)}%`);
       element.dataset.forced = forced.has(pin.name) ? (forced.get(pin.name) ? "high" : "low") : "";
       const slider = element.querySelector("input[type=range]");
-      if (slider && document.activeElement !== slider) {
-        slider.value = api.voltage(pin.name);
-        slider.title = `${api.voltage(pin.name).toFixed(2)} V`;
+      if (slider && document.activeElement !== slider && !pin.output) {
+        slider.value = pin.volts;
+        slider.title = `${pin.volts.toFixed(2)} V`;
       }
       element.querySelector(".mode").textContent = pin.output
         ? (pwm ? `OUT ${Math.round(pin.duty * 100)}%` : "OUT")
@@ -323,6 +374,8 @@
     renderViews(s);
     renderCpu(s);
     renderSerial(s.serial);
+    showShorts(s.shorts);
+    instruments?.update();
   }
 
   // Controls ------------------------------------------------------------------------------------------------------
@@ -335,6 +388,15 @@
     $("step").addEventListener("click", () => api.step());
     $("reset").addEventListener("click", () => api.reset());
     $("speed").addEventListener("change", (event) => api.setSpeed(Number(event.target.value)));
+    const loadFirmwareFile = async (file) => {
+      try {
+        await api.load(file.name, new Uint8Array(await file.arrayBuffer()));
+        showFirmwareError(null);
+        await api.run();
+      } catch (error) {
+        showFirmwareError(new Error(`Cannot load ${file.name}: ${error.message}`));
+      }
+    };
     const loadMcuFile = async (file) => {
       if (!file) return;
       try { await api.loadMcu(await file.text()); showMcuError(null); }
@@ -347,22 +409,44 @@
       try { await api.selectMcu(event.target.value); showMcuError(null); }
       catch (error) { showMcuError(error); }
     });
+    const loadCircuitFile = async (file, text) => {
+      try { await api.loadCircuit(file.name, text ?? await file.text()); showCircuitError(null); }
+      catch (error) { showCircuitError(new Error(`Cannot load ${file.name}: ${error.message}`)); }
+    };
+    $("circuit-file").addEventListener("change", async (event) => {
+      if (event.target.files[0]) await loadCircuitFile(event.target.files[0]);
+      event.target.value = "";
+    });
+    $("circuit-select").addEventListener("change", async (event) => {
+      try { await api.selectCircuit(event.target.value); showCircuitError(null); }
+      catch (error) { showCircuitError(error); syncCircuitSelection(circuit); }
+    });
+    $("example-select").addEventListener("change", async (event) => {
+      const id = event.target.value;
+      event.target.value = "";
+      if (!id) return;
+      try { await api.loadExample(id); showFirmwareError(null); showCircuitError(null); }
+      catch (error) { showFirmwareError(error); }
+    });
+    $("theme").addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      applyTheme(next);
+      try { localStorage.setItem("siliconforge.theme", next); } catch { /* Storage may be unavailable */ }
+    });
     document.addEventListener("dragover", (event) => { event.preventDefault(); });
+    // A dropped JSON file is a circuit when it has a board, an MCU description otherwise; anything else is a firmware.
     document.addEventListener("drop", async (event) => {
       event.preventDefault();
       const file = event.dataTransfer.files[0];
-      if (file?.name.toLowerCase().endsWith(".json")) await loadMcuFile(file);
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith(".json")) return loadFirmwareFile(file);
+      const text = await file.text();
+      let isCircuit = false;
+      try { isCircuit = "board" in JSON.parse(text); } catch { /* Reported by the loader */ }
+      if (isCircuit) await loadCircuitFile(file, text); else await loadMcuFile(file);
     });
     $("firmware-file").addEventListener("change", async (event) => {
-      const file = event.target.files[0];
-      if (!file) return;
-      try {
-        await api.load(file.name, new Uint8Array(await file.arrayBuffer()));
-        showFirmwareError(null);
-        await api.run();
-      } catch (error) {
-        showFirmwareError(new Error(`Cannot load ${file.name}: ${error.message}`));
-      }
+      if (event.target.files[0]) await loadFirmwareFile(event.target.files[0]);
       event.target.value = "";
     });
     $("serial-form").addEventListener("submit", (event) => {
@@ -383,9 +467,25 @@
     });
   }
 
+  let theme = window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  try { theme = localStorage.getItem("siliconforge.theme") || theme; } catch { /* Storage may be unavailable */ }
+  applyTheme(theme);
+  instruments = window.SiliconForgeInstruments($("instruments"), {call, get state() { return state; }, get circuit() { return circuit; }});
   bindControls();
   webFront.ready.then(() => {
     $("status").textContent = "connected";
+    api.circuits().then((names) => {
+      $("circuit-select").replaceChildren(...names.map((name) => new Option(name, name)));
+      if (boardRevision) syncCircuitSelection(circuit);
+    }).catch(showCircuitError);
+    api.examples().then((examples) => {
+      const placeholder = new Option("Open an example…", "");
+      $("example-select").replaceChildren(placeholder, ...examples.map((example) => {
+        const option = new Option(example.title, example.id);
+        option.title = example.description;
+        return option;
+      }));
+    }).catch(showFirmwareError);
     api.mcus().then((names) => {
       const placeholder = new Option("Choose MCU…", ""); placeholder.disabled = true; placeholder.selected = true;
       $("mcu-select").replaceChildren(placeholder, ...names.map((name) => new Option(name, name)));

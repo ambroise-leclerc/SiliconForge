@@ -1,5 +1,7 @@
 #include <siliconforge/arch/avr/peripherals/Usart.hpp>
 
+#include <vector>
+
 namespace siliconforge::avr {
 
 namespace {
@@ -78,6 +80,8 @@ void Usart::reset(bool preserveRegisters) {
     for (auto* event : {&txEvent, &rxEvent})
         if (*event)
             scheduler.cancel(std::exchange(*event, 0));
+    for (const auto edge : std::exchange(txEdges, {}))
+        scheduler.cancel(edge);
     txBuffer.reset();
     txShift.reset();
     rxFifo.clear();
@@ -113,6 +117,42 @@ void Usart::startTransmission(Cycles now) {
     txBuffer.reset();
     data.raw(regs.ucsrA) |= udre;
     txEvent = scheduler.schedule(now + frameCycles(), [this](Cycles at) { transmissionComplete(at); });
+    driveFrame(now);
+}
+
+void Usart::driveFrame(Cycles now) {
+    txEdges.clear();  // The edges of the previous frame have all fired: frames follow one another.
+    if (!pins.port || !(data.raw(regs.ucsrB) & txen))
+        return;
+    const auto ubrr      = static_cast<Cycles>(data.raw(regs.ubrrL) | (data.raw(regs.ubrrH) & 0x0F) << 8);
+    const auto bitCycles = clockDividers[(data.raw(regs.ucsrA) & u2x) ? 1 : 0] * (ubrr + 1);
+    const auto ucsrC     = data.raw(regs.ucsrC);
+    const auto size      = ((ucsrC >> 1) & 0x03) | (data.raw(regs.ucsrB) & ucsz2);
+    const auto dataBits  = size == 7 ? 9u : 5u + (size & 0x03);
+    const auto word      = static_cast<unsigned>(*txShift) | ((data.raw(regs.ucsrB) & 0x01u) << 8);  // TXB8 is the ninth bit.
+    // The line, bit by bit: start (low), data from the least significant bit, parity if any, then back to idle (high).
+    std::vector<bool> levels{false};
+    bool              ones = false;
+    for (unsigned bit = 0; bit < dataBits; ++bit) {
+        levels.push_back((word >> bit) & 1u);
+        ones ^= levels.back();
+    }
+    if (ucsrC & 0x30)
+        levels.push_back((ucsrC & 0x10) ? !ones : ones);  // UPM = 3: odd parity, 2: even.
+    levels.push_back(true);
+    bool line = true;
+    for (std::size_t bit = 0; bit < levels.size(); ++bit) {
+        if (levels[bit] == line)
+            continue;
+        line = levels[bit];
+        if (bit == 0)
+            pins.port->forceOutput(pins.txBit, line);
+        else
+            txEdges.push_back(scheduler.schedule(now + bit * bitCycles, [this, line](Cycles) {
+                if (data.raw(regs.ucsrB) & txen)
+                    pins.port->forceOutput(pins.txBit, line);
+            }));
+    }
 }
 
 void Usart::transmissionComplete(Cycles now) {
