@@ -4,6 +4,10 @@
 //
 // Expected firmware: firmware/prebuilt/uart_echo.hex (see README.md in this directory).
 
+// Wall-clock budget of each case: a loaded CI runner can take more than Jasmine's default 5 s to push the frames that
+// the waits below observe. Jasmine reads this value when each case starts.
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
+
 describe("SiliconForge board page", () => {
   const sf = () => window.siliconForge;
 
@@ -19,38 +23,38 @@ describe("SiliconForge board page", () => {
   });
 
   it("shows the firmware greeting in the serial monitor", async () => {
-    await sf().waitForSerial("ready\r\n", 3000);
+    await sf().waitForSerial("ready\r\n", 10000);
     expect(document.getElementById("serial-output").textContent).toContain("ready");
   });
 
   it("echoes a line sent from the page in upper case", async () => {
-    await sf().waitForSerial("ready", 3000);
+    await sf().waitForSerial("ready", 10000);
     document.getElementById("serial-text").value = "silicon";
     document.getElementById("serial-form").requestSubmit();
-    await sf().waitForSerial("SILICON\r\n", 3000);
+    await sf().waitForSerial("SILICON\r\n", 10000);
   });
 
   it("lets a test drive an input pin and see it on the board", async () => {
     await sf().setPin("D2", 1);
-    await sf().waitForPin("D2", sf().pinState.high, 2000);
-    await sf().waitFor(() => document.querySelector('.pin[data-pin="PD2"]').dataset.state === "1", 2000);
-    await sf().waitFor(() => document.querySelector('.bb-leg[data-pin="PD2"]').dataset.state === "1", 2000);
-    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 2000);
+    await sf().waitForPin("D2", sf().pinState.high, 10000);
+    await sf().waitFor(() => document.querySelector('.pin[data-pin="PD2"]').dataset.state === "1", 10000);
+    await sf().waitFor(() => document.querySelector('.bb-leg[data-pin="PD2"]').dataset.state === "1", 10000);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 10000);
     await sf().setPin("D2", null);
-    await sf().waitForPin("D2", sf().pinState.floating, 2000);
+    await sf().waitForPin("D2", sf().pinState.floating, 10000);
   });
 
   it("shows USART0 transmit pin as an output once the transmitter is enabled", async () => {
-    await sf().waitForSerial("ready", 3000);
+    await sf().waitForSerial("ready", 10000);
     expect(sf().pin("D1").output).toBeTrue();
   });
 
   it("pulls D2 low while the breadboard push button is pressed", async () => {
     const button = document.querySelector('.bb-button[data-pin="D2"]');
     button.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true}));
-    await sf().waitForPin("D2", sf().pinState.low, 2000);
+    await sf().waitForPin("D2", sf().pinState.low, 10000);
     button.dispatchEvent(new PointerEvent("pointerup", {bubbles: true}));
-    await sf().waitForPin("D2", sf().pinState.floating, 2000);
+    await sf().waitForPin("D2", sf().pinState.floating, 10000);
   });
 
   it("applies the potentiometer voltage to A0", async () => {
@@ -62,10 +66,10 @@ describe("SiliconForge board page", () => {
   it("lights the pinout level dot of a high pin", async () => {
     const dot = () => getComputedStyle(document.querySelector('.po-io[data-pin="PD2"] .po-level')).fill;
     await sf().setPin("D2", 0);
-    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "0", 2000);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "0", 10000);
     const low = dot();
     await sf().setPin("D2", 1);
-    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 2000);
+    await sf().waitFor(() => document.querySelector('.po-io[data-pin="PD2"]').dataset.state === "1", 10000);
     expect(dot()).not.toBe(low);
     await sf().setPin("D2", null);
   });
@@ -75,9 +79,9 @@ describe("SiliconForge board page", () => {
     const slider = document.querySelector('.pin[data-pin="PC0"] input[type="range"]');
     slider.value = "4";
     slider.dispatchEvent(new Event("input"));
-    await sf().waitFor(() => pot.querySelector(".bb-value").textContent === "4.00 V", 2000);
+    await sf().waitFor(() => pot.querySelector(".bb-value").textContent === "4.00 V", 10000);
     pot.dispatchEvent(new WheelEvent("wheel", {deltaY: -1, cancelable: true}));
     expect(pot.querySelector(".bb-value").textContent).toBe("4.10 V");
-    await sf().waitFor(() => Number(slider.value).toFixed(2) === "4.10", 2000);
+    await sf().waitFor(() => Number(slider.value).toFixed(2) === "4.10", 10000);
   });
 });

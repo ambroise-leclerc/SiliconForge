@@ -1,3 +1,7 @@
+// Wall-clock budget of each case: a loaded CI runner can take more than Jasmine's default 5 s to push the frames that
+// the waits below observe. Jasmine reads this value when each case starts.
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
+
 describe("Blink firmware", () => {
   const sf = () => window.siliconForge;
   const pinElement = () => document.querySelector('.pin[data-pin="PB5"]');

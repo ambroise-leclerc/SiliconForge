@@ -132,7 +132,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Format des composants et des circuits](docs/CIRCUITS.md)
 - [Instruments : analyseur logique et oscilloscope](docs/INSTRUMENTS.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
-- [WebFront 1.0 (candidate) : passage, adoption et décisions](docs/WEBFRONT-1.0.md) (bilans précédents : [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
+- [WebFront 1.0 : passage, adoption et décisions](docs/WEBFRONT-1.0.md) (bilans précédents : [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Orientations du projet](docs/adr)
 
 ## Licence
@@ -141,4 +141,4 @@ SiliconForge est proposé sous double licence **Apache-2.0 OR CECILL-B**, au cho
 contient les textes complets, dont les versions française et anglaise de CeCILL-B. Les composants tiers conservent
 leurs propres licences.
 
-Candidate WebFront 1.0 : [passage et adoption](docs/WEBFRONT-1.0.md).
+WebFront 1.0 : [passage et adoption](docs/WEBFRONT-1.0.md).

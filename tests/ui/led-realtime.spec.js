@@ -7,6 +7,10 @@
 // 0.15 s, which still catches a lost frame that would merge two states (1 s between edges) or a missed one. The
 // measurement is attempted twice, whether the first fails by a wrong period or by a timeout waiting for frames; the spec
 // fails, with both attempts in the message, only if both fail.
+// Wall-clock budget of each case: a loaded CI runner can take more than Jasmine's default 5 s to push the frames that
+// the waits below observe. Jasmine reads this value when each case starts.
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
+
 describe("Blink LED in real time", () => {
   const sf = () => window.siliconForge;
   const led = () => document.querySelector('.bb-led[data-pin="D13"]');

@@ -1,8 +1,9 @@
-# Passage à la candidate WebFront 1.0
+# Passage à WebFront 1.0
 
-SiliconForge épingle le commit `6ccb7e17e5c37ba4d75ba3502f6ae5b8491802a2` de la branche `develop` de WebFront, soit
-161 commits après la v0.9.0 : la 1.0 n'est pas encore étiquetée, et ce commit en est la candidate. **À faire à la
-sortie de la 1.0 :** remplacer ce commit par celui du tag dans `CMakeLists.txt`, puis rejouer `ctest`.
+SiliconForge épingle le tag [`v1.0.0`](https://github.com/ambroise-leclerc/WebFront/releases/tag/v1.0.0) de WebFront
+(commit `e36da2f7f52f1ef569c3ace28671050ed71df16f`, publié le 17 novembre 2026). L'adoption a été faite sur la candidate
+`6ccb7e17`, commit de `develop` dont la 1.0 ne diffère que par la documentation, l'exemple `host-loop`, la version
+annoncée et le gel de compatibilité (bibliothèque 1.0.0, environnement développeur 1.0.0, API 1).
 `CPM_WebFront_SOURCE` permet toujours une surcharge locale. Ce document succède au [bilan 0.9](WEBFRONT-0.9.md), qui
 devient historique.
 

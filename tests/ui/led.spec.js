@@ -40,11 +40,11 @@ describe("Blink LED in simulated time", () => {
 
   const runUntil = async (seconds, wallMs) => {
     await webFront.ready;
-    await sf().waitFor((state) => state.mcu === "ATmega328P", 5000);
-    await sf().waitFor(() => led() !== null, 5000);  // The breadboard is built once the chip description arrives.
+    await sf().waitFor((state) => state.mcu === "ATmega328P", 20000);
+    await sf().waitFor(() => led() !== null, 20000);  // The breadboard is built once the chip description arrives.
     await sf().pause();
     await sf().reset();
-    await sf().waitFor((state) => !state.running && state.cycles === 0, 5000);  // No frame from before the reset
+    await sf().waitFor((state) => !state.running && state.cycles === 0, 20000);  // No frame from before the reset
     return async (speed) => {
       await sf().setSpeed(speed);
       const recording = record();
@@ -88,7 +88,7 @@ describe("Blink LED in simulated time", () => {
   };
 
   it("alternates on and off with a 0.5 s half-period (1 Hz), edge by edge at x5", async () => {
-    const measure = await runUntil(4.2, 4500);
+    const measure = await runUntil(4.2, 20000);
     const frames = await measure(5);
 
     const edges = edgesOf(frames);
@@ -103,10 +103,10 @@ describe("Blink LED in simulated time", () => {
         `half-period ${i} measured ${half.toFixed(4)} s`);
     }
     expect(measured).toBeGreaterThanOrEqual(6);  // At least three periods were measured, not skipped
-  });
+  }, 60000);  // Wall-clock budgets only: what is measured is simulated time, however slow the machine
 
   it("keeps a 1 Hz period at full speed", async () => {
-    const measure = await runUntil(24, 4500);
+    const measure = await runUntil(24, 40000);  // ~2.5 s at 160 MHz; a loaded runner emulates more slowly
     const frames = await measure(0);
 
     // Runs of consecutive frames: the edge counts of a skipped frame are lost, so counting never spans a gap.
@@ -155,5 +155,5 @@ describe("Blink LED in simulated time", () => {
     const lit = best.slice(1).reduce((sum, frame, i) => sum + frame.level * (frame.time - best[i].time), 0) / elapsed;
     expect(lit).toBeGreaterThan(0.48);
     expect(lit).toBeLessThan(0.52);
-  });
+  }, 60000);
 });

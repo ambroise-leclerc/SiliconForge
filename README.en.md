@@ -120,7 +120,7 @@ ctest --test-dir build --output-on-failure
 - [Component and circuit format](docs/CIRCUITS.md) (in French)
 - [Instruments: logic analyser and oscilloscope](docs/INSTRUMENTS.md) (in French)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
-- [WebFront 1.0 candidate: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.0.md) (earlier reports: [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
+- [WebFront 1.0: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.0.md) (earlier reports: [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Project direction](docs/adr)
 
 ## Licence
@@ -128,4 +128,4 @@ ctest --test-dir build --output-on-failure
 SiliconForge is dual-licensed under **Apache-2.0 OR CECILL-B**, at your option. [LICENSE](LICENSE) contains the full
 texts, including the French and English versions of CeCILL-B. Third-party components retain their own licences.
 
-WebFront 1.0 candidate: [upgrade and adoption (French)](docs/WEBFRONT-1.0.md).
+WebFront 1.0: [upgrade and adoption (French)](docs/WEBFRONT-1.0.md).

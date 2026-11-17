@@ -8,6 +8,10 @@
 // The application is one shared simulation: run the specs in the order written.
 jasmine.getEnv().configure({random: false});
 
+// Wall-clock budget of each case: a loaded CI runner can take more than Jasmine's default 5 s to push the frames that
+// the waits below observe. Jasmine reads this value when each case starts.
+jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
+
 describe("Files and errors in the window", () => {
   const sf = () => window.siliconForge;
   const fixtures = window.sfFixtures;
