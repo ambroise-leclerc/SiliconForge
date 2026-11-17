@@ -12,17 +12,17 @@ describe("Instruments", () => {
 
   beforeAll(async () => {
     await webFront.ready;
-    await sf().waitFor((state) => state.mcu === "ATmega328P" && state.firmware === "demo.hex", 5000);
+    await sf().waitFor((state) => state.mcu === "ATmega328P" && state.firmware === "demo.hex", 20000);
     await sf().pause();
     await sf().reset();
     await sf().waitFor((state) => !state.running && state.cycles === 0, 5000);  // No frame from before the reset
     await sf().setSpeed(0);
     await sf().run();
-    await sf().waitFor((state) => simulated(state) > 2.6, 10000);
+    await sf().waitFor((state) => simulated(state) > 2.6, 30000);
     await sf().pause();
-    await sf().waitFor((state) => !state.running, 2000);
+    await sf().waitFor((state) => !state.running, 5000);
     await scope().sync();
-  });
+  }, 60000);  // Wall-clock limits for a loaded machine; the measurements themselves are in simulated time
 
   it("measures the blink of D13 to the cycle, including what the firmware loses to its own code", () => {
     // demo.c waits 50 x _delay_ms(10) between toggles and computes the PWM ramp in between: the half-period is 0.5 s
@@ -72,7 +72,7 @@ describe("Instruments", () => {
     scope().set({live: true, span: 0.001, trigger: {source: d6, rising: true, single: true}, triggered: null});
     await sf().setSpeed(1);
     await sf().run();
-    await sf().waitFor(() => scope().view.triggered !== null && !scope().view.live, 5000);
+    await sf().waitFor(() => scope().view.triggered !== null && !scope().view.live, 20000);
     await sf().pause();
     const {t, s} = scope().samples("D6");
     const at = t.indexOf(scope().view.triggered);
@@ -81,7 +81,7 @@ describe("Instruments", () => {
     expect(s[at - 1]).toBe(0);
     expect(document.querySelector("#instruments [data-action=live]").textContent).toBe("Held");
     scope().set({live: true, trigger: {source: -1, rising: true, single: false}, triggered: null});
-  });
+  }, 30000);
 
   it("measures an interval between two cursors placed with the mouse", async () => {
     scope().set({mode: "scope", live: false, right: 1.0, span: 0.001, cursors: [null, null]});

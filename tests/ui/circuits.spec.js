@@ -13,7 +13,7 @@ describe("Circuits", () => {
     try { await promise; } catch (error) { return error; }
     throw new Error("the call did not reject");
   };
-  const until = async (predicate, what, timeoutMs = 5000) => {
+  const until = async (predicate, what, timeoutMs = 10000) => {
     const deadline = performance.now() + timeoutMs;
     while (!predicate()) {
       if (performance.now() > deadline) throw new Error(`timeout waiting for ${what}`);
@@ -23,8 +23,8 @@ describe("Circuits", () => {
   /** Two frames after a pause: the second one covers no simulated time, so it carries present values, not averages. */
   const freeze = async () => {
     await sf().pause();
-    const paused = (await sf().waitFor((state) => !state.running, 2000)).frame;
-    await sf().waitFor((state) => state.frame >= paused + 2, 2000);
+    const paused = (await sf().waitFor((state) => !state.running, 5000)).frame;
+    await sf().waitFor((state) => state.frame >= paused + 2, 5000);
   };
   const choose = (id, name, content) => {
     const transfer = new DataTransfer();
@@ -35,9 +35,9 @@ describe("Circuits", () => {
 
   beforeAll(async () => {
     await webFront.ready;
-    await sf().waitFor((state) => state.mcu === "ATmega328P" && state.firmware === "counter.hex", 5000);
-    await until(() => display() !== null, "the display of the circuit given on the command line");
-  });
+    await sf().waitFor((state) => state.mcu === "ATmega328P" && state.firmware === "counter.hex", 20000);
+    await until(() => display() !== null, "the display of the circuit given on the command line", 20000);
+  }, 40000);
 
   it("starts on the circuit of the command line and names the pins of its components", async () => {
     const circuit = await sf().circuit();
@@ -54,26 +54,38 @@ describe("Circuits", () => {
     await sf().reset();
     await sf().setSpeed(2);
     await sf().run();
-    for (const digit of ["0", "1", "2", "3", "4"]) {
-      // The firmware lights the digit, then sends it: once it is in the serial monitor it stays displayed for 0.5 s.
-      await sf().waitForSerial(`${digit}\r\n`, 5000);
+    const seen = [];
+    let sent = 0;
+    for (let round = 0; round < 5; ++round) {
+      // Freeze the emulation once one more digit was sent, wherever it then is: the display is compared with what the
+      // firmware says it shows. The firmware lights a digit, then sends it: frozen in the 3 ms of that transmission,
+      // the display is already one digit ahead of the serial output.
+      await sf().waitFor(() => (sf().output.match(/\d\r\n/g) ?? []).length > sent, 10000);
       await freeze();
-      expect(display().dataset.digit).toBe(digit);
-      expect(display().dataset.point).toBe(String(Number(digit) % 2 === 1));
-      expect(sf().component("display")["a.brightness"]).toBe(digit === "1" || digit === "4" ? 0 : 1);
+      const lines = sf().output.match(/\d\r\n/g);
+      sent = lines.length;
+      const last = Number(lines.at(-1)[0]);
+      const shown = Number(display().dataset.digit);
+      expect(display().dataset.digit).toMatch(/^[0-9]$/);
+      expect([last, (last + 1) % 10]).toContain(shown);
+      expect(display().dataset.point).toBe(String(shown % 2 === 1));
+      expect(sf().component("display")["a.brightness"]).toBe(shown === 1 || shown === 4 ? 0 : 1);
+      seen.push({shown, last});
       await sf().run();
     }
     await sf().pause();
-  });
+    expect(seen.filter(({shown, last}) => shown === last).length).toBeGreaterThanOrEqual(4, JSON.stringify(seen));
+    expect(new Set(seen.map(({shown}) => shown)).size).toBeGreaterThanOrEqual(4, JSON.stringify(seen));
+  }, 60000);
 
   it("decodes the serial frames of D1 in the logic analyser", async () => {
     await sf().instruments.sync();
     const decoded = sf().instruments.decodeUart("D1");
     expect(decoded.baud).toBe(9600);  // Found from the shortest pulse
-    expect(decoded.text.startsWith("0\r\n1\r\n2\r\n")).toBe(true);
-    expect(decoded.bytes.every((byte) => byte.ok)).toBe(true);
+    expect(decoded.text.startsWith("0\r\n1\r\n2\r\n")).toBe(true, `decoded ${JSON.stringify(decoded.text)}`);
+    expect(decoded.bytes.every((byte) => byte.ok)).toBe(true, "a stop bit is low");
     expect(decoded.bytes[1].t - decoded.bytes[0].t).toBeCloseTo(10 / 9615.4, 6);  // UBRR0 = 103: 16 MHz / 16 / 104
-    expect(sf().output.startsWith(decoded.text.slice(0, 9))).toBe(true);
+    expect(sf().output.startsWith(decoded.text.slice(0, 9))).toBe(true, `serial monitor ${JSON.stringify(sf().output.slice(0, 12))}`);
   });
 
   it("refuses an interaction the component does not have, with a typed error", async () => {
@@ -92,24 +104,24 @@ describe("Circuits", () => {
     expect(element("circuit-select").value).toBe("led-buttons");
     expect(element("circuit-name").textContent).toBe("LED and two buttons");
     const led = () => Number(document.querySelector('.bb-led[data-pin="D9"]').dataset.level);
-    await sf().waitForPin("D2", sf().pinState.high, 3000);  // The firmware enabled the pull-up
+    await sf().waitForPin("D2", sf().pinState.high, 10000);  // The firmware enabled the pull-up
     expect(led()).toBe(0);
 
     const hold = document.querySelector('.bb-button[data-pin="D2"]');
     hold.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true}));
-    await sf().waitFor(() => led() === 1, 3000);
+    await sf().waitFor(() => led() === 1, 10000);
     expect(sf().pin("D2").state).toBe(sf().pinState.low);
     expect(sf().component("button-d2").pressed).toBe(true);
     hold.dispatchEvent(new PointerEvent("pointerup", {bubbles: true}));
-    await sf().waitFor(() => led() === 0, 3000);
+    await sf().waitFor(() => led() === 0, 10000);
 
     const latch = document.querySelector('.bb-button[data-pin="D3"]');
     latch.dispatchEvent(new PointerEvent("pointerdown", {bubbles: true}));
-    await sf().waitFor(() => led() === 1, 3000);
+    await sf().waitFor(() => led() === 1, 10000);
     latch.dispatchEvent(new PointerEvent("pointerup", {bubbles: true}));
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(led()).toBe(1);  // Latched by the firmware
-  });
+  }, 40000);
 
   it("loads a circuit chosen with the file input, keeping the firmware of the same MCU", async () => {
     choose("circuit-file", "mine.json", JSON.stringify({...fixtures.circuit, name: "My own circuit"}));
@@ -153,7 +165,7 @@ describe("Circuits", () => {
     await sf().selectCircuit("arduino-demo");
     await sf().waitFor((state) => state.shorts.length === 0, 5000);
     await until(() => element("shorts").hidden, "the banner to clear");
-  });
+  }, 40000);
 
   it("leaves a bare board to a microcontroller the circuit was not made for", async () => {
     await sf().loadMcu(JSON.stringify({...fixtures.mcu, name: "Another chip"}));
@@ -164,5 +176,5 @@ describe("Circuits", () => {
     expect(document.querySelectorAll("#breadboard .bb-leg.bb-io").length).toBeGreaterThan(20);
     await sf().selectMcu("atmega328p");
     await until(() => document.querySelector('#breadboard .bb-led[data-pin="D13"]') !== null, "the circuit to come back with its MCU");
-  });
+  }, 40000);
 });
