@@ -57,6 +57,7 @@ inline constexpr Example examples[] = {
     {"buttons", "LED and buttons", "led-buttons", "buttons.hex", "Hold the D2 button to light the LED, press D3 to latch it"},
     {"uart_echo", "UART echo", "arduino-demo", "uart_echo.hex", "Echoes the lines of the serial monitor in upper case, 9600 baud"},
     {"pwm", "PWM 62.5 kHz", "arduino-demo", "pwm.hex", "Timer0 Fast PWM: 25 % on D6 and 75 % on D5"},
+    {"pwm_setpoint", "PWM setpoint", "arduino-demo", "pwm_setpoint.hex", "D6 at 25 %, 75 % while the D2 button is held; D13 acknowledges"},
     {"blink", "Blink", "arduino-demo", "blink.hex", "The LED on D13 at 1 Hz"},
     {"timer0_isr", "Timer interrupt", "arduino-demo", "timer0_isr.hex", "A Timer0 interrupt service routine toggling a pin"},
 };

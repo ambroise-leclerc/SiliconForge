@@ -12,6 +12,7 @@ Small avr-gcc programs for the ATmega328P (Arduino Uno, 16 MHz) used by the inte
 | `pwm` | Timer0 Fast PWM on D6 (25 %) and D5 (75 %) |
 | `counter` | The 7-segment circuit (`circuits/seven-segment.json`): counts 0 to 9 every 500 ms, each digit also sent at 9600 bauds |
 | `buttons` | The `led-buttons` circuit: inputs with pull-ups, the LED on D9 follows the D2 button and is latched by D3 |
+| `pwm_setpoint` | The demonstration circuit: Timer0 Fast PWM on D6 at 25 %, 75 % while the D2 button is held, acknowledged on D13; checked by the bench scenario `scenarios/pwm-setpoint.json` |
 
 The binaries of `prebuilt/` are also embedded in the application, which offers them with their circuit in its
 **Example** menu.
