@@ -443,9 +443,10 @@ std::expected<Json, LoadError> loadDescription(const std::filesystem::path& path
 }
 
 std::expected<Json, MoveError> move(Json circuit, std::string_view id, const Json& holes, const Library& library) {
+    const Json componentId = std::string(id);
     Json* placed = nullptr;
     for (auto& component : circuit.at("components"))
-        if (component.at("id") == id)
+        if (component.at("id") == componentId)
             placed = &component.at("at");
     if (!placed && id.starts_with("wire-")) {
         // The wires of a circuit are numbered from 1 in the order of "wires", as the interface draws them.
