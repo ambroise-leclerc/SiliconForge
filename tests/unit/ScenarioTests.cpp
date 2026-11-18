@@ -313,8 +313,9 @@ TEST_CASE("A scenario that cannot run on the bench is refused before the run, wi
         expectProblem(document, Capacity, "/steps/1/measure/expect", "resolved to 1 %");
     }
     SECTION("A frequency the window is too short to measure") {
-        document["steps"][2]["measure"]["window"] = "20us";
-        expectProblem(document, Capacity, "/steps/2/measure/expect", "cannot hold the two rising edges");
+        // 62 400 Hz at least: one period lasts up to 256.4 cycles.
+        document["steps"][2]["measure"]["window"] = "256 cycles";
+        expectProblem(document, Capacity, "/steps/2/measure/expect", "is shorter than one period of a 62400 Hz signal");
     }
     SECTION("A frequency no pin can reach") {
         document["steps"][2]["measure"]["expect"] = Json{
@@ -479,4 +480,26 @@ TEST_CASE("A pin that floats during the window cannot be measured", "[scenario]"
     }
     CHECK_FALSE(measurement(report, "duty").passed);
     CHECK(report.verdict == scenario::Verdict::Fail);
+}
+
+TEST_CASE("A window of one period or more is accepted: the measurement tells whether it caught two edges", "[scenario]") {
+    // 62.5 kHz is 256 cycles per period. A 300-cycle window holds two rising edges or one, depending on its phase.
+    auto document     = exampleWith("pwm_setpoint.hex");
+    document["steps"] = Json::parse(R"([
+        {"wait": "16112 cycles"},
+        {"measure": {"id": "two-edges", "pin": "D6", "quantity": "frequency", "window": "300 cycles", "expect": {"value": 62500, "tolerance": 500}}},
+        {"wait": "100 cycles"},
+        {"measure": {"id": "one-edge", "pin": "D6", "quantity": "frequency", "window": "300 cycles", "expect": {"value": 62500, "tolerance": 500}}}
+    ])");
+    const auto report = prepared(document)->run();
+    INFO(scenario::toJson(report).dump(2));
+    const auto& caught = measurement(report, "two-edges");
+    CHECK(caught.risingEdges == 2);
+    CHECK(caught.passed);
+    CHECK(caught.value.value_or(0) == Approx(62500).margin(500));
+    const auto& missed = measurement(report, "one-edge");
+    CHECK(missed.risingEdges == 1);
+    CHECK_FALSE(missed.value);
+    CHECK_FALSE(missed.passed);
+    CHECK(missed.detail == "1 rising edge in the window: at least two are needed");
 }

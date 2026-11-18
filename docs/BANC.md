@@ -111,7 +111,7 @@ nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 | `schema` | Étape mal formée, durée sans unité, identifiant de mesure en double |
 | `wiring` | Circuit invalide, puce qui ne tient pas sur la carte, sonde sur une broche absente du breadboard |
 | `resource` | Microcontrôleur inconnu, composant, état, broche ou port série absent, état non modifiable de l’extérieur |
-| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre trop courte pour deux fronts montants à la fréquence attendue, fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
+| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période à la plus basse fréquence attendue (elle ne peut jamais contenir deux fronts montants), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
 | `schedule` | Étape placée (`at`) avant la durée minimale des étapes qui la précèdent |
 
 ## La commande

@@ -271,14 +271,19 @@ void expectation(Step& step, const Json& expect, const std::string& path, u64 cl
                    std::format("A duty cycle over {} cycles is resolved to {:.3g} %: the tolerance cannot be smaller", step.duration, resolution));
         return;
     }
-    // A pin changes at most once per cycle: no frequency above half the clock, and the window holds two rising edges.
+    // A pin changes at most once per cycle: no frequency above half the clock. Two rising edges one period apart fit
+    // in any window of at least one period, depending on its phase: only a shorter window can never measure the
+    // lowest expected frequency. Whether the edges are there is then for the measurement to tell.
     const auto lowest = step.quantity == "frequency" ? *step.minimum : (*step.maximum > 0 ? 1 / *step.maximum : INFINITY);
     if (lowest > clock / 2)
         reject(Problem::Cause::Capacity, path, std::format("A pin of a {} Hz MCU cannot toggle above {} Hz", clockHz, formatNumber(clock / 2)));
-    if (lowest > 0 && static_cast<double>(step.duration) < 2 * clock / lowest)
+    if (lowest > 0 && static_cast<double>(step.duration) < clock / lowest)
         reject(Problem::Cause::Capacity,
                path,
-               std::format("The window of {} cycles cannot hold the two rising edges of a {} Hz signal", step.duration, formatNumber(lowest)));
+               std::format("The window of {} cycles is shorter than one period of a {} Hz signal ({:.6g} cycles): it can never hold two rising edges",
+                           step.duration,
+                           formatNumber(lowest),
+                           clock / lowest));
 }
 
 /// A pin measured over [from, to] from its logged changes and its state at reset.
