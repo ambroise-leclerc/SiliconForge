@@ -18,6 +18,7 @@
   let lastRate = null;  // Cycles and wall time of the last speed measurement
   let circuit = null;  // The circuit the chip is plugged in (sf.circuit()), null for a bare board
   let instruments = null;
+  let bench = null;
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
   const waiters = new Set();
 
@@ -63,6 +64,8 @@
      */
     moveComponent: (id, holes) => call("sf.component.move", id, JSON.stringify(holes)),
     get instruments() { return instruments; },
+    /** The bench: `list()`, `run(scenarioFile)`, `open(runName)`, the shown `result`; see ui/bench.js. */
+    get bench() { return bench; },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -480,6 +483,7 @@
   try { theme = localStorage.getItem("siliconforge.theme") || theme; } catch { /* Storage may be unavailable */ }
   applyTheme(theme);
   instruments = window.SiliconForgeInstruments($("instruments"), {call, get state() { return state; }, get circuit() { return circuit; }});
+  bench = window.SiliconForgeBench($("bench"), {call, ready: webFront.ready});
   bindControls();
   webFront.ready.then(() => {
     $("status").textContent = "connected";

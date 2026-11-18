@@ -2,6 +2,7 @@
 
 #include "Simulation.hpp"
 
+#include "Bench.hpp"
 #include "EmbeddedFirmware.hpp"
 
 #include <nlohmann/json.hpp>
@@ -16,6 +17,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <expected>
 #include <cstdint>
 #include <format>
 #include <map>
@@ -41,6 +43,9 @@ inline constexpr std::string_view unknownComponent = "siliconforge.unknownCompon
 inline constexpr std::string_view invalidValue     = "siliconforge.invalidValue";      ///< sf.component.set: read-only state or value out of bounds.
 inline constexpr std::string_view unknownExample   = "siliconforge.unknownExample";    ///< sf.loadExample: not in sf.examples.
 inline constexpr std::string_view invalidPlacement = "siliconforge.invalidPlacement";  ///< sf.component.move: message is "<JSON path>: <reason>".
+inline constexpr std::string_view unknownScenario  = "siliconforge.unknownScenario";   ///< sf.bench.run: not in sf.bench.list().scenarios.
+inline constexpr std::string_view unknownRun       = "siliconforge.unknownRun";        ///< sf.bench.open: no evidence of that name in sf.bench.list().runs.
+inline constexpr std::string_view evidenceNotKept  = "siliconforge.evidenceNotKept";   ///< sf.bench.run: the run finished but its files could not be written.
 }  // namespace error_code
 
 /// A firmware shipped with the application together with the circuit it was written for: one click in the interface.
@@ -366,6 +371,12 @@ private:
         }
     }
 
+    static std::string benchReply(std::expected<nlohmann::json, bench::Refusal> result) {
+        if (!result)
+            throw webfront::BridgeError{std::string{result.error().code}, result.error().message};
+        return result->dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
+    }
+
     void registerFunctions() {
         app.cppFunction("sf.chip", [this] {
             return simulation.access([](Mcu& mcu) {
@@ -468,6 +479,15 @@ private:
                 return std::tuple{static_cast<double>(recorder.epoch()), static_cast<double>(recorder.first()), static_cast<double>(next),
                                   static_cast<double>(mcu.cycles()), std::move(at), std::move(channel), std::move(volts), std::move(state)};
             });
+        });
+        // The bench (ADR 0010): the engine of siliconforge-bench on the scenarios of the project, with its own MCU, so the
+        // emulation shown in the window is left as it is. They return JSON text, see Bench.hpp.
+        app.cppFunction("sf.bench.list", [] { return bench::list().dump(-1, ' ', true, nlohmann::json::error_handler_t::replace); });
+        app.cppFunction("sf.bench.open", [](std::string name) {
+            return benchReply(bench::open(name));
+        });
+        app.cppFunction("sf.bench.run", [](std::string file) {
+            return benchReply(bench::run(file));
         });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });

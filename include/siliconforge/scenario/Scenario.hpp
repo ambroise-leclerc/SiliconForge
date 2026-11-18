@@ -144,4 +144,22 @@ private:
 /// prepare() then run(); a problem gives an Incompatible report that names it.
 [[nodiscard]] Report run(const std::filesystem::path& file);
 
+/// Where a run of `file` keeps its evidence unless told otherwise: `.siliconforge/runs/<file name>` in the working
+/// directory. The command line and the window share it, so each finds the other's runs.
+[[nodiscard]] std::filesystem::path defaultEvidenceDirectory(const std::filesystem::path& file);
+
+/// Keeps the evidence of a run in `directory`: `report.json` and, when the run produced one, `trace.vcd`. A trace left
+/// by an earlier run is removed first, so that every file present matches the report. Returns the text of the report,
+/// byte for byte what was written, or the reason it could not be kept.
+[[nodiscard]] std::expected<std::string, std::string> keepEvidence(const Report& report, const std::filesystem::path& directory);
+
+/// What an earlier run left in a directory.
+struct Evidence {
+    std::string                report;  ///< Text of report.json.
+    std::optional<std::string> trace;   ///< Text of trace.vcd, when the run kept one.
+};
+
+/// Reads the evidence kept in `directory`, or says why it cannot be read as the evidence of a run.
+[[nodiscard]] std::expected<Evidence, std::string> readEvidence(const std::filesystem::path& directory);
+
 }  // namespace siliconforge::scenario

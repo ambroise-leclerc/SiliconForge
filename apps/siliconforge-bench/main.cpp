@@ -5,12 +5,10 @@
 #include <cstdio>
 #include <exception>
 #include <filesystem>
-#include <fstream>
 #include <optional>
 #include <print>
 #include <string>
 #include <string_view>
-#include <system_error>
 
 using namespace siliconforge;
 
@@ -128,13 +126,6 @@ void printSummary(const scenario::Report& report, const std::filesystem::path& o
     std::println("Trace:  {}", (out / "trace.vcd").generic_string());
 }
 
-bool write(const std::filesystem::path& path, std::string_view text) {
-    std::ofstream stream{path, std::ios::binary};
-    stream << text;
-    return static_cast<bool>(stream.flush());
-}
-
-
 int execute(const Options& options) {
     const auto& file = *options.scenario;
 
@@ -152,26 +143,13 @@ int execute(const Options& options) {
     if (report.problem && !options.json)
         printProblem(file, *report.problem);
 
-    const auto      out = options.out.value_or(std::filesystem::path{".siliconforge"} / "runs" / file.stem());
-    std::error_code error;
-    std::filesystem::create_directories(out, error);
-    if (error) {
-        std::println(stderr, "Cannot create {}: {}", out.generic_string(), error.message());
+    const auto out  = options.out.value_or(scenario::defaultEvidenceDirectory(file));
+    const auto kept = scenario::keepEvidence(report, out);
+    if (!kept) {
+        std::println(stderr, "{}", kept.error());
         return usageError;
     }
-    // A trace left by an earlier run would not match this report, whatever this run produces.
-    std::filesystem::remove(out / "trace.vcd", error);
-    if (error) {
-        std::println(stderr, "Cannot remove the trace of an earlier run, {}: {}", (out / "trace.vcd").generic_string(), error.message());
-        return usageError;
-    }
-    const auto hasTrace = !report.trace.empty();
-    // The report is valid UTF-8; replacing what would not be keeps the evidence even if a string slipped through.
-    const auto json = scenario::toJson(report, hasTrace ? "trace.vcd" : "").dump(2, ' ', false, nlohmann::json::error_handler_t::replace) + "\n";
-    if (!write(out / "report.json", json) || (hasTrace && !write(out / "trace.vcd", report.trace))) {
-        std::println(stderr, "Cannot write the evidence of the run in {}", out.generic_string());
-        return usageError;
-    }
+    const auto& json = *kept;
     if (options.json)
         std::print("{}", json);
     else if (!report.problem)

@@ -173,6 +173,28 @@ const auto result = (*prepared)->run();  // repeatable: each run starts from a f
 const auto json   = scenario::toJson(result, "trace.vcd");
 ```
 
+## Dans la fenêtre
+
+Le panneau **Bench** de la fenêtre utilise le même moteur et écrit les mêmes preuves, au même endroit, que
+`siliconforge-bench` : la fenêtre et la commande partagent `scenario::keepEvidence` et
+`scenario::defaultEvidenceDirectory` ([`Scenario.hpp`](../include/siliconforge/scenario/Scenario.hpp)). Elle travaille
+sur le répertoire courant du projet :
+
+- la liste des scénarios vient de `scenarios/*.json`, celle des essais de `.siliconforge/runs/` ;
+- **Open** affiche les preuves d’un essai, quel que soit celui qui l’a lancé (l’agent, la CLI ou la fenêtre) : le
+  verdict, chaque mesure avec sa valeur et son attendu, chaque étape et son issue (le stimulus appliqué figure dans le
+  détail de l’étape `set`), la sortie série, l’empreinte des entrées, et la trace, que **Save trace** enregistre en
+  VCD ;
+- **Run** relance le scénario avec son propre MCU, sans toucher à l’émulation affichée, remplace les preuves de
+  l’essai précédent du même scénario et les compare à celles-ci. Deux essais sur les mêmes entrées donnent un rapport
+  identique à l’octet près ; sinon le panneau liste les chemins JSON qui diffèrent (empreinte d’une entrée, valeur
+  d’une mesure, verdict).
+
+La page ne donne jamais de chemin : elle nomme un scénario ou un essai de ces listes, et un nom qui contient un
+séparateur est refusé (`siliconforge.unknownScenario`, `siliconforge.unknownRun`). Une interface servie à d’autres
+machines (`--address 0.0.0.0`) ne peut donc ni lire ni écrire hors du projet. Les fonctions sont `sf.bench.list`,
+`sf.bench.open` et `sf.bench.run` ; l’API d’automatisation les expose en `siliconForge.bench`.
+
 ## Limites
 
 - Les stimuli disponibles sont les états interactifs des composants (boutons, potentiomètres) et les sondes de
@@ -180,4 +202,6 @@ const auto json   = scenario::toJson(result, "trace.vcd");
   #64.
 - Les mesures portent sur une broche à la fois ; pas encore de tension moyenne, de niveau d’un nœud du circuit ni de
   décodage UART dans un scénario.
-- Le premier incrément est qualifié sur l’ATmega328P simulé. La reprise de l’essai dans la fenêtre est l’objet de #60.
+- Le premier incrément est qualifié sur l’ATmega328P simulé.
+- La fenêtre affiche la trace en VCD à enregistrer, pas encore en courbes : on l’ouvre dans GTKWave, PulseView ou
+  Surfer. Elle n’édite pas les scénarios et ne choisit pas d’autre répertoire que celui du projet.

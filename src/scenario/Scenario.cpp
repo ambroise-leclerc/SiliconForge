@@ -15,6 +15,7 @@
 #include <functional>
 #include <iterator>
 #include <set>
+#include <system_error>
 
 namespace siliconforge::scenario {
 namespace {
@@ -1159,6 +1160,48 @@ Json toJson(const Report& report, std::string_view traceFile) {
             {"timescale", detail::VcdClock{clock}.timescale()}
         };
     return out;
+}
+
+std::filesystem::path defaultEvidenceDirectory(const std::filesystem::path& file) {
+    return std::filesystem::path{".siliconforge"} / "runs" / file.stem();
+}
+
+namespace {
+
+bool writeFile(const std::filesystem::path& path, std::string_view text) {
+    std::ofstream stream{path, std::ios::binary};
+    stream << text;
+    return static_cast<bool>(stream.flush());
+}
+
+}  // namespace
+
+std::expected<std::string, std::string> keepEvidence(const Report& report, const std::filesystem::path& directory) {
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    if (error)
+        return std::unexpected(std::format("Cannot create {}: {}", directory.generic_string(), error.message()));
+    // A trace left by an earlier run would not match this report, whatever this run produces.
+    const auto tracePath = directory / "trace.vcd";
+    std::filesystem::remove(tracePath, error);
+    if (error)
+        return std::unexpected(std::format("Cannot remove the trace of an earlier run, {}: {}", tracePath.generic_string(), error.message()));
+    const auto hasTrace = !report.trace.empty();
+    // The report is valid UTF-8; replacing what would not be keeps the evidence even if a string slipped through.
+    auto text = toJson(report, hasTrace ? "trace.vcd" : "").dump(2, ' ', false, Json::error_handler_t::replace) + "\n";
+    if (!writeFile(directory / "report.json", text) || (hasTrace && !writeFile(tracePath, report.trace)))
+        return std::unexpected(std::format("Cannot write the evidence of the run in {}", directory.generic_string()));
+    return text;
+}
+
+std::expected<Evidence, std::string> readEvidence(const std::filesystem::path& directory) {
+    auto report = readFile(directory / "report.json");
+    if (!report)
+        return std::unexpected(std::format("No report in {}", directory.generic_string()));
+    const auto parsed = Json::parse(*report, nullptr, false);
+    if (!parsed.is_object() || !parsed.contains("verdict") || !parsed.contains("inputs"))
+        return std::unexpected(std::format("{} is not the report of a bench run", (directory / "report.json").generic_string()));
+    return Evidence{std::move(*report), readFile(directory / "trace.vcd")};
 }
 
 }  // namespace siliconforge::scenario
