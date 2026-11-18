@@ -101,8 +101,9 @@ l’état haut sur ces mêmes périodes complètes. Une broche qui ne change pas
 0 % ou 100 %.
 
 La mesure est impossible quand la broche flotte pendant la fenêtre, même brièvement (une haute impédance n’a pas de
-niveau : ni son temps ni ses transitions ne comptent comme un signal), ou quand une fréquence ne dispose pas de deux
-fronts montants. La valeur est alors absente, l’explication figure dans le rapport, et une mesure qui a un attendu
+niveau : ni son temps ni ses transitions ne comptent comme un signal), quand une fréquence ne dispose pas de deux
+fronts montants, ou quand ses fronts tombent tous sur le même cycle (plusieurs stimuli appliqués au même instant) et
+ne couvrent donc aucune durée. La valeur est alors absente, l’explication figure dans le rapport, et une mesure qui a un attendu
 échoue.
 
 ## Ce qui est refusé avant l’essai

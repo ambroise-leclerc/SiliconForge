@@ -339,7 +339,12 @@ void measure(Measurement& result, const std::vector<Transition>& changes, PinSta
     }
     const auto first = inside[rising.front()].at;
     const auto last  = inside[rising.back()].at;
-    const auto span  = static_cast<double>(last - first);
+    // Several stimuli applied at one boundary can give rising edges on the same cycle: periods of no duration.
+    if (last == first) {
+        result.detail = std::format("The {} rising edges in the window all fall on cycle {}: they span no time", rising.size(), first);
+        return;
+    }
+    const auto span = static_cast<double>(last - first);
     if (result.quantity == "dutyCycle") {
         Cycles high = 0;
         for (auto i = rising.front(); i < rising.back(); ++i)
@@ -1003,6 +1008,10 @@ Report Scenario::run() {
                     if (failure)
                         break;
                     measure(measurement, s.history[step.pin], initial[step.pin], device.clockHz());
+                    if (measurement.value && !std::isfinite(*measurement.value)) {  // JSON has no infinity: never report one
+                        measurement.detail = std::format("The measurement gives {}: it is not a value", *measurement.value);
+                        measurement.value.reset();
+                    }
                     if (step.minimum) {
                         measurement.passed = measurement.value && *measurement.value >= *step.minimum && *measurement.value <= *step.maximum;
                         if (!measurement.passed && measurement.value)

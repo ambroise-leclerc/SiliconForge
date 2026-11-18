@@ -571,3 +571,26 @@ TEST_CASE("Binary serial output is kept in the report, reversibly", "[scenario]"
     CHECK(port["base64"] == "/29rw6k=");
     CHECK(port["text"] == "\xEF\xBF\xBDok\xC3\xA9");  // U+FFFD for 0xFF, the valid "é" kept
 }
+
+TEST_CASE("Rising edges that span no time cannot be measured", "[scenario]") {
+    // Three stimuli at cycle 0 give A0 two rising edges on the same cycle.
+    auto document       = exampleWith("pwm_setpoint.hex");
+    document["steps"]   = Json::parse(R"([
+        {"set": {"probe": "A0", "volts": 5}},
+        {"set": {"probe": "A0", "volts": 0}},
+        {"set": {"probe": "A0", "volts": 5}},
+        {"measure": {"id": "informative", "pin": "A0", "quantity": "frequency", "window": "100 cycles"}},
+        {"measure": {"id": "expected", "pin": "A0", "quantity": "period", "window": "100 cycles", "expect": {"min": 0, "max": 1}}}
+    ])");
+    auto       scenario = prepared(document);
+    const auto report   = scenario->run();
+    const auto json     = scenario::toJson(report);
+    INFO(json.dump(2));
+    const auto& informative = measurement(report, "informative");
+    REQUIRE(informative.risingEdges >= 2);
+    CHECK_FALSE(informative.value);
+    CHECK(informative.detail.contains("rising edges in the window all fall on cycle"));
+    CHECK(json["measurements"][0]["detail"] == informative.detail);
+    CHECK_FALSE(report.steps.at(3).detail.contains("inf Hz"));
+    CHECK_FALSE(measurement(report, "expected").passed);
+}
