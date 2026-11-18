@@ -7,6 +7,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <siliconforge/scenario/Scenario.hpp>
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -51,11 +52,10 @@ scenario::Problem problemOf(const Json& document) {
 }
 
 const scenario::Measurement& measurement(const scenario::Report& report, std::string_view id) {
-    for (const auto& entry : report.measurements)
-        if (entry.id == id)
-            return entry;
-    FAIL("No measurement " << id);
-    throw;
+    const auto found = std::ranges::find(report.measurements, id, &scenario::Measurement::id);
+    INFO("Measurement " << id);
+    REQUIRE(found != report.measurements.end());
+    return *found;
 }
 }  // namespace
 
