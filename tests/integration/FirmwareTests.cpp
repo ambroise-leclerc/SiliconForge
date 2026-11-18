@@ -37,7 +37,7 @@ SCENARIO("blink: the LED on D13 blinks at 1 Hz", "[firmware]") {
 SCENARIO("blink: changing the delay in the C source changes the blink period", "[firmware][source]") {
 #ifndef SILICONFORGE_FIRMWARE_FROM_SOURCE
     SKIP("this variant is compiled from firmware/src with avr-gcc, which was not found at configuration");
-#endif
+#else
     // blink_250ms.hex is blink.c built with -DBLINK_HALF_PERIOD_MS=250: "I edit my code, the LED changes".
     auto bench = benchWith("blink_250ms.hex");
     bench.runFor(3s);
@@ -45,6 +45,7 @@ SCENARIO("blink: changing the delay in the C source changes the blink period", "
     REQUIRE(period);
     CHECK(*period == Catch::Approx(0.5).epsilon(0.001));
     CHECK(*bench.dutyCycle("D13") == Catch::Approx(0.5).epsilon(0.001));
+#endif
 }
 
 SCENARIO("uart_echo: the firmware greets and echoes lines in upper case", "[firmware]") {

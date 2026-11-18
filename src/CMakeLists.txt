@@ -69,7 +69,7 @@ add_library(SiliconForge_core STATIC
     core/Loader.cpp)
 add_library(SiliconForge::core ALIAS SiliconForge_core)
 target_include_directories(SiliconForge_core PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
-target_compile_features(SiliconForge_core PUBLIC cxx_std_26)
+siliconforge_require_cxx26(SiliconForge_core PUBLIC)
 target_link_libraries(SiliconForge_core PRIVATE SiliconForge_options)
 
 # AVR family: core and peripherals shared by the megaAVR devices.

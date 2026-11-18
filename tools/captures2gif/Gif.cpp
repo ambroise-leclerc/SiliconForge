@@ -222,7 +222,7 @@ std::vector<std::uint8_t> lzw(std::span<const std::uint8_t> indices, int minimum
                 ++next;
             } else {
                 put(clear);
-                std::ranges::fill(children, 0);
+                std::ranges::fill(children, std::uint16_t{0});
                 codeSize = minimumCodeSize + 1;
                 next = end + 1;
             }

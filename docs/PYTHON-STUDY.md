@@ -82,7 +82,44 @@ s'impose.
 
 | Parcours | Linux | Windows | macOS |
 | --- | --- | --- | --- |
-| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Attendu, non vérifié | Attendu, non vérifié |
-| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Attendu, non vérifié | Attendu, non vérifié |
+| `atdf2json`, `captures2gif` et leurs tests | Vérifié | Vérifié (MSVC 19.51, `/W4 /WX`) | Vérifié (AppleClang 21, libc++, `-Werror`) |
+| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Vérifié (avec `CliHelpRejectsInvalidOptions`) | Vérifié, avec WebFront corrigé (voir ci-dessous) |
 | `siliconforge_compare_dispatch` | Vérifié | Non compilé (Linux seulement) | Non compilé (Linux seulement) |
 | `UI-Mcu` (Jasmine) | Vérifié (WebKitGTK, Xvfb) | Non raccordé (WebView2) | Non raccordé (WKWebView) |
+
+### macOS (AppleClang 21, arm64, macOS 27)
+
+- Compilation de `atdf2json`, `captures2gif` et `siliconforge_tests` avec `-DSILICONFORGE_WARNINGS_AS_ERRORS=ON` :
+  `<print>`, `std::ranges::next_permutation` et le formatage `chrono` sont disponibles. 92 cas de test, 91 réussis, 1 ignoré.
+- `Atdf2JsonCommandLine` réussit. Comparaison avec l'outil Python historique (`git show be5b3a7:tools/atdf2json`) sur les
+  133 ATDF de `Microchip.ATmega_DFP.3.1.264` : **133/133 identiques octet pour octet** (sortie et stderr), comme sous Linux.
+- Écart corrigé : `cmake/Warnings.cmake` passait `-Wshadow=local`, option propre à GCC, que Clang rejette. Clang reçoit
+  désormais `-Wshadow`, qui couvre aussi les champs ; trois paramètres de `Circuit.cpp` (`supply`, `source`) ont été renommés.
+- Écart en amont : la cible `siliconforge` ne compile pas avec WebFront 1.0.0 (`webfront/frontend/Capture.hpp:109`,
+  comparaison de `std::shared_ptr<CaptureProvider>` refusée par libc++ : ambroise-leclerc/WebFront#606). Avec la correction
+  proposée dans cette issue (`registry.provider.get() == owned.get()`) appliquée à une copie locale, tout se compile avec
+  `-Werror` et les 106 tests CTest hors `ui` passent, dont `McuCommandLine` et `CliHelpRejectsInvalidOptions`.
+  Le projet ne patche pas la dépendance : la tâche CI macOS ne construit que les outils et les tests unitaires, jusqu'à la
+  prochaine version de WebFront. `UI-Mcu` sous WKWebView reste non raccordé.
+
+### Windows (MSVC 19.51, Visual Studio 2026 Build Tools, CMake 4.3.4, Ninja)
+
+- Écarts corrigés pour que `/W4 /WX` passe :
+  - CMake 4.3 ne connaît pas `cxx_std_26` pour MSVC : `cmake/Cxx26.cmake` passe `/std:c++latest` à la place, et le niveau
+    d'entrée ajoute `/std:c++latest /bigobj` à tout le projet. Sans cela Catch2 est compilé en C++14 et n'exporte pas
+    `StringMaker<std::string_view>` (erreur d'édition de liens), et `main.cpp` dépasse la limite de sections d'un objet.
+  - `_CRT_SECURE_NO_WARNINGS` pour `getenv` (C4996).
+  - `json == std::string_view` est ambigu en C++20 (C2666, puis C2679 dans une assertion Catch2) : comparaison avec `std::string` à cinq endroits
+    (`Description.cpp`, trois fichiers de tests).
+  - `std::ranges::fill(children, 0)` sur des `uint16_t` (C4244), comparaisons signé/non signé (C4389) et `SKIP` suivi
+    de code inatteignable (C4702) dans les tests.
+- `siliconforge_tests` : 92 cas, 91 réussis, 1 ignoré (les 195 901 assertions passent). `Atdf2JsonCommandLine`,
+  `McuCommandLine` et `CliHelpRejectsInvalidOptions` réussissent ; la cible `siliconforge` compile.
+- Comparaison avec l'outil Python historique sur les 133 ATDF : 65 produisent un JSON, **identique octet pour octet sur
+  la sortie standard** (CRLF des deux côtés, `std::cout` en mode texte comme Python) ; les 68 autres échouent de la même
+  façon (« ATDF contains no pinout », code 1, même stderr). Avec `-o`, Python écrit en CRLF et le C++ en LF : les
+  fichiers ne diffèrent que par les fins de ligne.
+- Build complet en Release (type par défaut du projet) : 106 tests CTest, 0 échec, 1 ignoré (la variante compilée depuis
+  `firmware/src` demande avr-gcc). `/wd4714` neutralise un avertissement d'optimiseur (`__forceinline` non inliné) sur les
+  en-têtes de stdexec. En Debug, `Qualification-Cycles` dépasse son délai de 60 s (4 s en Release) : la CI compile en Release.
+- Non vérifié : `UI-Mcu` sous WebView2 reste non raccordé, et les qualifications qui demandent avr-gcc ou simavr.

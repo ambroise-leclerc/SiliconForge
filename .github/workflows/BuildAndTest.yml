@@ -103,3 +103,51 @@ jobs:
           [ "$status" -eq 0 ] || { echo "firmware/prebuilt is stale: run 'make -C firmware prebuilt' and commit the result"; exit 1; }
       - name: Emulation speed (headless)
         run: build/apps/siliconforge/siliconforge --headless --speed max --duration 10 build/firmware/blink.hex
+
+  macos-tools:
+    # The C++ tools and unit tests that replace Python (#50). The application is not built: WebFront does not compile with
+    # AppleClang's libc++ yet (docs/PYTHON-STUDY.md).
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .cache/CPM
+          key: cpm-macos-${{ hashFiles('CMakeLists.txt', 'src/CMakeLists.txt', 'tools/CMakeLists.txt', 'tests/CMakeLists.txt') }}
+          restore-keys: cpm-macos-
+      - name: Configure
+        run: cmake -S . -B build -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+      - name: Build
+        run: cmake --build build --target atdf2json captures2gif siliconforge_tests
+      - name: Test
+        run: |
+          build/tests/siliconforge_tests
+          cd build && ctest --output-on-failure -R Atdf2JsonCommandLine
+
+  windows-msvc:
+    # The whole build and CTest suite on MSVC with /W4 /WX (#50), Release like the other jobs. The WebView2 interface
+    # tests are not wired yet (docs/PYTHON-STUDY.md), and the firmware is not compiled (no avr-gcc): prebuilt hex files.
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/cache@v4
+        with:
+          path: .cache/CPM
+          key: cpm-windows-${{ hashFiles('CMakeLists.txt', 'src/CMakeLists.txt', 'tools/CMakeLists.txt', 'tests/CMakeLists.txt') }}
+          restore-keys: cpm-windows-
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+      - name: Build
+        shell: bash
+        run: cmake --build build
+      - name: Test
+        shell: bash
+        run: cd build && ctest --output-on-failure --no-tests=error -LE ui

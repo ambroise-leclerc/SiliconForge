@@ -162,7 +162,7 @@ TEST_CASE("MCU replacement keeps frame metadata coherent and discards stale seri
     const auto next = nlohmann::json::parse(values[1]);
     CHECK(old["firmware"] == "old.hex");
     CHECK(old["mcuId"] == "atmega328p");
-    CHECK(old["stop"] == app::toString(*previousStop));
+    CHECK(old["stop"] == std::string(app::toString(*previousStop)));
     CHECK(old["serial"] == "old");
     CHECK(next["chipRevision"].get<unsigned>() == old["chipRevision"].get<unsigned>() + 1);
     CHECK(next["firmware"] == "");

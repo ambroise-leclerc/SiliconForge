@@ -139,7 +139,7 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
         }
         if (!rule.state.empty()) {
             const auto key = name.empty() ? std::string(rule.state) : name + "." + std::string(rule.state);
-            if (!state.contains(key) || state.at(key).at("type") != rule.stateType)
+            if (!state.contains(key) || state.at(key).at("type") != std::string(rule.stateType))
                 fail(path + "/type", "A " + type + " needs the " + std::string(rule.stateType) + " state '" + key + "'");
         }
     }
