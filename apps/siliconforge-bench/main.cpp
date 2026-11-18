@@ -165,10 +165,14 @@ int main(int argc, char** argv) {
         std::println(stderr, "Cannot create {}: {}", out.generic_string(), error.message());
         return usageError;
     }
+    // A trace left by an earlier run would not match this report, whatever this run produces.
+    std::filesystem::remove(out / "trace.vcd", error);
+    if (error) {
+        std::println(stderr, "Cannot remove the trace of an earlier run, {}: {}", (out / "trace.vcd").generic_string(), error.message());
+        return usageError;
+    }
     const auto hasTrace = !report.trace.empty();
-    if (hasTrace)
-        std::filesystem::remove(out / "trace.vcd", error);  // A trace left by an earlier run would not match this report.
-    const auto json = scenario::toJson(report, hasTrace ? "trace.vcd" : "").dump(2) + "\n";
+    const auto json     = scenario::toJson(report, hasTrace ? "trace.vcd" : "").dump(2) + "\n";
     if (!write(out / "report.json", json) || (hasTrace && !write(out / "trace.vcd", report.trace))) {
         std::println(stderr, "Cannot write the evidence of the run in {}", out.generic_string());
         return usageError;

@@ -71,7 +71,7 @@ Le brochage indique aussi les fonctions du composant réel qui ne sont pas encor
 | Instruments | Analyseur logique et oscilloscope au cycle près, mesures, curseurs, déclenchement, décodeur UART, export VCD |
 | Conversion analogique | Conversions simples sur A0–A5 et référence interne |
 | Tests automatisés | Pilotage du temps simulé, des broches, de la liaison série et des composants du circuit depuis un banc de test C++ |
-| Scénarios de banc | Essais versionnés exécutés sans fenêtre : stimuli au cycle près, attentes bornées, mesures de PWM avec verdict, rapport et trace VCD |
+| Scénarios de banc | Essais versionnés exécutés sans fenêtre : stimuli planifiés en cycles, attentes bornées, mesures de PWM avec verdict, rapport et trace VCD |
 
 **Qualification du cœur :** l’ATmega328P est **qualifié, avec exceptions documentées** : ses 85 instructions sont
 vérifiées contre le manuel AVR (cycles de chaque cas), contre le simulateur simavr (instruction par instruction sur des

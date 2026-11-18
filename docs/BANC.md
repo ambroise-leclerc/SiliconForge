@@ -55,13 +55,30 @@ sondes, sources de tension idéales sur des broches (`{"A0": 2.5}`).
 Les étapes s’exécutent dans l’ordre. Chacune peut porter un `label` et un instant de départ `at`, compté depuis le
 reset ; sinon elle commence à la fin de la précédente.
 
+## Le temps d’un essai
+
+Les étapes suivent une chronologie planifiée, en cycles : une attente `wait` ou une fenêtre de mesure finit
+exactement `durée` cycles après son début, et `at` place une étape sur un cycle donné. Le cœur émulé agit entre deux
+instructions, comme ses périphériques : quand un instant planifié tombe au milieu d’une instruction de plusieurs
+cycles, l’instruction se termine d’abord. Ce dépassement ne décale pas la chronologie.
+
+- Un stimulus (`set`) prend effet à la première frontière d’instruction à partir de son instant planifié, au plus
+  quelques cycles plus tard. Le rapport donne les deux : `start`, l’instant planifié, et `applied`, le cycle où le
+  stimulus a pris effet.
+- Une mesure porte exactement sur `[début, début + fenêtre]` : les changements de la broche sont enregistrés au cycle
+  où ils se produisent, et ceux du dépassement sont exclus.
+- Une attente `waitFor` est évaluée à chaque changement d’une broche, du circuit ou d’un port série, au cycle de ce
+  changement, et non par échantillonnage : un niveau atteint puis quitté en deux cycles la satisfait. Son instant de
+  fin est le cycle où la condition a été remplie. Seul l’état d’un composant atteint pendant le dépassement initial,
+  qui n’est pas enregistré, est daté de la frontière d’instruction suivante.
+
 | Étape | Effet |
 | --- | --- |
 | `{"wait": "2ms"}` | Avance le temps simulé |
 | `{"set": {"component": "button-d2", "state": "pressed", "value": true}}` | Change un état interactif d’un composant, comme l’utilisateur sur le breadboard |
 | `{"set": {"probe": "A0", "volts": 2.5}}` | Pose une sonde sur une broche ; `null` la retire |
 | `{"waitFor": {"pin": "D13", "state": "high"}, "timeout": "1ms"}` | Attente bornée d’un niveau (`high`, `low`, `floating`) |
-| `{"waitFor": {"serial": "ready", "port": 0}, "timeout": "100ms"}` | Attente bornée d’un texte émis sur un port série |
+| `{"waitFor": {"serial": "ready", "port": 0}, "timeout": "100ms"}` | Attente bornée d’un texte émis sur un port série depuis le début de l’étape |
 | `{"waitFor": {"component": "led-d13", "state": "brightness", "above": 0.5}, "timeout": "1s"}` | Attente bornée d’un état de composant (`above`, `below`) |
 | `{"measure": {"id": "duty", "pin": "D6", "quantity": "dutyCycle", "window": "1ms", "expect": {...}}}` | Laisse tourner le banc pendant la fenêtre puis mesure sur les fronts capturés |
 
@@ -115,13 +132,16 @@ imprévu. Une mesure hors tolérance n’arrête pas l’essai, les suivantes so
 `run` écrit dans `--out`, par défaut `.siliconforge/runs/<nom du fichier>/` dans le répertoire courant (ignoré par Git) :
 
 - `report.json` : verdict ; version du moteur et du format ; empreinte SHA-256 et chemin du scénario, du circuit et du
-  firmware ; microcontrôleur et horloge ; chaque étape avec son issue, ses instants de début et de fin (en cycles et en
+  firmware ; microcontrôleur et horloge ; chaque étape avec son issue, ses instants planifiés de début et de fin, le
+  cycle où un stimulus a pris effet (`applied`) (en cycles et en
   secondes) et son détail ; chaque mesure avec sa valeur, son unité, sa fenêtre, le nombre de fronts montants et
   l’attendu ; la sortie série ; la cause d’une incompatibilité.
 - `trace.vcd` : toutes les broches depuis le reset, une unité de temps par cycle d’horloge, à ouvrir dans GTKWave,
   PulseView ou Surfer.
 
-La trace et le rapport sont écrits même quand une assertion échoue. Ils ne contiennent ni horodatage ni durée
+La trace et le rapport sont écrits même quand une assertion échoue. Une ancienne `trace.vcd` est toujours supprimée
+du répertoire, même quand le nouvel essai n’en produit pas (scénario incompatible) : chaque fichier présent
+correspond au rapport. Ils ne contiennent ni horodatage ni durée
 d’exécution réelle : deux essais sur les mêmes entrées produisent des fichiers identiques, échéance dépassée
 comprise.
 

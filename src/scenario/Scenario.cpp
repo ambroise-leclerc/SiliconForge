@@ -10,6 +10,7 @@
 #include <cmath>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <iterator>
 #include <set>
 
@@ -20,8 +21,6 @@ using siliconforge::detail::child;
 
 /// No duration of a scenario may exceed one hour of simulated time.
 constexpr double maximumSeconds = 3600;
-/// Cycles between two checks of a waitFor condition.
-constexpr Cycles conditionGranularity = 16;
 
 [[noreturn]] void reject(Problem::Cause cause, std::string path, std::string message, std::string file = {}) {
     throw Problem{cause, std::move(file), std::move(path), std::move(message)};
@@ -442,6 +441,18 @@ struct Scenario::State {
     std::unique_ptr<Mcu>                 device;
     std::unique_ptr<circuit::Circuit>    model;
     std::vector<std::vector<Transition>> history;
+    std::vector<std::vector<Cycles>>     transmitted;  ///< Per serial port, the cycle of each byte of output().
+    /// The condition of the waitFor in progress, evaluated by the observers at the cycle of each change, so that a
+    /// state reached and left between two instruction boundaries is not missed.
+    std::function<bool()> watch;
+    std::optional<Cycles> satisfiedAt;
+
+    void notice(Cycles at) {
+        if (watch && !satisfiedAt && watch()) {
+            satisfiedAt = at;
+            device->debugger().requestStop();
+        }
+    }
 
     /// A fresh MCU plugged in a fresh circuit, with the initial state applied and the firmware loaded.
     void setUp() {
@@ -455,12 +466,20 @@ struct Scenario::State {
             const auto index = static_cast<std::size_t>(&pin - device->pins().data());
             pin.subscribe([this, index](const Pin& changed, Cycles at) {
                 history[index].push_back({at, changed.state()});
+                notice(at);
             });
-            pin.subscribeDrive([this](const Pin&, Cycles) {
+            pin.subscribeDrive([this](const Pin&, Cycles at) {
                 if (model)
                     model->update();
+                notice(at);
             });
         }
+        transmitted.assign(device->serialPorts().size(), {});
+        for (std::size_t port = 0; port < transmitted.size(); ++port)
+            device->serialPorts()[port].onTransmit([this, port](u8, Cycles at) {
+                transmitted[port].push_back(at);
+                notice(at);
+            });
         for (const auto& [id, entry, value] : initialComponents)
             (void)model->set(id, entry, value);
         for (const auto& [pin, volts] : initialProbes)
@@ -469,6 +488,10 @@ struct Scenario::State {
         model->restart();
         for (auto& changes : history)
             changes.clear();
+        for (auto& log : transmitted)
+            log.clear();
+        watch = {};
+        satisfiedAt.reset();
     }
 
     void parse(const Json& document, const std::filesystem::path& directory);
@@ -712,29 +735,35 @@ Report Scenario::run() {
         return std::nullopt;
     };
 
+    // The steps follow the scheduled timeline, in cycles. The core acts at instruction boundaries, so a run can end a
+    // few cycles past its target: the timeline does not inherit that overshoot, the measurements use the logged changes
+    // at their exact cycles, and a stimulus reports the boundary where it took effect.
+    Cycles                     timeline = 0;
     std::optional<std::size_t> failedStep;
     for (std::size_t i = 0; i < s.steps.size(); ++i) {
-        const auto& step = s.steps[i];
-        StepRecord  record{i, std::string{kindName(step.kind)}, step.label, StepRecord::Outcome::Skipped, device.cycles(), device.cycles(), {}};
+        const auto& step  = s.steps[i];
+        const auto  begin = step.at.value_or(timeline);
+        StepRecord  record{i, std::string{kindName(step.kind)}, step.label, StepRecord::Outcome::Skipped, begin, begin, std::nullopt, {}};
         if (failedStep) {
-            record.detail = std::format("Not run: step {} failed", *failedStep);
+            record.start = record.end = timeline;
+            record.detail             = std::format("Not run: step {} failed", *failedStep);
             report.steps.push_back(std::move(record));
             continue;
         }
         std::optional<std::string> failure;
-        if (step.at) {
-            if (device.cycles() > *step.at)
-                failure = std::format("Scheduled at {} cycles, but the steps before it ended at {} cycles", *step.at, device.cycles());
-            else
-                failure = advanceTo(*step.at);
-        }
-        record.start = device.cycles();
+        if (begin < timeline) {
+            record.start = record.end = timeline;
+            failure                   = std::format("Scheduled at {} cycles, but the steps before it ended at {} cycles", begin, timeline);
+        } else
+            failure = advanceTo(begin);
         if (!failure) {
             switch (step.kind) {
                 case Step::Kind::Wait:
-                    failure = advanceTo(record.start + step.duration);
+                    record.end = begin + step.duration;
+                    failure    = advanceTo(record.end);
                     break;
                 case Step::Kind::Set:
+                    record.applied = device.cycles();
                     if (step.probe.empty()) {
                         (void)model.set(step.component, step.stateName, step.value);
                         record.detail = std::format("{}.{} = {}", step.component, step.stateName, formatNumber(step.value));
@@ -743,52 +772,96 @@ Report Scenario::run() {
                         record.detail = step.volts ? std::format("probe on {} at {} V", step.probe, formatNumber(*step.volts))
                                                    : std::format("probe on {} removed", step.probe);
                     }
+                    if (*record.applied != begin)
+                        record.detail += std::format(", applied at {} cycles: the instruction in progress at {} ends first", *record.applied, begin);
                     break;
                 case Step::Kind::WaitFor: {
-                    auto&      pin       = device.pins()[step.pin];
-                    const auto satisfied = [&] {
+                    auto&      pin      = device.pins()[step.pin];
+                    const auto deadline = begin + step.duration;
+                    const auto describe = [&] {
                         switch (step.condition) {
                             case Step::Condition::Pin:
-                                return pin.state() == step.pinState;
+                                return std::format("{} {}", pin.label().empty() ? pin.name() : pin.label(), stateName(step.pinState));
                             case Step::Condition::Serial:
-                                return device.serial(step.port)->output().find(step.text) != std::string::npos;
-                            case Step::Condition::Component: {
-                                const auto value = model.state(step.component, step.stateName).value_or(0);
-                                return (!step.above || value > *step.above) && (!step.below || value < *step.below);
-                            }
-                        }
-                        return false;
-                    };
-                    const auto describe = [&](const Step& condition) {
-                        switch (condition.condition) {
-                            case Step::Condition::Pin:
-                                return std::format("{} {}", pin.label().empty() ? pin.name() : pin.label(), stateName(condition.pinState));
-                            case Step::Condition::Serial:
-                                return std::format("Serial text \"{}\"", condition.text);
+                                return std::format("Serial text \"{}\"", step.text);
                             case Step::Condition::Component:
                                 break;
                         }
                         return std::format("{}.{}{}{}",
-                                           condition.component,
-                                           condition.stateName,
-                                           condition.above ? std::format(" > {}", formatNumber(*condition.above)) : "",
-                                           condition.below ? std::format(" < {}", formatNumber(*condition.below)) : "");
+                                           step.component,
+                                           step.stateName,
+                                           step.above ? std::format(" > {}", formatNumber(*step.above)) : "",
+                                           step.below ? std::format(" < {}", formatNumber(*step.below)) : "");
                     };
-                    const auto deadline = record.start + step.duration;
-                    while (!satisfied() && !failure) {
-                        if (device.cycles() >= deadline) {
-                            failure =
-                                std::format("{} not reached within {} cycles ({} s)", describe(step), step.duration, seconds(step.duration, device.clockHz()));
+                    // Serial text emitted since the step began: from the first byte logged at or after `begin`. The
+                    // match ends at the cycle of its last byte.
+                    const auto serialMatch = [&]() -> std::optional<Cycles> {
+                        const auto& log   = s.transmitted[step.port];
+                        const auto  first = static_cast<std::size_t>(std::ranges::lower_bound(log, begin) - log.begin());
+                        const auto  found = device.serial(step.port)->output().find(step.text, first);
+                        if (found == std::string::npos)
+                            return std::nullopt;
+                        return log[found + step.text.size() - 1];
+                    };
+                    const auto componentHolds = [&] {
+                        const auto value = model.state(step.component, step.stateName).value_or(0);
+                        return (!step.above || value > *step.above) && (!step.below || value < *step.below);
+                    };
+                    // First what happened between `begin` and the boundary where the core stands, from the logs; then
+                    // the observers watch every change until the deadline.
+                    std::optional<Cycles> satisfied;
+                    switch (step.condition) {
+                        case Step::Condition::Pin: {
+                            const auto& changes = s.history[step.pin];
+                            auto        state   = initial[step.pin];
+                            auto        cursor  = changes.begin();
+                            for (; cursor != changes.end() && cursor->at <= begin; ++cursor)
+                                state = cursor->state;
+                            if (state == step.pinState)
+                                satisfied = begin;
+                            for (; !satisfied && cursor != changes.end(); ++cursor)
+                                if (cursor->state == step.pinState)
+                                    satisfied = cursor->at;
+                            s.watch = [&] {
+                                return pin.state() == step.pinState;
+                            };
                             break;
                         }
-                        const auto result = device.run(std::min(conditionGranularity, deadline - device.cycles()));
-                        if (result.reason != StopReason::BudgetReached && !satisfied())
+                        case Step::Condition::Serial:
+                            satisfied = serialMatch();
+                            s.watch   = [&] {
+                                return serialMatch().has_value();
+                            };
+                            break;
+                        case Step::Condition::Component:
+                            // Component states are not logged: a state reached during the overshoot counts from the
+                            // boundary, at most one instruction late.
+                            if (componentHolds())
+                                satisfied = device.cycles();
+                            s.watch = componentHolds;
+                            break;
+                    }
+                    s.satisfiedAt = satisfied;
+                    while (!s.satisfiedAt && device.cycles() < deadline) {
+                        const auto result = device.run(deadline - device.cycles());
+                        if (result.reason != StopReason::BudgetReached && result.reason != StopReason::Requested) {
                             failure = stopped(result.reason);
+                            break;
+                        }
                     }
+                    s.watch = {};
+                    (void)device.debugger().takeStopRequest();  // A condition met by the last event of a run left one
                     if (!failure) {
-                        const auto at = step.condition == Step::Condition::Pin ? std::max(pin.lastChange(), record.start) : device.cycles();
-                        record.detail = std::format("Satisfied at {} cycles, {} cycles after the step started", at, at - record.start);
+                        if (s.satisfiedAt && *s.satisfiedAt <= deadline) {
+                            record.end    = std::max(*s.satisfiedAt, begin);
+                            record.detail = std::format("Satisfied at {} cycles, {} cycles after the step began", record.end, record.end - begin);
+                        } else {
+                            record.end = deadline;
+                            failure =
+                                std::format("{} not reached within {} cycles ({} s)", describe(), step.duration, seconds(step.duration, device.clockHz()));
+                        }
                     }
+                    s.satisfiedAt.reset();
                     break;
                 }
                 case Step::Kind::Measure: {
@@ -800,9 +873,12 @@ Report Scenario::run() {
                     measurement.unit     = std::string{unitOf(step.quantity)};
                     measurement.minimum  = step.minimum;
                     measurement.maximum  = step.maximum;
-                    measurement.from     = record.start;
-                    failure              = advanceTo(record.start + step.duration);
-                    measurement.to       = device.cycles();
+                    measurement.from     = begin;
+                    measurement.to       = begin + step.duration;
+                    record.end           = measurement.to;
+                    failure              = advanceTo(measurement.to);
+                    if (failure)
+                        break;
                     measure(measurement, s.history[step.pin], initial[step.pin], device.clockHz());
                     if (step.minimum) {
                         measurement.passed = measurement.value && *measurement.value >= *step.minimum && *measurement.value <= *step.maximum;
@@ -825,14 +901,15 @@ Report Scenario::run() {
                 }
             }
         }
-        record.end = device.cycles();
         if (failure) {
+            record.end     = std::max(record.end, record.start);
             record.outcome = StepRecord::Outcome::Failed;
             record.detail  = *failure;
             report.verdict = Verdict::Fail;
             failedStep     = i;  // Later steps would start from an unexpected state.
         } else if (record.outcome != StepRecord::Outcome::Failed)
             record.outcome = StepRecord::Outcome::Done;
+        timeline = std::max(timeline, record.end);
         report.steps.push_back(std::move(record));
     }
 
@@ -893,6 +970,8 @@ Json toJson(const Report& report, std::string_view traceFile) {
             {"start", timeJson(step.start, clock)},
             {"end", timeJson(step.end, clock)}
         };
+        if (step.applied)
+            entry["applied"] = timeJson(*step.applied, clock);
         if (!step.label.empty())
             entry["label"] = step.label;
         if (!step.detail.empty())

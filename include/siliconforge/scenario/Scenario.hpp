@@ -82,9 +82,15 @@ struct StepRecord {
     std::string kind;  ///< "wait", "set", "waitFor" or "measure".
     std::string label;
     Outcome     outcome{Outcome::Skipped};
-    Cycles      start{0};
-    Cycles      end{0};
-    std::string detail;
+    /// On the scheduled timeline: `at`, or the end of the previous step. A run is not delayed by the cycles the core
+    /// spends finishing an instruction past a target.
+    Cycles start{0};
+    /// Also on the timeline: start + duration for wait and measure, the cycle a waitFor condition was met or its
+    /// deadline, start for set.
+    Cycles end{0};
+    /// set: the instruction boundary where the stimulus took effect, the first at or after `start`.
+    std::optional<Cycles> applied;
+    std::string           detail;
 };
 [[nodiscard]] std::string_view toString(StepRecord::Outcome outcome) noexcept;
 

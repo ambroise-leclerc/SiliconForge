@@ -2,6 +2,7 @@
 // ATmega328P with stimuli at their cycle and bounded waits, measured on the captured edges, and reported the same way
 // every time it runs on the same inputs.
 
+#include "../support/AvrAssembler.hpp"
 #include "scenario/Sha256.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -9,6 +10,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -49,6 +51,26 @@ scenario::Problem problemOf(const Json& document) {
     if (result)
         FAIL("The scenario was accepted: " << document.dump());
     return result.error();
+}
+
+/// Writes an assembled program as an Intel HEX file and returns its path.
+std::filesystem::path hexFile(const siliconforge::test::AvrAssembler& program, std::string_view name) {
+    const auto  bytes = program.image().segments.front().bytes;
+    std::string text;
+    for (std::size_t offset = 0; offset < bytes.size(); offset += 16) {
+        const auto count = std::min<std::size_t>(16, bytes.size() - offset);
+        unsigned   sum   = static_cast<unsigned>(count + (offset >> 8) + (offset & 0xFF));
+        text            += std::format(":{:02X}{:04X}00", count, offset);
+        for (std::size_t i = 0; i < count; ++i) {
+            text += std::format("{:02X}", bytes[offset + i]);
+            sum  += bytes[offset + i];
+        }
+        text += std::format("{:02X}\n", (0x100 - (sum & 0xFF)) & 0xFF);
+    }
+    text           += ":00000001FF\n";
+    const auto path = std::filesystem::temp_directory_path() / name;
+    std::ofstream{path, std::ios::binary} << text;
+    return path;
 }
 
 const scenario::Measurement& measurement(const scenario::Report& report, std::string_view id) {
@@ -302,4 +324,72 @@ TEST_CASE("An incompatible scenario file gives a report that names the problem",
     CHECK(json["verdict"] == "incompatible");
     CHECK(json["problem"]["cause"] == "unreadable");
     CHECK_FALSE(json.contains("steps"));
+}
+
+TEST_CASE("A stimulus scheduled inside an instruction takes effect at its end, without delaying the timeline", "[scenario]") {
+    // The core acts at instruction boundaries: a target inside a multi-cycle instruction is reached a few cycles late.
+    // The next step still starts on the scheduled cycle, and the measurements use the exact cycles of the edges.
+    bool overshot = false;
+    for (Cycles target = 16000; target < 16012; ++target) {
+        auto document     = exampleWith("pwm_setpoint.hex");
+        document["steps"] = Json::array({
+            Json{{"wait", std::format("{} cycles", target)}},
+            Json{{"at", std::format("{} cycles", target)}, {"set", {{"component", "button-d2"}, {"state", "pressed"}, {"value", true}}}},
+            Json{{"measure", {{"id", "window"}, {"pin", "D6"}, {"quantity", "frequency"}, {"window", "1000 cycles"}}}},
+            Json{{"at", std::format("{} cycles", target + 1000)}, {"wait", "0 cycles"}},
+        });
+        const auto report = prepared(document)->run();
+        INFO("target " << target << "\n" << scenario::toJson(report).dump(2));
+        REQUIRE(report.verdict == scenario::Verdict::Pass);
+        const auto& set = report.steps.at(1);
+        CHECK(set.start == target);
+        REQUIRE(set.applied);
+        CHECK(*set.applied >= target);
+        CHECK(*set.applied - target < 5);  // At most the rest of one instruction
+        overshot           = overshot || *set.applied != target;
+        const auto& window = measurement(report, "window");
+        CHECK(window.from == target);
+        CHECK(window.to == target + 1000);
+        CHECK(report.steps.at(3).start == target + 1000);
+    }
+    CHECK(overshot);  // The loop did land inside an instruction at least once
+}
+
+TEST_CASE("A bounded wait sees a pulse shorter than any polling interval", "[scenario]") {
+    // D13 goes high for the two cycles of a CBI, once, then stays low.
+    siliconforge::test::AvrAssembler program;
+    program.sbi(0x04, 5);  // DDRB: D13 output
+    for (int i = 0; i < 100; ++i)
+        program.nop();
+    program.sbi(0x05, 5).cbi(0x05, 5).rjmp(-1);
+    auto document        = example();
+    document["firmware"] = hexFile(program, "siliconforge-scenario-pulse.hex").generic_string();
+    document["initial"]  = Json::object();
+    document["steps"]    = Json::parse(R"([
+        {"waitFor": {"pin": "D13", "state": "high"}, "timeout": "1000 cycles"},
+        {"waitFor": {"pin": "D13", "state": "low"}, "timeout": "1000 cycles"},
+        {"measure": {"id": "after", "pin": "D13", "quantity": "dutyCycle", "window": "100 cycles"}}
+    ])");
+    const auto report    = prepared(document)->run();
+    INFO(scenario::toJson(report).dump(2));
+    REQUIRE(report.verdict == scenario::Verdict::Pass);
+    const auto& high = report.steps.at(0);
+    const auto& low  = report.steps.at(1);
+    CHECK(high.end >= 100);
+    CHECK(high.end < 110);
+    CHECK(low.end - high.end == 2);  // The exact cycles of both edges, not the boundary of a polling interval
+    CHECK(measurement(report, "after").value == 0.0);
+}
+
+TEST_CASE("A bounded wait for serial text only counts what is emitted after the step begins", "[scenario]") {
+    auto document     = exampleWith("uart_echo.hex");
+    document["steps"] = Json::parse(R"([
+        {"waitFor": {"serial": "ready"}, "timeout": "100ms"},
+        {"waitFor": {"serial": "ready"}, "timeout": "10ms"}
+    ])");
+    const auto report = prepared(document)->run();
+    INFO(scenario::toJson(report).dump(2));
+    CHECK(report.steps.at(0).outcome == scenario::StepRecord::Outcome::Done);
+    CHECK(report.steps.at(1).outcome == scenario::StepRecord::Outcome::Failed);
+    CHECK(report.steps.at(1).detail.contains("Serial text \"ready\" not reached"));
 }
