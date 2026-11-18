@@ -40,6 +40,7 @@ siliconforge_set_warnings(SiliconForge_options)
 add_subdirectory(src)
 if(PROJECT_IS_TOP_LEVEL OR SILICONFORGE_BUILD_TESTS)
     add_subdirectory(tools)
+    add_subdirectory(apps/siliconforge-bench)
 endif()
 
 if(SILICONFORGE_BUILD_APP)

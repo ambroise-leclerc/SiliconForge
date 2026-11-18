@@ -1,0 +1,8 @@
+#pragma once
+#include <string_view>
+namespace siliconforge::scenario::embedded {
+inline constexpr unsigned char scenarioSchemaBytes[] = {
+@SILICONFORGE_SCENARIO_SCHEMA_BYTES@
+};
+inline const std::string_view scenarioSchema{reinterpret_cast<const char*>(scenarioSchemaBytes), sizeof scenarioSchemaBytes};
+}

@@ -37,9 +37,12 @@ add_executable(siliconforge_tests
     unit/EepromAdcTests.cpp
     unit/AtdfTests.cpp
     unit/GifTests.cpp
+    unit/ScenarioTests.cpp
     integration/FirmwareTests.cpp)
-target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge::circuit SiliconForge::atdf SiliconForge::gif
-    SiliconForge_options Catch2::Catch2WithMain)
+target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge::circuit SiliconForge::scenario SiliconForge::atdf
+    SiliconForge::gif SiliconForge_options Catch2::Catch2WithMain)
+# The unit tests of the scenario engine reach its SHA-256.
+target_include_directories(siliconforge_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_MCU_DIR="${PROJECT_SOURCE_DIR}/mcus" SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}" SILICONFORGE_FIRMWARE_DIR="${SILICONFORGE_FIRMWARE_DIR}")
 if(SILICONFORGE_FIRMWARE_FROM_SOURCE)
     target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_FIRMWARE_FROM_SOURCE)
@@ -59,6 +62,12 @@ add_test(NAME Atdf2JsonCommandLine
     COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:atdf2json> -DWORK=${CMAKE_CURRENT_BINARY_DIR}/Atdf2JsonCommandLine
             -P ${CMAKE_CURRENT_SOURCE_DIR}/Atdf2JsonCliTests.cmake)
 set_tests_properties(Atdf2JsonCommandLine PROPERTIES TIMEOUT 30 LABELS fast)
+
+add_test(NAME BenchCommandLine
+    COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge-bench> -DSOURCE=${PROJECT_SOURCE_DIR}
+            -DFIRMWARE=${SILICONFORGE_FIRMWARE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/BenchCommandLine
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/BenchCliTests.cmake)
+set_tests_properties(BenchCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
 
 # Explicit opt-in target for profiling; not part of CTest or the default build.
 add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)

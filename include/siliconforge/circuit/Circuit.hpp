@@ -56,6 +56,9 @@ public:
     /// Present value of a state entry of a component ("brightness", "pressed", "position", "a.brightness"...);
     /// booleans read 0 or 1. nullopt for an unknown component or entry.
     [[nodiscard]] std::optional<double> state(std::string_view id, std::string_view name) const;
+    /// Whether frame() reports a state entry as its time average (the brightness of an LED the MCU may modulate), its
+    /// present value following every pulse.
+    [[nodiscard]] bool averaged(std::string_view id, std::string_view name) const;
     /// Changes an interactive state entry (a button press, a potentiometer position) and solves the circuit again.
     std::expected<void, SetError> set(std::string_view id, std::string_view name, double value);
 

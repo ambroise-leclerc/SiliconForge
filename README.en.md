@@ -111,6 +111,14 @@ You can run firmware headlessly, accelerate simulated time and collect its seria
 ./build/apps/siliconforge/siliconforge --headless --speed max --duration 5 firmware/prebuilt/uart_echo.hex
 ```
 
+A [bench scenario](docs/BANC.md) describes a test in a JSON file versioned with the project: circuit, firmware,
+stimuli, bounded waits and expected measurements. `siliconforge-bench` runs it, keeps the report and the trace, and
+tells success (0), a missed assertion (1) and an incompatible bench (2) apart by its exit code:
+
+```bash
+./build/apps/siliconforge-bench/siliconforge-bench run scenarios/pwm-setpoint.json
+```
+
 The [C++ test bench](include/siliconforge/testing/Bench.hpp) lets you send data, change inputs and check replies
 or signal periods reproducibly. Plugged in a circuit, it sees what the user sees: `bench.press("button-d2")`,
 `bench.component("led-d13").brightness()`. The [firmware tests](tests/integration/FirmwareTests.cpp) provide examples.
@@ -126,6 +134,7 @@ ctest --test-dir build --output-on-failure
 - [Microcontroller descriptions and model limitations](docs/MCU-DESCRIPTIONS.md)
 - [Component and circuit format](docs/CIRCUITS.md) (in French)
 - [Instruments: logic analyser and oscilloscope](docs/INSTRUMENTS.md) (in French)
+- [Programmable bench: scenarios and `siliconforge-bench`](docs/BANC.md) (in French)
 - [Core qualification: method (French)](docs/QUALIFICATION.md) and [matrix per chip](docs/qualification/README.md)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
 - [WebFront 1.0: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.0.md) (earlier reports: [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))

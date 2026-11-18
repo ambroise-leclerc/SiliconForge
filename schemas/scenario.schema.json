@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://siliconforge.dev/schemas/scenario-v1.schema.json",
+  "title": "SiliconForge bench scenario v1",
+  "description": "A versioned bench scenario (ADR 0010): the circuit and the firmware it runs, the initial state, then stimuli, bounded waits and measurements with their expected values, in order.",
+  "type": "object",
+  "required": ["formatVersion", "name", "circuit", "firmware", "steps"],
+  "additionalProperties": false,
+  "properties": {
+    "formatVersion": {"const": 1},
+    "name": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "circuit": {"type": "string", "minLength": 1, "description": "Circuit file, relative to the scenario file. Its chip chooses the microcontroller."},
+    "firmware": {"type": "string", "minLength": 1, "description": "Intel HEX or ELF file, relative to the scenario file."},
+    "initial": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Applied before the firmware starts.",
+      "properties": {
+        "components": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {"$ref": "#/definitions/value"}
+          }
+        },
+        "probes": {
+          "type": "object",
+          "additionalProperties": {"type": "number"},
+          "description": "Ideal voltage sources on MCU pins, by pin name or board label."
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4096,
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {"type": "string"},
+          "at": {"$ref": "#/definitions/duration", "description": "The step starts at this simulated time after reset."}
+        },
+        "oneOf": [
+          {"required": ["wait"], "properties": {"label": true, "at": true, "wait": {"$ref": "#/definitions/duration"}}, "additionalProperties": false},
+          {"required": ["set"], "properties": {"label": true, "at": true, "set": {"$ref": "#/definitions/set"}}, "additionalProperties": false},
+          {
+            "required": ["waitFor", "timeout"],
+            "properties": {"label": true, "at": true, "waitFor": {"$ref": "#/definitions/condition"}, "timeout": {"$ref": "#/definitions/duration"}},
+            "additionalProperties": false
+          },
+          {"required": ["measure"], "properties": {"label": true, "at": true, "measure": {"$ref": "#/definitions/measure"}}, "additionalProperties": false}
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "identifier": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+    "duration": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]+)? ?(ns|us|ms|s|cycles)$",
+      "description": "Simulated time: \"250us\", \"1.5 ms\", \"2s\", or a number of clock cycles, \"16000 cycles\"."
+    },
+    "value": {"type": ["number", "boolean"]},
+    "set": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["component", "state", "value"],
+          "properties": {"component": {"$ref": "#/definitions/identifier"}, "state": {"type": "string", "minLength": 1}, "value": {"$ref": "#/definitions/value"}},
+          "additionalProperties": false
+        },
+        {
+          "required": ["probe", "volts"],
+          "properties": {"probe": {"type": "string", "minLength": 1}, "volts": {"type": ["number", "null"]}},
+          "additionalProperties": false
+        }
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "oneOf": [
+        {
+          "required": ["pin", "state"],
+          "properties": {"pin": {"type": "string", "minLength": 1}, "state": {"enum": ["high", "low", "floating"]}},
+          "additionalProperties": false
+        },
+        {
+          "required": ["serial"],
+          "properties": {"serial": {"type": "string", "minLength": 1}, "port": {"type": "integer", "minimum": 0}},
+          "additionalProperties": false
+        },
+        {
+          "required": ["component", "state"],
+          "anyOf": [{"required": ["above"]}, {"required": ["below"]}],
+          "properties": {
+            "component": {"$ref": "#/definitions/identifier"},
+            "state": {"type": "string", "minLength": 1},
+            "above": {"type": "number"},
+            "below": {"type": "number"}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "measure": {
+      "type": "object",
+      "required": ["id", "pin", "quantity", "window"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/definitions/identifier"},
+        "pin": {"type": "string", "minLength": 1},
+        "quantity": {"enum": ["dutyCycle", "frequency", "period"], "description": "dutyCycle in %, frequency in Hz, period in s."},
+        "window": {"$ref": "#/definitions/duration", "description": "The bench runs for this long and measures the edges captured meanwhile."},
+        "expect": {
+          "type": "object",
+          "additionalProperties": false,
+          "oneOf": [{"required": ["value", "tolerance"]}, {"required": ["min", "max"]}],
+          "properties": {
+            "value": {"type": "number"},
+            "tolerance": {"type": "number", "minimum": 0},
+            "min": {"type": "number"},
+            "max": {"type": "number"}
+          }
+        }
+      }
+    }
+  }
+}

@@ -92,6 +92,10 @@ private:
     std::vector<std::unique_ptr<Timer8>>             timers;
     std::vector<std::unique_ptr<Usart>>              usarts;
     std::vector<std::function<void()>>               resetters;
+    /// Reset values of the description, read once: address and value of every register, then of the core registers
+    /// (SPL, SPH, SREG) written through their handlers.
+    std::vector<std::pair<Address, u8>> registerResets;
+    std::vector<std::pair<Address, u8>> coreRegisterResets;
     std::vector<u8>                                  eeprom;
     std::map<Address, std::string>                   symbols;
 };
