@@ -631,6 +631,14 @@ std::optional<double> Circuit::state(std::string_view id, std::string_view name)
     return entry == component->state.end() ? std::nullopt : std::optional{entry->value};
 }
 
+bool Circuit::averaged(std::string_view id, std::string_view name) const {
+    const auto component = std::ranges::find(model->components, id, &Model::Component::id);
+    if (component == model->components.end())
+        return false;
+    const auto entry = std::ranges::find(component->state, name, &Model::StateEntry::name);
+    return entry != component->state.end() && entry->averaged;
+}
+
 std::expected<void, SetError> Circuit::set(std::string_view id, std::string_view name, double value) {
     const auto component = std::ranges::find(model->components, id, &Model::Component::id);
     if (component == model->components.end())

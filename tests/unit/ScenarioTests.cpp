@@ -390,6 +390,12 @@ SCENARIO("A scenario that cannot run on the bench is refused before the run, wit
                 expectProblem(document, Resource, "/initial/components/led-d6/brightness", "cannot be changed from outside");
             }
         }
+        WHEN("a wait watches the brightness of an LED, a time average its present value does not show") {
+            document["steps"][4] = Json::parse(R"({"waitFor": {"component": "led-d6", "state": "brightness", "above": 0.9}, "timeout": "1ms"})");
+            THEN("it is beyond capacity, and the refusal points to the duty cycle of the pin") {
+                expectProblem(document, Capacity, "/steps/4/waitFor", "Measure the duty cycle of the pin that drives it");
+            }
+        }
         WHEN("a measurement names a pin the MCU does not have") {
             document["steps"][1]["measure"]["pin"] = "D42";
             THEN("the resource is missing") {
@@ -761,6 +767,36 @@ SCENARIO("A VCD timescale is 1, 10 or 100 of a unit, and the times count in it",
             check(3'000'000, "1 fs", 3'000'000 * Cycles{3600}, 3'600'000'000'000'000'000);
             CHECK(VcdClock{3'000'000}.time(2) == 666'666'667);
             CHECK_FALSE(VcdClock{3'000'000}.exact());
+        }
+    }
+}
+
+SCENARIO("The steps of a run end where the MCU stopped", "[scenario]") {
+    GIVEN("a firmware whose first instruction is BREAK, and a 1 ms wait followed by a measurement") {
+        AvrAssembler program;
+        program.raw(0x9598).rjmp(-1);  // BREAK
+        const auto document = programWith(program, "siliconforge-scenario-break.hex", R"([
+            {"wait": "1ms"},
+            {"measure": {"id": "led", "pin": "D13", "quantity": "dutyCycle", "window": "1ms"}}
+        ])");
+        WHEN("it runs") {
+            const auto report = runOf(document);
+            THEN("the wait fails where the MCU stopped, not at its planned end") {
+                REQUIRE(report.verdict == scenario::Verdict::Fail);
+                CHECK(report.duration < 16000);
+                const auto& wait = report.steps.at(0);
+                CHECK(wait.outcome == Outcome::Failed);
+                CHECK(wait.detail.contains("BREAK instruction"));
+                CHECK(wait.start == 0);
+                CHECK(wait.end == report.duration);
+            }
+            THEN("the skipped steps start and end there too") {
+                const auto& skipped = report.steps.at(1);
+                CHECK(skipped.outcome == Outcome::Skipped);
+                CHECK(skipped.start == report.duration);
+                CHECK(skipped.end == report.duration);
+                CHECK(report.measurements.empty());
+            }
         }
     }
 }

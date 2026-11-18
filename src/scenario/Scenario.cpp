@@ -203,10 +203,18 @@ public:
             reject(Problem::Cause::Resource, path, std::format("The circuit {} has no component {}", circuitFile, id));
     }
 
+    /// A state a bounded wait can watch: its present value, not a time average.
     void observable(const std::string& id, const std::string& name, const std::string& path) {
         component(id, path);
         if (!model.state(id, name))
             reject(Problem::Cause::Resource, path, std::format("Component {} has no state {}", id, name));
+        if (model.averaged(id, name))
+            reject(Problem::Cause::Capacity,
+                   path,
+                   std::format("{}.{} is a time average: its present value follows every pulse of a PWM output, so a wait could not tell "
+                               "the average reached. Measure the duty cycle of the pin that drives it, or wait for the level of that pin",
+                               id,
+                               name));
     }
 
     std::size_t pin(const std::string& name, const std::string& path) {
@@ -1034,7 +1042,10 @@ Report Scenario::run() {
             }
         }
         if (failure) {
-            record.end     = std::max(record.end, record.start);
+            // A step ends where the run ended: no later than the cycle the MCU stopped at, which a wait or a window
+            // planned past it never reached. The skipped steps then start there.
+            record.start   = std::min(record.start, device.cycles());
+            record.end     = std::max(std::min(record.end, device.cycles()), record.start);
             record.outcome = StepRecord::Outcome::Failed;
             record.detail  = *failure;
             report.verdict = Verdict::Fail;

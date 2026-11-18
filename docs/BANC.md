@@ -85,7 +85,7 @@ cycles, l’instruction se termine d’abord. Ce dépassement ne décale pas la 
 | `{"set": {"probe": "A0", "volts": 2.5}}` | Pose une sonde sur une broche ; `null` la retire |
 | `{"waitFor": {"pin": "D13", "state": "high"}, "timeout": "1ms"}` | Attente bornée d’un niveau (`high`, `low`, `floating`) |
 | `{"waitFor": {"serial": "ready", "port": 0}, "timeout": "100ms"}` | Attente bornée d’un texte émis sur un port série depuis le début de l’étape |
-| `{"waitFor": {"component": "led-d13", "state": "brightness", "above": 0.5}, "timeout": "1s"}` | Attente bornée d’un état de composant (`above`, `below`) |
+| `{"waitFor": {"component": "pot-a0", "state": "position", "above": 0.5}, "timeout": "1s"}` | Attente bornée d’un état de composant (`above`, `below`), sur sa valeur présente : une luminosité de LED, moyenne d’une sortie qui peut être modulée, est refusée ; on mesure alors le rapport cyclique de la broche |
 | `{"measure": {"id": "duty", "pin": "D6", "quantity": "dutyCycle", "window": "1ms", "expect": {...}}}` | Laisse tourner le banc pendant la fenêtre puis mesure sur les fronts capturés |
 
 Les grandeurs mesurées sont `dutyCycle` (%), `frequency` (Hz) et `period` (s). `expect` vaut
@@ -118,7 +118,7 @@ nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 | `schema` | Étape mal formée, durée sans unité, identifiant de mesure en double |
 | `wiring` | Circuit invalide, puce qui ne tient pas sur la carte, sonde sur une broche absente du breadboard |
 | `resource` | Microcontrôleur inconnu, composant, état, broche ou port série absent, état non modifiable de l’extérieur |
-| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période de la plus haute fréquence attendue (elle ne peut contenir deux fronts montants pour aucune valeur attendue), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
+| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, attente sur un état moyenné dans le temps (luminosité d’une LED), valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période de la plus haute fréquence attendue (elle ne peut contenir deux fronts montants pour aucune valeur attendue), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
 | `schedule` | Étape placée (`at`) avant la durée minimale des étapes qui la précèdent |
 
 ## La commande
