@@ -107,8 +107,8 @@ s'impose.
     d'entrée ajoute `/std:c++latest /bigobj` à tout le projet. Sans cela Catch2 est compilé en C++14 et n'exporte pas
     `StringMaker<std::string_view>` (erreur d'édition de liens), et `main.cpp` dépasse la limite de sections d'un objet.
   - `_CRT_SECURE_NO_WARNINGS` pour `getenv` (C4996).
-  - `json == std::string_view` est ambigu en C++20 (C2666) : comparaison avec `std::string` à quatre endroits
-    (`Description.cpp`, deux fichiers de tests).
+  - `json == std::string_view` est ambigu en C++20 (C2666, puis C2679 dans une assertion Catch2) : comparaison avec `std::string` à cinq endroits
+    (`Description.cpp`, trois fichiers de tests).
   - `std::ranges::fill(children, 0)` sur des `uint16_t` (C4244), comparaisons signé/non signé (C4389) et `SKIP` suivi
     de code inatteignable (C4702) dans les tests.
 - `siliconforge_tests` : 92 cas, 91 réussis, 1 ignoré (les 195 901 assertions passent). `Atdf2JsonCommandLine`,
@@ -117,5 +117,7 @@ s'impose.
   la sortie standard** (CRLF des deux côtés, `std::cout` en mode texte comme Python) ; les 68 autres échouent de la même
   façon (« ATDF contains no pinout », code 1, même stderr). Avec `-o`, Python écrit en CRLF et le C++ en LF : les
   fichiers ne diffèrent que par les fins de ligne.
-- Non vérifié : `siliconforge_bridge_tests` ne compile pas sous MSVC (`tests/integration/WebBridgeTests.cpp:165`,
-  comparaison `json == std::string_view` dans une assertion Catch2) et `UI-Mcu` sous WebView2 reste non raccordé.
+- Build complet en Release (type par défaut du projet) : 106 tests CTest, 0 échec, 1 ignoré (la variante compilée depuis
+  `firmware/src` demande avr-gcc). `/wd4714` neutralise un avertissement d'optimiseur (`__forceinline` non inliné) sur les
+  en-têtes de stdexec. En Debug, `Qualification-Cycles` dépasse son délai de 60 s (4 s en Release) : la CI compile en Release.
+- Non vérifié : `UI-Mcu` sous WebView2 reste non raccordé, et les qualifications qui demandent avr-gcc ou simavr.

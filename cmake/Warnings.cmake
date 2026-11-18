@@ -3,7 +3,8 @@ function(siliconforge_set_warnings target)
     if(MSVC)
         # getenv and friends are standard C++: do not let the CRT's C4996 deprecations break /WX.
         target_compile_definitions(${target} INTERFACE _CRT_SECURE_NO_WARNINGS)
-        target_compile_options(${target} INTERFACE /W4 /permissive-)
+        # C4714 (a __forceinline function was not inlined) only fires with the optimiser, on stdexec's headers.
+        target_compile_options(${target} INTERFACE /W4 /permissive- /wd4714)
         if(SILICONFORGE_WARNINGS_AS_ERRORS)
             target_compile_options(${target} INTERFACE /WX)
         endif()

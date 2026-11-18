@@ -128,8 +128,8 @@ jobs:
           cd build && ctest --output-on-failure -R Atdf2JsonCommandLine
 
   windows-msvc:
-    # The C++ tools, the unit tests and the application's command line on MSVC with /W4 /WX (#50). The WebView2 interface
-    # tests are not wired yet, and the bridge tests (tests/integration/WebBridgeTests.cpp) do not compile with MSVC yet.
+    # The whole build and CTest suite on MSVC with /W4 /WX (#50), Release like the other jobs. The WebView2 interface
+    # tests are not wired yet (docs/PYTHON-STUDY.md), and the firmware is not compiled (no avr-gcc): prebuilt hex files.
     runs-on: windows-latest
     timeout-minutes: 45
     env:
@@ -147,9 +147,7 @@ jobs:
         run: cmake -S . -B build -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
       - name: Build
         shell: bash
-        run: cmake --build build --target atdf2json captures2gif siliconforge siliconforge_tests
+        run: cmake --build build
       - name: Test
         shell: bash
-        run: |
-          build/tests/siliconforge_tests
-          cd build && ctest --output-on-failure --no-tests=error -R "Atdf2JsonCommandLine|McuCommandLine|CliHelpRejectsInvalidOptions"
+        run: cd build && ctest --output-on-failure --no-tests=error -LE ui
