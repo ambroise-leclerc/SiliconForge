@@ -7,7 +7,10 @@
 #include <siliconforge/core/Scheduler.hpp>
 #include <siliconforge/core/Types.hpp>
 
+#include <algorithm>
 #include <array>
+#include <cstddef>
+#include <limits>
 #include <optional>
 #include <span>
 #include <string_view>
@@ -145,6 +148,11 @@ private:
         u16                opcode;
     };
     void decodeFlash(std::size_t first, std::size_t count);
+    /// Words [first, first + count) may no longer hold the erased value: eraseFlash() restores them.
+    void markWritten(std::size_t first, std::size_t count) noexcept {
+        writtenFirst = std::min(writtenFirst, first);
+        writtenEnd   = std::max(writtenEnd, first + count);
+    }
 
     std::vector<InstructionEntry> decoded;
     std::vector<Slot>             program;  ///< Same size as flashWords once the timings are configured.
@@ -153,6 +161,10 @@ private:
     u8*              regs;
     std::vector<u16> flashWords;
     std::vector<u16> pageBuffer;
+    /// The words written since the flash was last erased: erasing restores only these, so that loading a small
+    /// firmware costs its size and not the size of the flash (the cycle qualification loads 65 536 of them).
+    std::size_t writtenFirst{std::numeric_limits<std::size_t>::max()};
+    std::size_t writtenEnd{0};
     std::optional<u32> resumeAt;  ///< PC of the breakpoint the last run stopped at, executed without stopping again.
 };
 

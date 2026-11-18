@@ -36,14 +36,18 @@ void AvrCore::loadFlash(Address address, std::span<const u8> bytes) {
         auto&      word        = flashWords[(byteAddress >> 1) & pcMask()];
         word = byteAddress & 1 ? static_cast<u16>((word & 0x00FF) | bytes[i] << 8) : static_cast<u16>((word & 0xFF00) | bytes[i]);
     }
-    if (bytes.size() >= flashWords.size() * 2)
+    if (bytes.size() >= flashWords.size() * 2) {
+        markWritten(0, flashWords.size());
         decodeFlash(0, flashWords.size());
-    else if (!bytes.empty()) {
+    } else if (!bytes.empty()) {
         const auto first = (address >> 1) & pcMask();
         const auto last  = ((address + bytes.size() - 1) >> 1) & pcMask();
-        if (first <= last)
+        if (first <= last) {
+            markWritten(first, last - first + 1);
             decodeFlash(first, last - first + 1);
-        else {  // The segment wraps around the end of the flash.
+        } else {  // The segment wraps around the end of the flash.
+            markWritten(first, flashWords.size() - first);
+            markWritten(0, last + 1);
             decodeFlash(first, flashWords.size() - first);
             decodeFlash(0, last + 1);
         }
@@ -51,8 +55,12 @@ void AvrCore::loadFlash(Address address, std::span<const u8> bytes) {
 }
 
 void AvrCore::eraseFlash() {
-    std::ranges::fill(flashWords, u16{0xFFFF});
-    decodeFlash(0, flashWords.size());
+    if (writtenFirst >= writtenEnd)
+        return;  // Nothing was written since the last erase: every word already holds 0xFFFF, decoded.
+    std::fill(flashWords.begin() + static_cast<std::ptrdiff_t>(writtenFirst), flashWords.begin() + static_cast<std::ptrdiff_t>(writtenEnd), u16{0xFFFF});
+    decodeFlash(writtenFirst, writtenEnd - writtenFirst);
+    writtenFirst = flashWords.size();
+    writtenEnd   = 0;
 }
 
 void AvrCore::decodeFlash(std::size_t first, std::size_t count) {
@@ -159,6 +167,7 @@ void AvrCore::executeSpm() {
             break;
         case 0x05:  // Page write
             std::ranges::copy(pageBuffer, flashWords.begin() + pageStart);
+            markWritten(pageStart, pageWords);
             decodeFlash(pageStart, pageWords);
             std::ranges::fill(pageBuffer, u16{0xFFFF});
             break;

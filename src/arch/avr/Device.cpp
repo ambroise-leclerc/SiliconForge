@@ -269,14 +269,20 @@ void Device::reset() {
     interrupts.clear();
     data.clear();
     core.reset();
-    for (const auto& r : description->at("registers"))
-        data.raw(r.at("address")) = r.at("reset");
-    // Core registers have live read/write handlers; their reset values also come from the description.
-    const auto& c = description->at("cpu");
-    for (const char* key : {"spl", "sph", "sreg"}) {
-        const auto& r = description->at("registers").at(c.at(key).get<std::string>());
-        data.write(r.at("address"), r.at("reset"));
+    if (registerResets.empty()) {
+        for (const auto& r : description->at("registers"))
+            registerResets.emplace_back(r.at("address").get<Address>(), r.at("reset").get<u8>());
+        const auto& c = description->at("cpu");
+        for (const char* key : {"spl", "sph", "sreg"}) {
+            const auto& r = description->at("registers").at(c.at(key).get<std::string>());
+            coreRegisterResets.emplace_back(r.at("address").get<Address>(), r.at("reset").get<u8>());
+        }
     }
+    for (const auto& [address, value] : registerResets)
+        data.raw(address) = value;
+    // Core registers have live read/write handlers; their reset values also come from the description.
+    for (const auto& [address, value] : coreRegisterResets)
+        data.write(address, value);
     for (auto& port : serialList)
         port.reset();
     for (auto& reset : resetters)
