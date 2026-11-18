@@ -284,6 +284,13 @@ select {
 .bb-pot-knob { fill: #f2f2f2; stroke: #9a9a9a; }
 .bb-pot-mark { stroke: #333; stroke-width: 2; stroke-linecap: round; }
 .bb-value { fill: #ffffff; font: 600 10px var(--mono); }
+/* A dipole clicked on the breadboard: outlined, a square on each end to stretch it, its limits above it. */
+.bb-movable { cursor: pointer; }
+.bb-selected { filter: drop-shadow(0 0 1.2px #2f6fd8) drop-shadow(0 0 1.2px #2f6fd8) drop-shadow(0 0 2.5px rgb(47 111 216 / .7)); cursor: move; }
+.bb-handle { fill: #ffffff; stroke: #2f6fd8; stroke-width: 1.6; cursor: crosshair; }
+.bb-handle:hover { fill: #cfe0ff; }
+.bb-limits { fill: #1d4fa8; font: 600 9px var(--mono); paint-order: stroke; stroke: var(--bb-board); stroke-width: 3px; pointer-events: none; }
+.bb-dragging, .bb-dragging * { cursor: grabbing !important; }
 .bb-seg-body { fill: #17191c; stroke: #000; stroke-width: 1; }
 .bb-seg-off { fill: #2b2f35; }
 

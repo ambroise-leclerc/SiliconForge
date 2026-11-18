@@ -96,6 +96,39 @@ describe("Circuits", () => {
     expect(readOnly.message).toContain("read-only");
   });
 
+  it("moves a dipole with the pointer, within the limits of its type", async () => {
+    const board = document.querySelector("#breadboard svg");
+    const resistor = () => document.querySelector('#breadboard [data-id="r-a"]');
+    const centre = (target) => {
+      const box = target.getBoundingClientRect();
+      return {clientX: box.x + box.width / 2, clientY: box.y + box.height / 2};
+    };
+    const pointer = (target, type, at) => target.dispatchEvent(new PointerEvent(type, {bubbles: true, button: 0, pointerId: 7, ...at}));
+    // A click outlines the resistor and puts a square on each of its ends, with its limits.
+    const body = centre(resistor().querySelector(".bb-resistor-body"));
+    pointer(resistor().querySelector(".bb-resistor-body"), "pointerdown", body);
+    pointer(board, "pointerup", body);
+    expect(resistor().classList).toContain("bb-selected");
+    expect(document.querySelectorAll("#breadboard .bb-handle").length).toBe(2);
+    expect(document.querySelector("#breadboard .bb-limits").textContent).toBe("Resistor · 11 holes (2–12)");
+    // Dragging its b end far to the right stretches it to its maximum length only (12 holes), in its row.
+    const end = document.querySelector('#breadboard .bb-handle[data-terminal="b"]');
+    const from = centre(end);
+    pointer(end, "pointerdown", from);
+    for (let step = 1; step <= 6; ++step) pointer(board, "pointermove", {clientX: from.clientX + step * 40, clientY: from.clientY + step * 4});
+    pointer(board, "pointerup", {clientX: from.clientX + 240, clientY: from.clientY + 24});
+    await until(() => resistor()?.classList.contains("bb-selected") && document.querySelector("#breadboard .bb-limits")?.textContent.includes("12 holes"),
+                "the stretched resistor, still outlined after the board is redrawn");
+    expect((await sf().circuit()).components.find((component) => component.id === "r-a").at).toEqual({a: "h22", b: "h34"});
+    // The model checks the limits too.
+    const tooLong = await rejection(sf().moveComponent("r-a", {b: "h36"}));
+    expect(tooLong.code).toBe("siliconforge.invalidPlacement");
+    expect(tooLong.message).toContain("14 holes apart");
+    // Escape lets it go.
+    document.body.dispatchEvent(new KeyboardEvent("keydown", {key: "Escape", bubbles: true}));
+    expect(document.querySelector("#breadboard .bb-selected")).toBeNull();
+  });
+
   it("loads an example: another circuit, its firmware, and buttons that light the LED", async () => {
     await sf().loadExample("buttons");
     await sf().waitFor((state) => state.firmware === "buttons.hex" && state.running, 5000);

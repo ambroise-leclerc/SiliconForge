@@ -122,7 +122,7 @@ struct Circuit::Model {
     std::vector<Element>             elements;
     std::vector<std::pair<int, int>> wires;
     std::vector<ChipPin>             chip;
-    Json                             types = Json::object();  ///< Name and description of the types in use.
+    Json                             types = Json::object();  ///< Name, description and footprint of the types in use.
     Mcu*                             mcu{nullptr};
 
     std::vector<int>                          netOf;
@@ -431,10 +431,14 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
 
     for (const auto& wire : description.at("wires"))
         model.wires.emplace_back(node(wire.at("from")), node(wire.at("to")));
+    // The interface draws and moves the wires as components of this type: it needs their footprint too.
+    if (const auto* wire = library.find("wire"); wire && !description.at("wires").empty())
+        model.types["wire"] = {{"name", wire->at("name")}, {"description", wire->value("description", std::string{})}, {"footprint", wire->at("footprint")}};
 
     for (const auto& placed : description.at("components")) {
         const auto&      type = *library.find(placed.at("type").get<std::string>());
-        model.types[placed.at("type").get<std::string>()] = {{"name", type.at("name")}, {"description", type.value("description", std::string{})}};
+        model.types[placed.at("type").get<std::string>()] = {
+            {"name", type.at("name")}, {"description", type.value("description", std::string{})}, {"footprint", type.at("footprint")}};
         Model::Component component;
         component.id         = placed.at("id");
         component.type       = placed.at("type");

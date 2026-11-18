@@ -34,6 +34,10 @@ struct Hole {
 /// Parses the hole syntax of the circuit schema. Returns nullopt for anything else.
 [[nodiscard]] std::optional<Hole> parseHole(std::string_view text);
 
+/// Straight distance between two holes in hole pitches: columns, and rows as they lie on a real board (the rails one
+/// pitch apart and two pitches from the strips, a central channel two pitches wide). Limits the length of a wire.
+[[nodiscard]] double distance(const Hole& a, const Hole& b);
+
 /// The component types a circuit may use, by type name.
 class Library {
 public:
@@ -67,6 +71,18 @@ private:
 /// Parses and validates a circuit description.
 [[nodiscard]] std::expected<nlohmann::json, LoadError> parseDescription(std::string_view text, const Library& library = Library::builtin());
 [[nodiscard]] std::expected<nlohmann::json, LoadError> loadDescription(const std::filesystem::path& path, const Library& library = Library::builtin());
+
+/// Why move() refused to place a component.
+struct MoveError {
+    enum class Kind { UnknownComponent, Invalid } kind;
+    LoadError error;  ///< For Invalid: the JSON Pointer and the rule broken, as validateCircuit reports them.
+};
+
+/// The circuit with some terminals of one component moved to other holes, validated. `id` is a component id, or
+/// "wire-<n>" for the n-th wire (from 1); `holes` maps terminal names ("a", "anode", "from") to holes ("e6", "T+3"),
+/// and the terminals it does not name stay where they are.
+[[nodiscard]] std::expected<nlohmann::json, MoveError>
+move(nlohmann::json circuit, std::string_view id, const nlohmann::json& holes, const Library& library = Library::builtin());
 
 /// A circuit embedded in the binary ("arduino-demo"): every `circuits/<name>.json` of the source tree. Throws
 /// std::invalid_argument for an unknown name.

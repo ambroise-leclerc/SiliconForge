@@ -70,7 +70,8 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
 | Type de composant connu | `/components/0/type` |
 | Borne inconnue, borne non posée | `/components/2/at/gate`, `/components/6/at` |
 | Trou hors de la plaque | `/components/1/at/b`, `/wires/0/to` |
-| Empreinte non respectée | `/components/1/at` |
+| Empreinte non respectée (rangée, écartement) | `/components/1/at` |
+| Fil plus long que le `maximum` du type `wire` | `/wires/3` |
 | Composant dans un rail d'alimentation (seuls les fils y vont) | `/components/1/at/b` |
 | Trou déjà occupé | `/wires/0/from` |
 | Propriété inconnue, de mauvais type ou hors bornes | `/components/1/properties/resistance` |
@@ -88,7 +89,7 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
     "forwardVoltage": {"type": "number", "unit": "V", "default": 1.8, "minimum": 0.5, "maximum": 5.0},
     "nominalCurrent": {"type": "number", "unit": "A", "default": 0.01, "minimum": 0.0001, "maximum": 1.0}
   },
-  "footprint": {"kind": "fixed", "offsets": {"anode": [0, 0], "cathode": [1, 0]}},
+  "footprint": {"kind": "span", "minimum": 1, "maximum": 3, "description": "Legs 2.54 mm apart, splayed up to three holes."},
   "model": {"elements": [{"type": "led", "between": ["anode", "cathode"]}]},
   "state": {"brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0}}
 }
@@ -102,9 +103,21 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
 
   | `kind` | Signification |
   | --- | --- |
-  | `free` | Bornes dans des trous quelconques, rails compris (fil) |
+  | `free` | Bornes dans des trous quelconques, rails compris (fil) ; `maximum` facultatif : longueur maximale en pas, avec deux bornes |
   | `span` | Deux bornes dans la même rangée, écartées de `minimum` à `maximum` trous |
   | `fixed` | Chaque borne à un décalage `[colonne, rangée]` ; le composant peut être retourné le long de la rangée |
+
+  `description` (facultatif) explique ces limites. La longueur d'un fil est mesurée en ligne droite, en pas de
+  2,54 mm : les colonnes, et verticalement les rangées comme sur une vraie plaque (rails à un pas l'un de l'autre et à
+  deux pas des bandes, canal central de deux pas). Limites des dipôles fournis :
+
+  | Type | Empreinte | Limites | Justification |
+  | --- | --- | --- | --- |
+  | `resistor` | `span` | 2 à 12 trous | Pattes axiales pliées au ras du corps, ou tendues |
+  | `led` | `span` | 1 à 3 trous | Pattes au pas de 2,54 mm, écartables |
+  | `crystal` | `span` | 1 à 2 trous | Boîtier HC-49, pas de 4,88 mm |
+  | `push-button` | `span` | 2 trous exactement | Bouton tactile 6 mm, rigide |
+  | `wire` | `free` | 24 pas au plus (6 cm) | Fil de liaison, rails compris |
 
 - **`model`** : le comportement électrique, comme une liste d'éléments reliant des bornes. Un
   composant simple a un élément ; un afficheur 7 segments en aura huit de type `led`, nommés.
@@ -157,6 +170,21 @@ SiliconForge.components.define("led", {
 `properties` (valeurs par défaut comprises), `view` et `pin`, la broche du MCU à laquelle le composant est relié à
 travers fils et résistances. Un type sans `render.js` est simulé mais pas dessiné.
 
+## Déplacer les composants dans l'interface
+
+Dans la vue Breadboard, un clic sur un dipôle (résistance, LED, quartz, bouton, fil) le détoure et place un petit carré
+sur chacune de ses extrémités ; ses limites sont affichées au-dessus (`Resistor · 7 holes (2–12)`).
+
+- Glisser le composant détouré le déplace en entier, de trou en trou : il prend la position valide la plus proche
+  du pointeur et s'arrête au bord de la plaque, devant un trou occupé ou une patte de la puce.
+- Glisser un carré ne déplace que cette extrémité, dans les limites du type : une résistance reste dans sa rangée et
+  ne dépasse pas 12 trous, un fil pas 24 pas.
+- Les flèches déplacent le composant détouré d'un trou ; Échap ou un clic ailleurs le relâchent.
+
+Au relâchement, la page appelle `sf.component.move(id, trous)` ; le C++ (`circuit::move`) revalide le circuit,
+reconstruit le modèle électrique et garde ce que l'utilisateur avait réglé (bouton, potentiomètre). Un placement
+refusé (`siliconforge.invalidPlacement`, avec le chemin JSON de la règle enfreinte) remet le composant en place.
+
 ## En C++
 
 ```cpp
@@ -191,7 +219,8 @@ auto autre = circuit::loadDescription("circuits/alarme.json", library);
 ```
 
 `circuit::validateComponent(json)` et `circuit::validateCircuit(json, library)` valident sans
-lire de fichier ; `circuit::builtinDescription("arduino-demo")` rend le circuit de démonstration.
+lire de fichier ; `circuit::move(json, "r-d13", {{"b", "h20"}})` rend le circuit validé avec des bornes déplacées
+(`"wire-3"` désigne le troisième fil) ; `circuit::builtinDescription("arduino-demo")` rend le circuit de démonstration.
 Cible CMake : `SiliconForge::circuit`.
 
 ## Ajouter un type de composant

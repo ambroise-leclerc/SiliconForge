@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <charconv>
+#include <cmath>
 #include <cstdlib>
+#include <format>
 #include <fstream>
 #include <iterator>
 #include <set>
@@ -81,6 +83,8 @@ void checkProperties(const Json& component) {
 void checkFootprint(const Json& component, const std::set<std::string>& terminals) {
     const auto&       footprint = component.at("footprint");
     const std::string kind      = footprint.at("kind");
+    if (kind == "free" && footprint.contains("maximum") && terminals.size() != 2)
+        fail("/footprint/maximum", "A maximum length needs exactly two terminals");
     if (kind == "span") {
         if (terminals.size() != 2)
             fail("/footprint/kind", "A span footprint needs exactly two terminals");
@@ -178,11 +182,24 @@ Hole holeAt(const Json& value, const std::string& path, unsigned columns) {
     return *hole;
 }
 
+/// Two ends further apart than the maximum length of a free footprint (a jumper wire) are refused.
+void checkLength(const Json& footprint, const Hole& first, const Hole& second, const std::string& path) {
+    if (!footprint.contains("maximum"))
+        return;
+    const auto length  = distance(first, second);
+    const auto maximum = footprint.at("maximum").get<double>();
+    if (length > maximum + 1e-9)
+        fail(path, std::format("The ends are {:.1f} holes apart, longer than the {:g} holes of this component", length, maximum));
+}
+
 void checkPlacement(const Json& description, const std::map<std::string, Hole>& holes, const std::string& path) {
     const auto&       footprint = description.at("footprint");
     const std::string kind      = footprint.at("kind");
-    if (kind == "free")
+    if (kind == "free") {
+        if (holes.size() == 2)
+            checkLength(footprint, holes.begin()->second, std::next(holes.begin())->second, path);
         return;
+    }
     for (const auto& [terminal, hole] : holes)
         if (hole.isRail())
             fail(child(path, terminal), "This component cannot be plugged in a power rail");
@@ -264,6 +281,19 @@ std::optional<Hole> parseHole(std::string_view text) {
     return hole;
 }
 
+double distance(const Hole& a, const Hole& b) {
+    // Vertical position in hole pitches, as on a real board: the rails are one pitch apart and two pitches from the
+    // strips, and the central channel is two pitches wide.
+    const auto position = [](const Hole& hole) {
+        if (hole.isRail())
+            return hole.row == 'T' ? (hole.polarity == '-' ? 0 : 1) : (hole.polarity == '+' ? 15 : 16);
+        return hole.row >= 'f' ? 3 + ('j' - hole.row) : 9 + ('e' - hole.row);
+    };
+    const auto dx = static_cast<double>(a.column) - static_cast<double>(b.column);
+    const auto dy = static_cast<double>(position(a) - position(b));
+    return std::hypot(dx, dy);
+}
+
 std::expected<void, LoadError> validateComponent(const Json& component) {
     try {
         static const nlohmann::json_schema::json_validator validator{Json::parse(embedded::componentSchema)};
@@ -330,6 +360,8 @@ std::expected<void, LoadError> validateCircuit(const Json& circuit, const Librar
             const auto  path = at("/wires", i);
             for (const auto* end : {"from", "to"})
                 occupy(holeAt(wire.at(end), path + "/" + end, columns), wire.at(end), path + "/" + end);
+            if (const auto* type = library.find("wire"))
+                checkLength(type->at("footprint"), holeAt(wire.at("from"), path + "/from", columns), holeAt(wire.at("to"), path + "/to", columns), path);
         }
         return {};
     } catch (const LoadError& e) {
@@ -407,6 +439,47 @@ std::expected<Json, LoadError> loadDescription(const std::filesystem::path& path
         return circuit;
     if (auto result = validateCircuit(*circuit, library); !result)
         return std::unexpected(result.error());
+    return circuit;
+}
+
+std::expected<Json, MoveError> move(Json circuit, std::string_view id, const Json& holes, const Library& library) {
+    Json* placed = nullptr;
+    for (auto& component : circuit.at("components"))
+        if (component.at("id") == id)
+            placed = &component.at("at");
+    if (!placed && id.starts_with("wire-")) {
+        // The wires of a circuit are numbered from 1 in the order of "wires", as the interface draws them.
+        unsigned   number{};
+        const auto digits       = id.substr(5);
+        const auto [end, error] = std::from_chars(digits.data(), digits.data() + digits.size(), number);
+        if (error == std::errc{} && end == digits.data() + digits.size() && number >= 1 && number <= circuit.at("wires").size())
+            placed = &circuit.at("wires")[number - 1];
+    }
+    if (!placed)
+        return std::unexpected(MoveError{
+            MoveError::Kind::UnknownComponent,
+            {"", "Unknown component: " + std::string(id)}
+        });
+    if (!holes.is_object() || holes.empty())
+        return std::unexpected(MoveError{
+            MoveError::Kind::Invalid,
+            {"", "The holes are an object mapping terminals to holes"}
+        });
+    for (const auto& [terminal, hole] : holes.items()) {
+        if (!placed->contains(terminal))
+            return std::unexpected(MoveError{
+                MoveError::Kind::Invalid,
+                {"", "Unknown terminal: " + terminal}
+            });
+        if (!hole.is_string())
+            return std::unexpected(MoveError{
+                MoveError::Kind::Invalid,
+                {"", "A hole is a string such as \"e6\""}
+            });
+        (*placed)[terminal] = hole;
+    }
+    if (auto valid = validateCircuit(circuit, library); !valid)
+        return std::unexpected(MoveError{MoveError::Kind::Invalid, valid.error()});
     return circuit;
 }
 
