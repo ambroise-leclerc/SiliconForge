@@ -148,9 +148,10 @@ private:
 /// directory. The command line and the window share it, so each finds the other's runs.
 [[nodiscard]] std::filesystem::path defaultEvidenceDirectory(const std::filesystem::path& file);
 
-/// Keeps the evidence of a run in `directory`: `report.json` and, when the run produced one, `trace.vcd`. A trace left
-/// by an earlier run is removed first, so that every file present matches the report. Returns the text of the report,
-/// byte for byte what was written, or the reason it could not be kept.
+/// Keeps the evidence of a run in `directory`: `report.json` and, when the run produced one, `trace.vcd`. Each file
+/// replaces its predecessor by a rename after both were written whole, so a failed write leaves the earlier evidence
+/// as it was; the report names the SHA-256 of its trace, which readEvidence checks. A trace the report does not name
+/// is removed. Returns the text of the report, byte for byte what was written, or the reason it could not be kept.
 [[nodiscard]] std::expected<std::string, std::string> keepEvidence(const Report& report, const std::filesystem::path& directory);
 
 /// What an earlier run left in a directory.
@@ -159,7 +160,13 @@ struct Evidence {
     std::optional<std::string> trace;   ///< Text of trace.vcd, when the run kept one.
 };
 
-/// Reads the evidence kept in `directory`, or says why it cannot be read as the evidence of a run.
+/// Reads only the report kept in `directory`, validated as the report of a bench run: what a listing needs, without
+/// the trace, which can be large.
+[[nodiscard]] std::expected<std::string, std::string> readReport(const std::filesystem::path& directory);
+
+/// Reads the evidence kept in `directory`, or says why it cannot be read as the evidence of a run. The trace is
+/// returned only when it is the one the report names; while a run replaces its evidence the read is repeated for up to
+/// half a second, then fails rather than return a report with another run's trace.
 [[nodiscard]] std::expected<Evidence, std::string> readEvidence(const std::filesystem::path& directory);
 
 }  // namespace siliconforge::scenario

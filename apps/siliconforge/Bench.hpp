@@ -69,10 +69,10 @@ struct Refusal {
                 directories.push_back(it->path());
     std::ranges::sort(directories);
     for (const auto& directory : directories) {
-        const auto evidence = scenario::readEvidence(directory);
-        if (!evidence)
+        const auto text = scenario::readReport(directory);  // Not the trace: a listing must stay cheap.
+        if (!text)
             continue;
-        const auto report = nlohmann::json::parse(evidence->report, nullptr, false);
+        const auto report = nlohmann::json::parse(*text, nullptr, false);
         runs.push_back({{"name", directory.filename().string()}, {"scenario", report.value("scenario", "")}, {"verdict", report.value("verdict", "")}});
     }
     return {{"scenarios", std::move(scenarios)}, {"runs", std::move(runs)}};
@@ -107,15 +107,17 @@ struct Refusal {
     const auto directory = scenario::defaultEvidenceDirectory(path);
     if (!withoutLinks(directory))
         return std::unexpected(Refusal{"siliconforge.evidenceNotKept", directory.generic_string() + " is or goes through a link: the evidence stays inside the project"});
-    const auto before    = scenario::readEvidence(directory);
+    const auto before    = scenario::readReport(directory);
     const auto report    = scenario::run(path);
     const auto kept      = scenario::keepEvidence(report, directory);
     if (!kept)
         return std::unexpected(Refusal{"siliconforge.evidenceNotKept", kept.error()});
-    auto result = describe(directory.filename().string(), *scenario::readEvidence(directory));
+    // What was just written, not read back: another client may be replacing it, and the result must be this run.
+    auto result = describe(directory.filename().string(),
+                           scenario::Evidence{*kept, report.trace.empty() ? std::nullopt : std::optional<std::string>{report.trace}});
     result["exitCode"]  = scenario::exitCode(report.verdict);
-    result["previous"]  = before ? nlohmann::json::parse(before->report) : nlohmann::json(nullptr);
-    result["identical"] = before && before->report == *kept;
+    result["previous"]  = before ? nlohmann::json::parse(*before) : nlohmann::json(nullptr);
+    result["identical"] = before && *before == *kept;
     return result;
 }
 

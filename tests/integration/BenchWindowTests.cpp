@@ -5,6 +5,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <format>
+#include <random>
 #include <fstream>
 #include <iterator>
 #include <string>
@@ -30,7 +32,7 @@ std::string text(const fs::path& file) {
 /// directory while it lives, because the bench looks for scenarios and runs there.
 class Project {
 public:
-    Project() : root{fs::temp_directory_path() / "siliconforge-bench-window"}, previous{fs::current_path()} {
+    Project() : root{fs::temp_directory_path() / std::format("siliconforge-bench-window-{:x}", std::random_device{}())}, previous{fs::current_path()} {
         fs::remove_all(root);
         fs::create_directories(root / "scenarios");
         fs::create_directories(root / "circuits");
@@ -207,7 +209,7 @@ void link(const fs::path& target, const fs::path& at) {
 SCENARIO("The window does not follow links out of the project", "[app][bench]") {
     GIVEN("a project and a file outside it") {
         Project       project;
-        const auto    outside = project.root.parent_path() / "siliconforge-bench-window-outside";
+        const auto    outside = project.root.parent_path() / (project.root.filename().string() + "-outside");
         fs::remove_all(outside);
         fs::create_directories(outside);
         std::ofstream{outside / "secret.txt"} << "secret";
@@ -219,10 +221,9 @@ SCENARIO("The window does not follow links out of the project", "[app][bench]") 
             fs::remove(directory / "trace.vcd");
             link(outside / "secret.txt", directory / "trace.vcd");
             const auto opened = app::bench::open("pwm-setpoint");
-            THEN("the run opens without the trace, and nothing of the file is returned") {
-                REQUIRE(opened);
-                CHECK(opened->at("trace").is_null());
-                CHECK(opened->dump().find("secret") == std::string::npos);
+            THEN("the run is not opened, and nothing of the file is returned") {
+                REQUIRE_FALSE(opened);
+                CHECK(opened.error().message.find("secret") == std::string::npos);
             }
         }
         WHEN("report.json of a run is a link to that file") {
@@ -300,9 +301,8 @@ SCENARIO("The window does not wait on a special file in a run directory", "[app]
             fs::remove(directory / "trace.vcd");
             REQUIRE(::mkfifo((directory / "trace.vcd").c_str(), 0600) == 0);
             const auto opened = app::bench::open("pwm-setpoint");
-            THEN("the run opens at once, without a trace") {
-                REQUIRE(opened);
-                CHECK(opened->at("trace").is_null());
+            THEN("the call returns, and the run is not opened since its trace is not the one its report names") {
+                CHECK_FALSE(opened);
             }
         }
         WHEN("report.json is a FIFO nobody writes to") {
@@ -316,3 +316,57 @@ SCENARIO("The window does not wait on a special file in a run directory", "[app]
     }
 }
 #endif
+
+SCENARIO("The evidence of a run is always a report with its own trace", "[app][bench]") {
+    GIVEN("a run kept by the command line") {
+        Project    project;
+        const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
+        const auto directory = scenario::defaultEvidenceDirectory(file);
+        const auto report    = scenario::run(file);
+        const auto kept      = scenario::keepEvidence(report, directory);
+        REQUIRE(kept);
+        const auto trace = text(directory / "trace.vcd");
+
+        THEN("the report names the SHA-256 of its trace") {
+            const auto json = Json::parse(*kept);
+            CHECK(json.at("trace").at("sha256").get<std::string>().size() == 64);
+        }
+        WHEN("the trace is not the one the report names, as between the two replacements of a run") {
+            std::ofstream{directory / "trace.vcd"} << "$comment another run $end\n";
+            THEN("the run is not opened, rather than shown with another run's trace") {
+                const auto opened = app::bench::open("pwm-setpoint");
+                REQUIRE_FALSE(opened);
+                CHECK(opened.error().message.contains("does not match"));
+            }
+            AND_THEN("the listing still shows it, since it reads the reports only") {
+                const auto runs = app::bench::list().at("runs");
+                REQUIRE(runs.size() == 1);
+                CHECK(runs[0].at("verdict") == "pass");
+            }
+        }
+        WHEN("the trace of the new run cannot be written") {
+            fs::create_directories(directory / "trace.vcd.new" / "in-the-way");
+            auto other = report;
+            other.name = "Another run";
+            const auto result = scenario::keepEvidence(other, directory);
+            THEN("the earlier report and trace are both left as they were") {
+                REQUIRE_FALSE(result);
+                CHECK(text(directory / "report.json") == *kept);
+                CHECK(text(directory / "trace.vcd") == trace);
+                CHECK(app::bench::open("pwm-setpoint"));
+            }
+        }
+        WHEN("a run that keeps no trace replaces it") {
+            std::ofstream{project.root / "scenarios" / "broken.json"} << "{\"formatVersion\": 99}";
+            const auto incompatible = scenario::run(fs::path{"scenarios"} / "broken.json");
+            REQUIRE(scenario::keepEvidence(incompatible, directory));
+            THEN("the earlier trace is removed, and one put back is not taken for its own") {
+                CHECK_FALSE(fs::exists(directory / "trace.vcd"));
+                std::ofstream{directory / "trace.vcd"} << trace;
+                const auto opened = app::bench::open("pwm-setpoint");
+                REQUIRE(opened);
+                CHECK(opened->at("trace").is_null());
+            }
+        }
+    }
+}
