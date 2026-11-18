@@ -9,3 +9,6 @@
 | [0005](0005-composants-et-circuits.md) | Composants et circuits décrits en JSON (épique #4) |
 | [0006](0006-qualification-coeur.md) | Qualification de la simulation du cœur CPU (épique #5) |
 | [0007](0007-instruments.md) | Instruments : capture au cycle près, analyseur logique et oscilloscope |
+| [0008](0008-agentic-foundry.md) | Orientation produit — Agentic Foundry pour l’embarqué |
+| [0009](0009-poste-agentique.md) | Terminal d’agent et revue des sources |
+| [0010](0010-banc-programmable.md) | Banc programmable et scénarios reproductibles |
