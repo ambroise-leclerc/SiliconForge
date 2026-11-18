@@ -257,6 +257,13 @@ TEST_CASE("A scenario that cannot run on the bench is refused before the run, wi
         document["firmware"] = "missing.hex";
         expectProblem(document, Unreadable, "/firmware", "Cannot read the firmware missing.hex");
     }
+    SECTION("A firmware larger than the flash of the MCU") {
+        // One byte at 0x10000 (extended linear address 0x0001), beyond the 32 KiB of the ATmega328P.
+        const auto file = std::filesystem::temp_directory_path() / "siliconforge-scenario-too-large.hex";
+        std::ofstream{file, std::ios::binary} << ":020000040001F9\n:01000000AA55\n:00000001FF\n";
+        document["firmware"] = file.generic_string();
+        expectProblem(document, Capacity, "", "ATmega328P cannot load this firmware (it ends at 0x10001)", file.generic_string());
+    }
     SECTION("An unknown microcontroller") {
         auto circuit           = Json::parse(std::ifstream{sourceDir / "circuits" / "arduino-demo.json"});
         circuit["chip"]["mcu"] = "atmega9999";
@@ -268,6 +275,13 @@ TEST_CASE("A scenario that cannot run on the bench is refused before the run, wi
     SECTION("A component the circuit does not have") {
         document["steps"][3]["set"]["component"] = "button-d7";
         expectProblem(document, Resource, "/steps/3/set", "has no component button-d7");
+        // The refusal keeps the identity of every input read before it.
+        const auto problem = problemOf(document);
+        REQUIRE(problem.inputs.size() == 3);
+        CHECK(problem.inputs[0].role == "scenario");
+        CHECK(problem.inputs[1].role == "circuit");
+        CHECK(problem.inputs[2].role == "firmware");
+        CHECK(problem.inputs[2].sha256.size() == 64);
     }
     SECTION("A state that cannot be changed from outside") {
         document["initial"]["components"]["led-d6"] = Json{

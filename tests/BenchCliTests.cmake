@@ -109,6 +109,22 @@ endif()
 variant(resource pwm_setpoint.hex steps 1 measure pin "\"D42\"")
 run(2 run --out "${WORK}/resource" "${WORK}/resource.json")
 expect_contains("${stderr}" "/steps/1/measure/pin: incompatible (resource): ATmega328P has no pin D42" "a missing pin")
+expect_report("${WORK}/resource" incompatible)
+string(JSON inputs LENGTH "${report}" inputs)
+if(NOT inputs EQUAL 3)
+    message(FATAL_ERROR "The incompatible report lost the inputs read before the refusal:\n${report}")
+endif()
+
+# A valid HEX beyond the flash of the MCU: refused by check and by run, with a report, instead of an abort.
+file(WRITE "${WORK}/too-large.hex" ":020000040001F9\n:01000000AA55\n:00000001FF\n")
+file(READ "${example}" d)
+string(JSON d SET "${d}" circuit "\"${SOURCE}/circuits/arduino-demo.json\"")
+string(JSON d SET "${d}" firmware "\"too-large.hex\"")
+file(WRITE "${WORK}/too-large.json" "${d}")
+run(2 check "${WORK}/too-large.json")
+expect_contains("${stderr}" "incompatible (capacity): ATmega328P cannot load this firmware" "check of a firmware too large")
+run(2 run --out "${WORK}/too-large" "${WORK}/too-large.json")
+expect_report("${WORK}/too-large" incompatible)
 
 # A run that becomes incompatible in a directory that holds the trace of an earlier run: the stale trace is removed.
 run(0 run --out "${WORK}/reused" "${example}")

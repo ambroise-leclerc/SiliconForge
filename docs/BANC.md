@@ -111,7 +111,7 @@ nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 | `schema` | Étape mal formée, durée sans unité, identifiant de mesure en double |
 | `wiring` | Circuit invalide, puce qui ne tient pas sur la carte, sonde sur une broche absente du breadboard |
 | `resource` | Microcontrôleur inconnu, composant, état, broche ou port série absent, état non modifiable de l’extérieur |
-| `capacity` | Valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre trop courte pour deux fronts montants à la fréquence attendue, fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
+| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre trop courte pour deux fronts montants à la fréquence attendue, fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
 | `schedule` | Étape placée (`at`) avant la durée minimale des étapes qui la précèdent |
 
 ## La commande
@@ -127,6 +127,7 @@ siliconforge-bench check <scénario.json>
 | 1 | Échec : une mesure manque son attendu, une attente atteint son échéance, ou le MCU s’arrête (opcode invalide…) |
 | 2 | Banc incompatible : le scénario ne peut pas s’exécuter (causes ci-dessus) |
 | 3 | Erreur d’utilisation ou d’écriture des preuves |
+| 4 | Erreur interne du banc : une exception que le moteur n’a pas convertie en verdict, avec son message |
 
 Après une attente échouée, les étapes suivantes ne sont pas exécutées (`skipped`) : elles partiraient d’un état
 imprévu. Une mesure hors tolérance n’arrête pas l’essai, les suivantes sont prises.
@@ -139,7 +140,8 @@ imprévu. Une mesure hors tolérance n’arrête pas l’essai, les suivantes so
   firmware ; microcontrôleur et horloge ; chaque étape avec son issue, ses instants planifiés de début et de fin, le
   cycle où un stimulus a pris effet (`applied`) (en cycles et en
   secondes) et son détail ; chaque mesure avec sa valeur, son unité, sa fenêtre, le nombre de fronts montants et
-  l’attendu ; la sortie série ; la cause d’une incompatibilité.
+  l’attendu ; la sortie série ; la cause d’une incompatibilité, avec l’empreinte de chaque entrée lue avant le
+  refus.
 - `trace.vcd` : toutes les broches depuis le reset, à ouvrir dans GTKWave, PulseView ou Surfer. L’échelle de temps est
   la plus grande échelle valide (1, 10 ou 100 s, ms, µs, ns, ps ou fs) qui divise la période d’horloge : 100 ps à
   16 MHz, soit 625 unités par cycle. Une période qui n’est pas un nombre entier de femtosecondes donne une échelle de

@@ -22,6 +22,13 @@ inline constexpr int formatVersion = 1;
 /// Version of the engine, recorded in every report.
 [[nodiscard]] std::string_view engineVersion() noexcept;
 
+/// One input of a run, identified by the SHA-256 of its bytes.
+struct Input {
+    std::string role;  ///< "scenario", "circuit" or "firmware".
+    std::string path;  ///< As given: on the command line for the scenario, in the scenario for the others.
+    std::string sha256;
+};
+
 /// Why a scenario cannot run on this bench. Found before the run starts, except a step scheduled before the time
 /// the previous steps need at least.
 struct Problem {
@@ -38,6 +45,8 @@ struct Problem {
     std::string file;  ///< The file at fault, as the scenario names it; empty for the scenario itself.
     std::string path;  ///< JSON Pointer in that file, empty for a whole-file problem.
     std::string message;
+    /// The inputs read before the problem was found, so that a refusal identifies what produced it.
+    std::vector<Input> inputs;
 };
 [[nodiscard]] std::string_view toString(Problem::Cause cause) noexcept;
 
@@ -50,13 +59,6 @@ enum class Verdict {
 [[nodiscard]] std::string_view toString(Verdict verdict) noexcept;
 /// 0 pass, 1 fail, 2 incompatible bench.
 [[nodiscard]] int exitCode(Verdict verdict) noexcept;
-
-/// One input of a run, identified by the SHA-256 of its bytes.
-struct Input {
-    std::string role;  ///< "scenario", "circuit" or "firmware".
-    std::string path;  ///< As given: on the command line for the scenario, in the scenario for the others.
-    std::string sha256;
-};
 
 /// A measurement on the edges captured during its window, with the unit of its quantity.
 struct Measurement {

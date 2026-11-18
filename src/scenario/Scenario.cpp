@@ -24,7 +24,7 @@ using siliconforge::detail::child;
 constexpr double maximumSeconds = 3600;
 
 [[noreturn]] void reject(Problem::Cause cause, std::string path, std::string message, std::string file = {}) {
-    throw Problem{cause, std::move(file), std::move(path), std::move(message)};
+    throw Problem{cause, std::move(file), std::move(path), std::move(message), {}};
 }
 
 std::optional<std::string> readFile(const std::filesystem::path& path) {
@@ -544,6 +544,18 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
     if (!loaded)
         reject(Problem::Cause::Unreadable, loaded.error().line ? std::format("/line/{}", loaded.error().line) : "", loaded.error().message, firmwareFile);
     image = std::move(*loaded);
+    // The device checks every segment against its memories before it changes anything.
+    try {
+        checkMcu->load(image);
+    } catch (const std::exception& error) {
+        Address end = 0;
+        for (const auto& segment : image.segments)
+            end = std::max<Address>(end, segment.address + static_cast<Address>(segment.bytes.size()));
+        reject(Problem::Cause::Capacity,
+               "",
+               std::format("{} cannot load this firmware (it ends at {:#x}): {}", checkMcu->name(), end, error.what()),
+               firmwareFile);
+    }
 
     // The chip on the board.
     auto checkModel = circuit::Circuit::create(circuitDescription);
@@ -696,7 +708,7 @@ const std::string& Scenario::name() const noexcept {
 std::expected<std::unique_ptr<Scenario>, Problem> Scenario::prepare(const std::filesystem::path& file) {
     const auto text = readFile(file);
     if (!text)
-        return std::unexpected(Problem{Problem::Cause::Unreadable, {}, {}, std::format("Cannot read the scenario {}", file.string())});
+        return std::unexpected(Problem{Problem::Cause::Unreadable, {}, {}, std::format("Cannot read the scenario {}", file.string()), {}});
     std::vector<Input> inputs{
         {"scenario", file.generic_string(), hash(*text)}
     };
@@ -704,8 +716,9 @@ std::expected<std::unique_ptr<Scenario>, Problem> Scenario::prepare(const std::f
         std::unique_ptr<Scenario> scenario{new Scenario};
         scenario->state = load(*text, file.parent_path(), inputs);
         return scenario;
-    } catch (const Problem& problem) {
-        return std::unexpected(problem);
+    } catch (Problem& problem) {
+        problem.inputs = std::move(inputs);
+        return std::unexpected(std::move(problem));
     }
 }
 
@@ -717,8 +730,9 @@ std::expected<std::unique_ptr<Scenario>, Problem> Scenario::prepare(std::string_
         std::unique_ptr<Scenario> scenario{new Scenario};
         scenario->state = load(text, directory, inputs);
         return scenario;
-    } catch (const Problem& problem) {
-        return std::unexpected(problem);
+    } catch (Problem& problem) {
+        problem.inputs = std::move(inputs);
+        return std::unexpected(std::move(problem));
     }
 }
 
@@ -944,8 +958,7 @@ Report run(const std::filesystem::path& file) {
     Report report;
     report.verdict = Verdict::Incompatible;
     report.problem = prepared.error();
-    if (const auto text = readFile(file))
-        report.inputs.push_back({"scenario", file.generic_string(), hash(*text)});
+    report.inputs  = prepared.error().inputs;
     return report;
 }
 

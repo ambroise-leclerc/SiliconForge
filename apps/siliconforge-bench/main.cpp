@@ -3,6 +3,7 @@
 #include <siliconforge/scenario/Scenario.hpp>
 
 #include <cstdio>
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -17,6 +18,8 @@ namespace {
 
 /// Exit code of a usage or output error; 0, 1 and 2 are the verdicts (scenario::exitCode).
 constexpr int usageError = 3;
+/// Exit code of an error of the bench itself: an exception the engine did not turn into a verdict.
+constexpr int internalError = 4;
 
 void printUsage() {
     std::println(R"(Usage: siliconforge-bench run [--out <directory>] [--json] <scenario.json>
@@ -39,6 +42,7 @@ Exit codes:
   1  fail: a measurement missed its expectation, a wait reached its timeout or the MCU stopped
   2  incompatible: the scenario cannot run on this bench (version, schema, wiring, resource, capacity, schedule)
   3  usage or output error
+  4  internal error of the bench
 
 Scenario format: schemas/scenario.schema.json, engine {} (scenario format {}).)",
                  scenario::engineVersion(),
@@ -130,21 +134,11 @@ bool write(const std::filesystem::path& path, std::string_view text) {
     return static_cast<bool>(stream.flush());
 }
 
-}  // namespace
 
-int main(int argc, char** argv) {
-    const auto options = parse(argc, argv);
-    if (!options) {
-        printUsage();
-        return usageError;
-    }
-    if (options->help) {
-        printUsage();
-        return 0;
-    }
-    const auto& file = *options->scenario;
+int execute(const Options& options) {
+    const auto& file = *options.scenario;
 
-    if (options->command == "check") {
+    if (options.command == "check") {
         const auto prepared = scenario::Scenario::prepare(file);
         if (!prepared) {
             printProblem(file, prepared.error());
@@ -155,10 +149,10 @@ int main(int argc, char** argv) {
     }
 
     const auto report = scenario::run(file);
-    if (report.problem && !options->json)
+    if (report.problem && !options.json)
         printProblem(file, *report.problem);
 
-    const auto      out = options->out.value_or(std::filesystem::path{".siliconforge"} / "runs" / file.stem());
+    const auto      out = options.out.value_or(std::filesystem::path{".siliconforge"} / "runs" / file.stem());
     std::error_code error;
     std::filesystem::create_directories(out, error);
     if (error) {
@@ -177,9 +171,29 @@ int main(int argc, char** argv) {
         std::println(stderr, "Cannot write the evidence of the run in {}", out.generic_string());
         return usageError;
     }
-    if (options->json)
+    if (options.json)
         std::print("{}", json);
     else if (!report.problem)
         printSummary(report, out);
     return scenario::exitCode(report.verdict);
+}
+
+}  // namespace
+
+int main(int argc, char** argv) {
+    const auto options = parse(argc, argv);
+    if (!options) {
+        printUsage();
+        return usageError;
+    }
+    if (options->help) {
+        printUsage();
+        return 0;
+    }
+    try {
+        return execute(*options);
+    } catch (const std::exception& error) {
+        std::println(stderr, "siliconforge-bench: internal error: {}", error.what());
+        return internalError;
+    }
 }
