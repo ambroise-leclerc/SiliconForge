@@ -89,11 +89,15 @@ mesure est informative et n’influe pas sur le verdict.
 ## Mesures
 
 Les mesures portent sur les changements de la broche, datés au cycle près comme dans les
-[instruments](INSTRUMENTS.md). La fréquence et la période moyennes sont calculées entre le premier et le dernier front
-montant de la fenêtre. Le rapport cyclique est le temps passé à l’état haut sur ces mêmes périodes complètes. Une
-broche qui ne change pas pendant la fenêtre a un rapport cyclique de 0 % ou 100 %. Une broche flottante, ou moins de
-deux fronts montants pour une fréquence, rend la mesure impossible : la valeur est absente et l’explication figure
-dans le rapport.
+[instruments](INSTRUMENTS.md). Un front montant passe de l’état bas à l’état haut. La fréquence et la période moyennes
+sont calculées entre le premier et le dernier front montant de la fenêtre. Le rapport cyclique est le temps passé à
+l’état haut sur ces mêmes périodes complètes. Une broche qui ne change pas pendant la fenêtre a un rapport cyclique de
+0 % ou 100 %.
+
+La mesure est impossible quand la broche flotte pendant la fenêtre, même brièvement (une haute impédance n’a pas de
+niveau : ni son temps ni ses transitions ne comptent comme un signal), ou quand une fréquence ne dispose pas de deux
+fronts montants. La valeur est alors absente, l’explication figure dans le rapport, et une mesure qui a un attendu
+échoue.
 
 ## Ce qui est refusé avant l’essai
 
@@ -136,8 +140,10 @@ imprévu. Une mesure hors tolérance n’arrête pas l’essai, les suivantes so
   cycle où un stimulus a pris effet (`applied`) (en cycles et en
   secondes) et son détail ; chaque mesure avec sa valeur, son unité, sa fenêtre, le nombre de fronts montants et
   l’attendu ; la sortie série ; la cause d’une incompatibilité.
-- `trace.vcd` : toutes les broches depuis le reset, une unité de temps par cycle d’horloge, à ouvrir dans GTKWave,
-  PulseView ou Surfer.
+- `trace.vcd` : toutes les broches depuis le reset, à ouvrir dans GTKWave, PulseView ou Surfer. L’échelle de temps est
+  la plus grande échelle valide (1, 10 ou 100 s, ms, µs, ns, ps ou fs) qui divise la période d’horloge : 100 ps à
+  16 MHz, soit 625 unités par cycle. Une période qui n’est pas un nombre entier de femtosecondes donne une échelle de
+  1 fs et des instants arrondis. `report.json` indique l’échelle dans `trace.timescale`.
 
 La trace et le rapport sont écrits même quand une assertion échoue. Une ancienne `trace.vcd` est toujours supprimée
 du répertoire, même quand le nouvel essai n’en produit pas (scénario incompatible) : chaque fichier présent

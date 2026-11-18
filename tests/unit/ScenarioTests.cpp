@@ -4,6 +4,7 @@
 
 #include "../support/AvrAssembler.hpp"
 #include "scenario/Sha256.hpp"
+#include "scenario/VcdClock.hpp"
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 #include <siliconforge/scenario/Scenario.hpp>
@@ -13,6 +14,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <sstream>
 #include <string>
 
 using namespace siliconforge;
@@ -130,7 +132,16 @@ TEST_CASE("A scenario switches an input at its cycle and measures the PWM on the
 
     // The trace holds every pin from reset.
     CHECK(report.trace.starts_with("$comment SiliconForge bench trace"));
-    CHECK(report.trace.contains("$timescale 62500 ps $end"));
+    // 62.5 ns per cycle: a valid timescale of 100 ps, 625 units per cycle.
+    CHECK(report.trace.contains("$timescale 100 ps $end"));
+    std::istringstream lines{report.trace};
+    std::size_t        times = 0;
+    for (std::string line; std::getline(lines, line);)
+        if (line.starts_with('#')) {
+            ++times;
+            CHECK(std::stoull(line.substr(1)) % 625 == 0);
+        }
+    CHECK(times > 100);
     CHECK(report.trace.contains(" D6_PD6 $end"));
 }
 
@@ -304,6 +315,12 @@ TEST_CASE("A scenario that cannot run on the bench is refused before the run, wi
         document["steps"][0]["wait"] = "3601s";
         expectProblem(document, Capacity, "/steps/0/wait", "beyond the bench limit");
     }
+    SECTION("A duration too large for a number") {
+        document["steps"][0]["wait"] = std::string(400, '9') + "s";
+        expectProblem(document, Capacity, "/steps/0/wait", "beyond the bench limit");
+        document["steps"][0]["wait"] = std::string(400, '9') + " cycles";
+        expectProblem(document, Capacity, "/steps/0/wait", "beyond the bench limit");
+    }
     SECTION("A step scheduled before the previous ones can end") {
         document["steps"][3]["at"] = "2ms";  // After a 1 ms wait and two 1 ms measurements
         expectProblem(document, Schedule, "/steps/3/at", "the steps before it last at least 48000 cycles");
@@ -392,4 +409,60 @@ TEST_CASE("A bounded wait for serial text only counts what is emitted after the 
     CHECK(report.steps.at(0).outcome == scenario::StepRecord::Outcome::Done);
     CHECK(report.steps.at(1).outcome == scenario::StepRecord::Outcome::Failed);
     CHECK(report.steps.at(1).detail.contains("Serial text \"ready\" not reached"));
+}
+
+TEST_CASE("A VCD timescale is 1, 10 or 100 of a unit, and the times count in it", "[scenario]") {
+    using scenario::detail::VcdClock;
+    const auto check = [](u64 clockHz, std::string_view timescale, Cycles cycles, u64 time) {
+        const VcdClock clock{clockHz};
+        INFO(clockHz << " Hz");
+        CHECK(clock.timescale() == timescale);
+        CHECK(clock.time(cycles) == time);
+    };
+    check(16'000'000, "100 ps", 1, 625);
+    check(16'000'000, "100 ps", 16'000'000, 10'000'000'000);
+    check(1'000'000, "1 us", 7, 7);
+    check(20'000'000, "10 ns", 3, 15);
+    check(8'000'000, "1 ns", 2, 250);
+    check(100'000'000, "10 ns", 1, 1);
+    check(1, "1 s", 3, 3);
+    check(32'768, "1 fs", 1, 30'517'578'125);
+    // 3 MHz: 333 333 333.3 fs per cycle, rounded, but every whole second exact.
+    check(3'000'000, "1 fs", 1, 333'333'333);
+    check(3'000'000, "1 fs", 3'000'000 * Cycles{3600}, 3'600'000'000'000'000'000);
+    CHECK(VcdClock{3'000'000}.time(2) == 666'666'667);
+    CHECK_FALSE(VcdClock{3'000'000}.exact());
+}
+
+TEST_CASE("A pin that floats during the window cannot be measured", "[scenario]") {
+    // D12 (PB4) is not wired in the circuit: as an input without pull-up it floats. The program switches it between
+    // an output driven high and that floating input, through the pull-up each way, so it is never low.
+    siliconforge::test::AvrAssembler program;
+    program.sbi(0x05, 4);  // PORTB4: pull-up, then high once an output
+    program.sbi(0x04, 4);  // DDRB4: output high
+    for (int i = 0; i < 20; ++i)
+        program.nop();
+    program.cbi(0x04, 4);  // Input with its pull-up: still high
+    program.cbi(0x05, 4);  // No pull-up: floating
+    for (int i = 0; i < 20; ++i)
+        program.nop();
+    program.rjmp(-45);  // Back to the first SBI
+    auto document        = example();
+    document["firmware"] = hexFile(program, "siliconforge-scenario-floating.hex").generic_string();
+    document["initial"]  = Json::object();
+    document["steps"]    = Json::parse(R"([
+        {"wait": "10us"},
+        {"measure": {"id": "duty", "pin": "D12", "quantity": "dutyCycle", "window": "50us", "expect": {"min": 0, "max": 100}}},
+        {"measure": {"id": "frequency", "pin": "D12", "quantity": "frequency", "window": "50us"}}
+    ])");
+    const auto report    = prepared(document)->run();
+    INFO(scenario::toJson(report).dump(2));
+    for (const auto* id : {"duty", "frequency"}) {
+        const auto& entry = measurement(report, id);
+        CHECK_FALSE(entry.value);
+        CHECK(entry.risingEdges == 0);  // From floating to high is not a rising edge
+        CHECK(entry.detail == "The pin floats during part of the window: its level is not defined there");
+    }
+    CHECK_FALSE(measurement(report, "duty").passed);
+    CHECK(report.verdict == scenario::Verdict::Fail);
 }

@@ -108,7 +108,8 @@ configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedScenario.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedScenario.hpp" @ONLY)
 add_library(SiliconForge_scenario STATIC
     scenario/Scenario.cpp
-    scenario/Sha256.cpp)
+    scenario/Sha256.cpp
+    scenario/VcdClock.cpp)
 add_library(SiliconForge::scenario ALIAS SiliconForge_scenario)
 target_link_libraries(SiliconForge_scenario PUBLIC SiliconForge::mcu SiliconForge::circuit
     PRIVATE SiliconForge_options nlohmann_json_schema_validator)

@@ -1,6 +1,7 @@
 #include "common/JsonErrors.hpp"
 #include "EmbeddedScenario.hpp"
 #include "Sha256.hpp"
+#include "VcdClock.hpp"
 #include <siliconforge/circuit/Circuit.hpp>
 #include <siliconforge/mcu/Registry.hpp>
 #include <siliconforge/scenario/Scenario.hpp>
@@ -137,7 +138,11 @@ Cycles parseDuration(const Json& value, const std::string& path, u64 clockHz) {
     const auto split = text.find_first_not_of("0123456789.");
     const auto unit  = std::string_view{text}.substr(text.find_first_not_of(' ', split));
     double     number{};
-    std::from_chars(text.data(), text.data() + split, number);
+    const auto [end, error] = std::from_chars(text.data(), text.data() + split, number);
+    if (error == std::errc::result_out_of_range || (error == std::errc{} && !std::isfinite(number)))
+        reject(Problem::Cause::Capacity, path, std::format("{} is beyond the bench limit of {} s of simulated time", text, maximumSeconds));
+    if (error != std::errc{} || end != text.data() + split)
+        reject(Problem::Cause::Schema, path, std::format("{} is not a duration", text));
     double duration = 0;
     if (unit == "cycles") {
         if (number != std::floor(number))
@@ -285,17 +290,29 @@ void measure(Measurement& result, const std::vector<Transition>& changes, PinSta
     std::vector<Transition> inside;
     for (; cursor != changes.end() && cursor->at <= result.to; ++cursor)
         inside.push_back(*cursor);
+    // A rising edge goes from low to high. A pin that floats has no defined level: neither its edges nor its time
+    // count as a signal, so a window where it floats, even briefly, cannot be measured.
     std::vector<std::size_t> rising;
-    for (std::size_t i = 0; i < inside.size(); ++i)
-        if (inside[i].state == PinState::High)
+    auto                     before = state;
+    for (std::size_t i = 0; i < inside.size(); ++i) {
+        if (before == PinState::Low && inside[i].state == PinState::High)
             rising.push_back(i);
+        before = inside[i].state;
+    }
     result.risingEdges = static_cast<unsigned>(rising.size());
 
+    if (state == PinState::Floating && inside.empty()) {
+        result.detail = "The pin floats during the whole window";
+        return;
+    }
+    if (state == PinState::Floating || std::ranges::any_of(inside, [](const Transition& change) {
+            return change.state == PinState::Floating;
+        })) {
+        result.detail = "The pin floats during part of the window: its level is not defined there";
+        return;
+    }
     if (inside.empty() && result.quantity == "dutyCycle") {
-        if (state == PinState::Floating)
-            result.detail = "The pin floats during the whole window";
-        else
-            result.value = state == PinState::High ? 100.0 : 0.0;
+        result.value = state == PinState::High ? 100.0 : 0.0;
         return;
     }
     if (rising.size() < 2) {
@@ -318,14 +335,14 @@ void measure(Measurement& result, const std::vector<Transition>& changes, PinSta
 }
 
 std::string vcd(Mcu& mcu, const std::vector<PinState>& initial, const std::vector<std::vector<Transition>>& history, Cycles end) {
-    const auto  picoseconds = 1e12 / static_cast<double>(mcu.clockHz());
-    const auto  nanoseconds = picoseconds / 1000;
-    std::string out         = "$comment SiliconForge bench trace: one time unit is one clock cycle $end\n";
-    out                    += nanoseconds == std::floor(nanoseconds) ? std::format("$timescale {} ns $end\n", nanoseconds)
-                                                                     : std::format("$timescale {} ps $end\n", std::llround(picoseconds));
-    out                    += "$scope module mcu $end\n";
-    const auto pins         = mcu.pins();
-    const auto code         = [](std::size_t index) {
+    const detail::VcdClock clock{mcu.clockHz()};
+    std::string            out = std::format("$comment SiliconForge bench trace, {} Hz clock{} $end\n",
+                                  mcu.clockHz(),
+                                  clock.exact() ? "" : ": times rounded to the femtosecond");
+    out                       += std::format("$timescale {} $end\n", clock.timescale());
+    out                       += "$scope module mcu $end\n";
+    const auto pins            = mcu.pins();
+    const auto code            = [](std::size_t index) {
         std::string id;
         do {
             id    += static_cast<char>(33 + index % 94);
@@ -347,14 +364,14 @@ std::string vcd(Mcu& mcu, const std::vector<PinState>& initial, const std::vecto
         for (const auto& change : history[i])
             events.emplace_back(change.at, std::format("{}{}", levels[static_cast<std::size_t>(change.state)], code(i)));
     std::ranges::stable_sort(events, {}, &std::pair<Cycles, std::string>::first);
-    Cycles time = 0;
+    u64 time = 0;
     for (const auto& [at, change] : events) {
-        if (at != time)
-            out += std::format("#{}\n", time = at);
+        if (clock.time(at) != time)
+            out += std::format("#{}\n", time = clock.time(at));
         out += change + "\n";
     }
-    if (end != time)
-        out += std::format("#{}\n", end);
+    if (clock.time(end) != time)
+        out += std::format("#{}\n", clock.time(end));
     return out;
 }
 
@@ -1004,9 +1021,9 @@ Json toJson(const Report& report, std::string_view traceFile) {
     out["serial"] = report.serial;
     if (!traceFile.empty())
         out["trace"] = {
-            {  "format",             "vcd"},
-            {    "file",         traceFile},
-            {"timeUnit", "one clock cycle"}
+            {   "format",                               "vcd"},
+            {     "file",                           traceFile},
+            {"timescale", detail::VcdClock{clock}.timescale()}
         };
     return out;
 }
