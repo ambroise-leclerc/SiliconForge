@@ -7,7 +7,7 @@
   "properties": {
     "color": {"type": "string", "default": "red"}
   },
-  "footprint": {"kind": "free"},
+  "footprint": {"kind": "free", "maximum": 24, "description": "Jumper wire up to 24 holes long (6 cm), power rails included."},
   "model": {"elements": [{"type": "wire", "between": ["from", "to"]}]},
   "state": {}
 }

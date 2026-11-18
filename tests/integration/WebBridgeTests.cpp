@@ -55,6 +55,7 @@ struct TestApp {
     std::function<void(std::string)> selectCircuit;
     std::function<void(std::string)> loadExample;
     std::function<void(std::string, std::string)> loadCircuit;
+    std::function<void(std::string, std::string)> moveComponent;
     std::function<void(std::string, std::string, double)> setComponent;
     std::function<Signals(double, double)> signals;
     std::function<std::vector<std::string>()> circuits;
@@ -79,6 +80,8 @@ struct TestApp {
         } else if constexpr (std::is_invocable_v<F, std::string, std::string>) {
             if (name == "sf.loadCircuit")
                 loadCircuit = std::move(f);
+            else if (name == "sf.component.move")
+                moveComponent = std::move(f);
         } else if constexpr (std::is_invocable_r_v<Signals, F, double, double>) {
             if (name == "sf.signals")
                 signals = std::move(f);
@@ -330,6 +333,27 @@ TEST_CASE("The bridge plugs the chip in a circuit and pushes the state of its co
         const auto bounds = rejection([&] { web.setComponent("pot-a0", "position", 2); });
         CHECK(bounds.code() == app::error_code::invalidValue);
         CHECK(std::string{bounds.what()}.contains("out of bounds"));
+    }
+    SECTION("a component moved by the user rebuilds the circuit and keeps what the user set") {
+        web.setComponent("pot-a0", "position", 0.5);
+        web.moveComponent("r-d13", R"({"a": "i15", "b": "i22"})");
+        web.moveComponent("wire-7", R"({"from": "b10"})");
+        const auto moved = nlohmann::json::parse(web.circuit());
+        CHECK(moved.at("id") == "arduino-demo");
+        CHECK(moved.at("components")[1].at("at") == nlohmann::json{{"a", "i15"}, {"b", "i22"}});
+        CHECK(moved.at("wires")[6].at("from") == "b10");
+        CHECK(moved.at("types").at("resistor").at("footprint").at("maximum") == 12);
+        CHECK(moved.at("types").at("wire").at("footprint").at("maximum") == 24);
+        CHECK(simulation.access([](Mcu& mcu) { return mcu.pin("A0")->voltage(5.0); }) == Catch::Approx(2.5).margin(1e-3));
+        const auto count = frames->waitFor(0).size();
+        CHECK(nlohmann::json::parse(frames->waitFor(count + 2).back()).at("circuitRevision").get<unsigned>() > revision);
+
+        const auto tooLong = rejection([&] { web.moveComponent("r-d13", R"({"b": "i28"})"); });
+        CHECK(tooLong.code() == app::error_code::invalidPlacement);
+        CHECK(std::string{tooLong.what()}.starts_with("/components/1/at: "));
+        CHECK(rejection([&] { web.moveComponent("no-such-part", R"({"a": "h1"})"); }).code() == app::error_code::unknownComponent);
+        CHECK(rejection([&] { web.moveComponent("r-d13", "{"); }).code() == app::error_code::invalidPlacement);
+        CHECK(nlohmann::json::parse(web.circuit()).at("components")[1].at("at").at("b") == "i22");
     }
     SECTION("another circuit is selected, or loaded from its text") {
         web.selectCircuit("led-buttons");

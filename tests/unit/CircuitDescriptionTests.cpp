@@ -149,14 +149,24 @@ TEST_CASE("Component descriptions are checked beyond the schema", "[circuit][sch
         expectComponentError(d, "/footprint/offsets", "Missing terminal: wiper");
     }
     SECTION("a fixed footprint only places known terminals") {
-        auto d                            = component("led");
-        d["footprint"]["offsets"]["gate"] = {2, 0};
+        auto d                            = component("potentiometer");
+        d["footprint"]["offsets"]["gate"] = {3, 0};
         expectComponentError(d, "/footprint/offsets/gate", "Unknown terminal");
     }
     SECTION("a fixed footprint uses one hole per terminal") {
-        auto d                               = component("led");
-        d["footprint"]["offsets"]["cathode"] = {0, 0};
-        expectComponentError(d, "/footprint/offsets/cathode", "same hole");
+        auto d                             = component("potentiometer");
+        d["footprint"]["offsets"]["wiper"] = {0, 0};
+        expectComponentError(d, "/footprint/offsets/wiper", "same hole");
+    }
+    SECTION("a maximum length is for two terminals") {
+        auto d = component("wire");
+        d["terminals"].push_back({
+            {"name", "tap"}
+        });
+        expectComponentError(d, "/footprint/maximum", "two terminals");
+        d                         = component("wire");
+        d["footprint"]["maximum"] = 0;
+        expectComponentError(d, "/footprint", "");
     }
     SECTION("an element connects known terminals") {
         auto d                                  = component("led");
@@ -188,7 +198,10 @@ TEST_CASE("Component descriptions are checked beyond the schema", "[circuit][sch
         d["terminals"].push_back({
             {"name", "second"}
         });
-        d["footprint"]["offsets"]["second"] = {2, 0};
+        d["footprint"] = {
+            {   "kind",                                                                  "fixed"},
+            {"offsets", {{"anode", {0, 0}}, {"cathode", {1, 0}}, {"second", {2, 0}}}}
+        };
         d["model"]["elements"].push_back({
             {   "type",                 "led"},
             {"between", {"second", "cathode"}}
@@ -276,19 +289,45 @@ TEST_CASE("Circuit descriptions are checked against the component library", "[ci
         part(d, "r-d13")["at"]["b"] = "h16";
         expectCircuitError(d, partPath(d, "r-d13") + "/at", "1 holes apart");
     }
-    SECTION("a fixed footprint is respected, in either direction") {
+    SECTION("every dipole has its own length limits") {
         auto d                   = demo();
         part(d, "led-d13")["at"] = {
             {  "anode", "f23"},
             {"cathode", "f22"}
         };
         CHECK(circuit::validateCircuit(d));
-        part(d, "led-d13")["at"] = {
-            {  "anode", "f22"},
-            {"cathode", "f24"}
+        part(d, "led-d13")["at"]["cathode"] = "f25";
+        CHECK(circuit::validateCircuit(d));
+        part(d, "led-d13")["at"]["cathode"] = "f27";
+        expectCircuitError(d, partPath(d, "led-d13") + "/at", "4 holes apart");
+        d                            = demo();
+        part(d, "xtal")["at"]["b"]   = "d17";
+        expectCircuitError(d, partPath(d, "xtal") + "/at", "3 holes apart");
+        d                            = demo();
+        part(d, "button-d2")["at"]["b"] = "c1";
+        expectCircuitError(d, partPath(d, "button-d2") + "/at", "3 holes apart");
+        d                            = demo();
+        part(d, "r-d13")["at"]["b"]  = "h28";
+        expectCircuitError(d, partPath(d, "r-d13") + "/at", "13 holes apart");
+    }
+    SECTION("a jumper wire has a maximum length, the rails and the channel counted") {
+        auto d                = demo();
+        d["wires"][6]["from"] = "b28";  // b4 to b28: 24 holes, the longest wire
+        CHECK(circuit::validateCircuit(d));
+        d["wires"][6]["from"] = "b29";
+        expectCircuitError(d, "/wires/6", "25.0 holes apart, longer than the 24 holes");
+        CHECK(circuit::distance(*circuit::parseHole("T-1"), *circuit::parseHole("B-1")) == 16);
+        CHECK(circuit::distance(*circuit::parseHole("f1"), *circuit::parseHole("e1")) == 2);
+        CHECK(circuit::distance(*circuit::parseHole("a1"), *circuit::parseHole("e4")) == 5);
+    }
+    SECTION("a fixed footprint is respected, in either direction") {
+        auto d                  = demo();
+        part(d, "pot-a0")["at"] = {
+            {    "a", "g4"},
+            {"wiper", "g3"},
+            {    "b", "g2"}
         };
-        expectCircuitError(d, partPath(d, "led-d13") + "/at", "do not match the footprint");
-        d                       = demo();
+        CHECK(circuit::validateCircuit(d));
         part(d, "pot-a0")["at"] = {
             {    "a", "g2"},
             {"wiper", "g4"},
@@ -321,6 +360,46 @@ TEST_CASE("Circuit descriptions are checked against the component library", "[ci
         d                                         = demo();
         part(d, "led-d13")["properties"]["color"] = "pink";
         expectCircuitError(d, partPath(d, "led-d13") + "/properties/color", "allowed values");
+    }
+}
+
+TEST_CASE("A component moved on the board gives a validated circuit", "[circuit]") {
+    SECTION("a whole component, or one of its ends") {
+        const auto moved = circuit::move(demo(), "r-d13", {
+            {"a", "i15"},
+            {"b", "i22"}
+        });
+        REQUIRE(moved);
+        auto placed = *moved;
+        CHECK(part(placed, "r-d13")["at"] == Json{{"a", "i15"}, {"b", "i22"}});
+        const auto stretched = circuit::move(demo(), "r-d13", {{"b", "h20"}});
+        REQUIRE(stretched);
+        placed = *stretched;
+        CHECK(part(placed, "r-d13")["at"] == Json{{"a", "h15"}, {"b", "h20"}});
+    }
+    SECTION("a wire, numbered from 1 like in the interface") {
+        const auto moved = circuit::move(demo(), "wire-7", {{"from", "b10"}});
+        REQUIRE(moved);
+        CHECK(moved->at("wires")[6]["from"] == "b10");
+        CHECK(moved->at("wires")[6]["to"] == "b4");
+    }
+    SECTION("an unknown component, an unknown terminal, a broken rule") {
+        auto unknown = circuit::move(demo(), "flux", {{"a", "h1"}});
+        REQUIRE_FALSE(unknown);
+        CHECK(unknown.error().kind == circuit::MoveError::Kind::UnknownComponent);
+        unknown = circuit::move(demo(), "wire-99", {{"from", "h1"}});
+        REQUIRE_FALSE(unknown);
+        CHECK(unknown.error().kind == circuit::MoveError::Kind::UnknownComponent);
+        const auto terminal = circuit::move(demo(), "r-d13", {{"gate", "h1"}});
+        REQUIRE_FALSE(terminal);
+        CHECK(terminal.error().kind == circuit::MoveError::Kind::Invalid);
+        const auto tooLong = circuit::move(demo(), "led-d13", {{"cathode", "f26"}});
+        REQUIRE_FALSE(tooLong);
+        CHECK(tooLong.error().kind == circuit::MoveError::Kind::Invalid);
+        CHECK(tooLong.error().error.path == "/components/2/at");
+        const auto twice = circuit::move(demo(), "r-d13", {{"b", "f22"}, {"a", "f15"}});
+        REQUIRE_FALSE(twice);
+        CHECK(twice.error().error.message.find("Hole already used: f22") != std::string::npos);
     }
 }
 

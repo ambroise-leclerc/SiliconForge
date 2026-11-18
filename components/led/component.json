@@ -12,7 +12,7 @@
       "description": "Current at which the LED is rendered at full brightness."
     }
   },
-  "footprint": {"kind": "fixed", "offsets": {"anode": [0, 0], "cathode": [1, 0]}},
+  "footprint": {"kind": "span", "minimum": 1, "maximum": 3, "description": "Legs 2.54 mm apart, splayed up to three holes."},
   "model": {"elements": [{"type": "led", "between": ["anode", "cathode"]}]},
   "state": {
     "brightness": {"type": "number", "minimum": 0, "maximum": 1, "default": 0},

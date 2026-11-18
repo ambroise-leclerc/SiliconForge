@@ -37,9 +37,10 @@ inline constexpr std::string_view invalidFirmware  = "siliconforge.invalidFirmwa
 inline constexpr std::string_view firmwareRejected = "siliconforge.firmwareRejected";  ///< sf.loadFirmware: the MCU refused the image.
 inline constexpr std::string_view unknownCircuit   = "siliconforge.unknownCircuit";    ///< sf.selectCircuit: not a built-in circuit.
 inline constexpr std::string_view invalidCircuit   = "siliconforge.invalidCircuit";    ///< sf.loadCircuit: message is "<JSON path>: <reason>".
-inline constexpr std::string_view unknownComponent = "siliconforge.unknownComponent";  ///< sf.component.set: no such component or state.
+inline constexpr std::string_view unknownComponent = "siliconforge.unknownComponent";  ///< sf.component.set, sf.component.move: no such component or state.
 inline constexpr std::string_view invalidValue     = "siliconforge.invalidValue";      ///< sf.component.set: read-only state or value out of bounds.
 inline constexpr std::string_view unknownExample   = "siliconforge.unknownExample";    ///< sf.loadExample: not in sf.examples.
+inline constexpr std::string_view invalidPlacement = "siliconforge.invalidPlacement";  ///< sf.component.move: message is "<JSON path>: <reason>".
 }  // namespace error_code
 
 /// A firmware shipped with the application together with the circuit it was written for: one click in the interface.
@@ -291,6 +292,34 @@ private:
         });
     }
 
+    /// Moves terminals of a component of the plugged circuit. The simulation lock is held.
+    void moveComponent(Mcu& mcu, const std::string& id, const nlohmann::json& holes) {
+        if (!circuit)
+            throw webfront::BridgeError{std::string{error_code::unknownComponent}, "Unknown component: " + id + ": no circuit"};
+        auto moved = circuit::move(description, id, holes);
+        if (!moved) {
+            const auto unknown = moved.error().kind == circuit::MoveError::Kind::UnknownComponent;
+            throw webfront::BridgeError{std::string{unknown ? error_code::unknownComponent : error_code::invalidPlacement},
+                                        unknown ? moved.error().error.message : moved.error().error.path + ": " + moved.error().error.message};
+        }
+        // What the user set by hand survives the new model; the probes go, as the page forgets them with the board.
+        std::vector<std::tuple<std::string, std::string, double>> kept;
+        for (const auto& component : circuit->view().at("components"))
+            for (const auto& [name, entry] : component.at("state").items())
+                if (entry.at("interactive").get<bool>())
+                    if (const auto value = circuit->state(component.at("id").get<std::string>(), name))
+                        kept.emplace_back(component.at("id"), name, *value);
+        circuit->detach();
+        std::swap(description, *moved);
+        if (const auto error = plug(mcu)) {  // The chip fitted before: only a broken invariant lands here.
+            std::swap(description, *moved);
+            plug(mcu);
+            throw webfront::BridgeError{std::string{error_code::invalidPlacement}, error->path + ": " + error->message};
+        }
+        for (const auto& [component, name, value] : kept)
+            (void)circuit->set(component, name, value);
+    }
+
     void installFirmware(std::string name, const ProgramImage& image) {
         simulation.pause();
         try {
@@ -392,6 +421,17 @@ private:
                                                     : result.error() == circuit::SetError::UnknownState   ? ": unknown state"
                                                     : result.error() == circuit::SetError::NotInteractive ? ": read-only state"
                                                                                                           : ": out of bounds")};
+        });
+        // The user moved a component on the breadboard: `holes` is a JSON object of the terminals that moved and their
+        // new holes ({"a": "h16", "b": "h23"}). The circuit is rebuilt, keeping what the user set (button, potentiometer).
+        app.cppFunction("sf.component.move", [this](std::string id, std::string holes) {
+            nlohmann::json parsed;
+            try {
+                parsed = nlohmann::json::parse(holes);
+            } catch (const std::exception& e) {
+                throw webfront::BridgeError{std::string{error_code::invalidPlacement}, std::string{"Invalid holes: "} + e.what()};
+            }
+            simulation.access([&](Mcu& mcu) { moveComponent(mcu, id, parsed); });
         });
         app.cppFunction("sf.examples", [] {
             auto list = nlohmann::json::array();
