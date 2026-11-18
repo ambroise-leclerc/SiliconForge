@@ -813,11 +813,11 @@ Report Scenario::run() {
                     switch (step.condition) {
                         case Step::Condition::Pin: {
                             const auto& changes = s.history[step.pin];
-                            auto        state   = initial[step.pin];
+                            auto        level   = initial[step.pin];
                             auto        cursor  = changes.begin();
                             for (; cursor != changes.end() && cursor->at <= begin; ++cursor)
-                                state = cursor->state;
-                            if (state == step.pinState)
+                                level = cursor->state;
+                            if (level == step.pinState)
                                 satisfied = begin;
                             for (; !satisfied && cursor != changes.end(); ++cursor)
                                 if (cursor->state == step.pinState)
