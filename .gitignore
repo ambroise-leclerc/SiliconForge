@@ -9,3 +9,6 @@ compile_commands.json
 *.elf
 *.map
 !firmware/prebuilt/*.elf
+
+# Evidence kept by siliconforge-bench run
+.siliconforge/

@@ -71,6 +71,7 @@ Le brochage indique aussi les fonctions du composant réel qui ne sont pas encor
 | Instruments | Analyseur logique et oscilloscope au cycle près, mesures, curseurs, déclenchement, décodeur UART, export VCD |
 | Conversion analogique | Conversions simples sur A0–A5 et référence interne |
 | Tests automatisés | Pilotage du temps simulé, des broches, de la liaison série et des composants du circuit depuis un banc de test C++ |
+| Scénarios de banc | Essais versionnés exécutés sans fenêtre : stimuli au cycle près, attentes bornées, mesures de PWM avec verdict, rapport et trace VCD |
 
 **Qualification du cœur :** l’ATmega328P est **qualifié, avec exceptions documentées** : ses 85 instructions sont
 vérifiées contre le manuel AVR (cycles de chaque cas), contre le simulateur simavr (instruction par instruction sur des
@@ -115,6 +116,14 @@ Vous pouvez exécuter un firmware sans affichage, accélérer le temps simulé e
 ./build/apps/siliconforge/siliconforge --headless --speed max --duration 5 firmware/prebuilt/uart_echo.hex
 ```
 
+Un [scénario de banc](docs/BANC.md) décrit un essai dans un fichier JSON versionné avec le projet : circuit,
+firmware, stimuli, attentes bornées et mesures attendues. `siliconforge-bench` l’exécute, conserve le rapport et la
+trace, et distingue par son code de sortie la réussite (0), l’échec d’une assertion (1) et un banc incompatible (2) :
+
+```bash
+./build/apps/siliconforge-bench/siliconforge-bench run scenarios/pwm-setpoint.json
+```
+
 Le [banc de test C++](include/siliconforge/testing/Bench.hpp) permet d’envoyer des données, de modifier des entrées
 et de vérifier les réponses ou la période d’un signal de façon reproductible. Branché sur un circuit, il voit ce
 que voit l’utilisateur : `bench.press("button-d2")`, `bench.component("led-d13").brightness()`. Les [tests de firmwares](tests/integration/FirmwareTests.cpp)
@@ -137,6 +146,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
 - [Format des composants et des circuits](docs/CIRCUITS.md)
 - [Instruments : analyseur logique et oscilloscope](docs/INSTRUMENTS.md)
+- [Banc programmable : scénarios et `siliconforge-bench`](docs/BANC.md)
 - [Qualification du cœur : méthode](docs/QUALIFICATION.md) et [matrice par puce](docs/qualification/README.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
 - [WebFront 1.0 : passage, adoption et décisions](docs/WEBFRONT-1.0.md) (bilans précédents : [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))

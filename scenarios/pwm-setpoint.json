@@ -1,0 +1,31 @@
+{
+  "formatVersion": 1,
+  "name": "PWM setpoint on D6",
+  "description": "The duty cycle of D6 follows the setpoint chosen by the button on D2: 25 % released, 75 % held. The LED on D13 acknowledges the high setpoint.",
+  "circuit": "../circuits/arduino-demo.json",
+  "firmware": "../firmware/prebuilt/pwm_setpoint.hex",
+  "initial": {"components": {"button-d2": {"pressed": false}}},
+  "steps": [
+    {"label": "Let the firmware configure Timer0", "wait": "1ms"},
+    {
+      "label": "Released setpoint",
+      "measure": {"id": "duty-released", "pin": "D6", "quantity": "dutyCycle", "window": "1ms", "expect": {"value": 25, "tolerance": 0.5}}
+    },
+    {
+      "label": "PWM frequency",
+      "measure": {"id": "frequency", "pin": "D6", "quantity": "frequency", "window": "1ms", "expect": {"value": 62500, "tolerance": 100}}
+    },
+    {"label": "Hold the button", "at": "5ms", "set": {"component": "button-d2", "state": "pressed", "value": true}},
+    {"label": "The firmware acknowledges", "waitFor": {"pin": "D13", "state": "high"}, "timeout": "1ms"},
+    {
+      "label": "Held setpoint",
+      "measure": {"id": "duty-held", "pin": "D6", "quantity": "dutyCycle", "window": "1ms", "expect": {"value": 75, "tolerance": 0.5}}
+    },
+    {"label": "Release the button", "set": {"component": "button-d2", "state": "pressed", "value": false}},
+    {"label": "The acknowledgement goes off", "waitFor": {"pin": "D13", "state": "low"}, "timeout": "1ms"},
+    {
+      "label": "Back to the released setpoint",
+      "measure": {"id": "duty-released-again", "pin": "D6", "quantity": "dutyCycle", "window": "1ms", "expect": {"value": 25, "tolerance": 0.5}}
+    }
+  ]
+}

@@ -5,6 +5,9 @@ SiliconForge is organised in layers that only depend on the layers below them.
 ```
  ┌──────────────────────────────────────────────────────────────┐
  │ apps/siliconforge   CLI, Simulation thread, WebBridge         │──── WebFront ──── ui/ (browser)
+ │ apps/siliconforge-bench   Scenarios without a window          │
+ ├──────────────────────────────────────────────────────────────┤
+ │ scenario/           Bench scenarios, reports, traces          │  SiliconForge::scenario
  ├──────────────────────────────────────────────────────────────┤
  │ testing/Bench       Test bench (Catch2 or any framework)      │
  ├──────────────────────────────────────────────────────────────┤
@@ -82,6 +85,17 @@ same model in the application.
 clock cycle, in a ring. `Pin::subscribeSignal` feeds it; the USART draws its frames bit by bit on TXD so that they can
 be decoded. See [the instruments guide](INSTRUMENTS.md).
 
+## scenario: the programmable bench
+
+`SiliconForge::scenario` runs bench scenarios ([ADR 0010](adr/0010-banc-programmable.md), [guide](BANC.md)):
+`schemas/scenario.schema.json` (embedded) names a circuit and a firmware and orders stimuli, bounded waits and
+measurements. `Scenario::prepare` loads and checks everything before a single instruction runs and reports a
+`Problem` with its cause (version, schema, wiring, resource, capacity, schedule), file and JSON Pointer. `run()` plugs
+a fresh MCU in a fresh circuit each time, applies the stimuli at their cycle, measures on the logged pin changes and
+returns a `Report` (verdict, SHA-256 of the inputs, engine version, measurements with units, steps, serial output,
+VCD trace) without wall-clock data, so the same inputs give the same report. `apps/siliconforge-bench` is the command
+an agent runs; it needs neither WebFront nor a display.
+
 ## Application and interface
 
 - `Simulation` runs the MCU on its own thread, by slices of one simulated millisecond, paced against the wall clock
@@ -125,5 +139,6 @@ could deadlock.
 | Instruments | `tests/unit/SignalRecorderTests.cpp` | The capture ring, the pin observers, the UART waveform decoded from TXD |
 | Bridge | `tests/integration/WebBridgeTests.cpp` | `sf.*` functions without a browser: frames, typed errors, circuits, capture |
 | Firmware | `tests/integration/FirmwareTests.cpp` | Real avr-gcc binaries checked through the bench (1 Hz blink, echo, ISR, PWM) |
+| Scenarios | `tests/unit/ScenarioTests.cpp`, `tests/BenchCliTests.cmake` | Each refusal cause, stimuli at their cycle, PWM measured, identical reports on identical inputs, exit codes and evidence of `siliconforge-bench` |
 | Qualification | `tests/unit/OpcodeClassTests.cpp`, `tests/qualification/`, `firmware/qualification/` | The 65 536 opcodes classified, cycles against the manual, differential tests against simavr, compiled programs with a verdict; consolidated in `docs/qualification/` ([QUALIFICATION.md](QUALIFICATION.md)) |
 | Interface | `tests/ui/` | Jasmine specs driving the page and the firmware through `window.siliconForge` |
