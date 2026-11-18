@@ -1176,17 +1176,22 @@ std::filesystem::path defaultEvidenceDirectory(const std::filesystem::path& file
 
 namespace {
 
-/// Evidence is read and written as plain files: a link at the place of report.json or trace.vcd is refused, not
-/// followed, so that a run directory cannot be made to disclose or overwrite a file elsewhere. On POSIX the link is
-/// refused by the open itself (O_NOFOLLOW) and the descriptor is checked to be a regular file, so that nothing can
-/// be swapped in between a check and the use; elsewhere the check comes first, which is best effort.
+/// Evidence is read and written as plain files, so that a run directory cannot make a reader return, wait on or
+/// overwrite something else. Reading: a link is refused by the open itself (O_NOFOLLOW) and the descriptor is checked
+/// to be a regular file; the open does not wait (O_NONBLOCK), so a FIFO without a writer cannot hold the reader. Writing:
+/// the text goes to a new file that replaces the old one by a rename. The old inode is never opened, so a hard link
+/// to a file elsewhere keeps its content, and the new file is created exclusively, without following a link. Outside
+/// POSIX the checks come first, which is best effort.
 #if defined(__unix__) || defined(__APPLE__)
 bool writeFile(const std::filesystem::path& path, std::string_view text) {
-    const int descriptor = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644);
+    auto fresh = path;
+    fresh += ".new";
+    std::error_code error;
+    std::filesystem::remove(fresh, error);  // A leftover of an interrupted run; a link is removed, not followed.
+    const int descriptor = ::open(fresh.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0644);
     if (descriptor < 0)
         return false;
-    struct stat info {};
-    bool        ok = ::fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode);
+    bool ok = true;
     for (std::size_t done = 0; ok && done < text.size();) {
         const auto written = ::write(descriptor, text.data() + done, text.size() - done);
         if (written < 0 && errno == EINTR)
@@ -1194,11 +1199,18 @@ bool writeFile(const std::filesystem::path& path, std::string_view text) {
         ok = written > 0;
         done += ok ? static_cast<std::size_t>(written) : 0;
     }
-    return ::close(descriptor) == 0 && ok;
+    ok = ::close(descriptor) == 0 && ok;
+    if (ok)
+        std::filesystem::rename(fresh, path, error);
+    if (!ok || error) {
+        std::filesystem::remove(fresh, error);
+        return false;
+    }
+    return true;
 }
 
 std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {
-    const int descriptor = ::open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    const int descriptor = ::open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
     if (descriptor < 0)
         return std::nullopt;
     struct stat info {};
@@ -1223,12 +1235,20 @@ std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {
 }
 #else
 bool writeFile(const std::filesystem::path& path, std::string_view text) {
+    auto fresh = path;
+    fresh += ".new";
     std::error_code error;
-    if (std::filesystem::is_symlink(std::filesystem::symlink_status(path, error)))
-        return false;
-    std::ofstream stream{path, std::ios::binary};
-    stream << text;
-    return static_cast<bool>(stream.flush());
+    std::filesystem::remove(fresh, error);
+    {
+        std::ofstream stream{fresh, std::ios::binary};
+        stream << text;
+        if (!stream.flush())
+            return false;
+    }
+    std::filesystem::rename(fresh, path, error);
+    if (error)
+        std::filesystem::remove(fresh, error);
+    return !error;
 }
 
 std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {

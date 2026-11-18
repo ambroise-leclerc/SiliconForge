@@ -15,7 +15,7 @@ describe("The bench in the window", () => {
   it("lists the scenarios of the project", async () => {
     await bench().ready;
     const {scenarios} = await bench().list();
-    expect(scenarios).toEqual(["off-target.json", "pwm-setpoint.json"]);
+    expect(scenarios).toEqual(["off-target.json", "pwm-setpoint.json", "slow.json"]);
     const options = [...panel().querySelectorAll("[data-select=scenario] option")].map((option) => option.value);
     expect(options).toEqual(scenarios);
   });
@@ -79,12 +79,28 @@ describe("The bench in the window", () => {
     expect(rows("steps")[3].textContent).toContain("button-d2.pressed = 1");
     expect(bench().trace().startsWith("$")).toBe(true);
     const {runs} = await bench().list();
-    expect(runs.map((run) => `${run.name}:${run.verdict}`)).toEqual(["off-target:fail", "pwm-setpoint:pass"]);
+    // Runs of an earlier execution of this test stay in the project directory: only these two are checked.
+    expect(runs.map((run) => `${run.name}:${run.verdict}`)).toEqual(jasmine.arrayContaining(["off-target:fail", "pwm-setpoint:pass"]));
   });
 
   it("refuses a scenario or a run that is not in the project, with a typed error", async () => {
     const code = async (promise) => { try { await promise; } catch (error) { return error.code; } return null; };
     expect(await code(bench().run("../pwm-setpoint.json"))).toBe("siliconforge.unknownScenario");
     expect(await code(bench().open("../scenarios"))).toBe("siliconforge.unknownRun");
+  });
+
+  it("keeps serving the window while a scenario runs", async () => {
+    let finished = false;
+    const running = bench().run("slow.json").then((result) => { finished = true; return result; });
+    // Calls made now are answered by the server thread while the worker simulates twenty seconds.
+    for (let i = 0; i < 5; ++i) {
+      const chip = await window.siliconForge.chip();
+      expect(chip).toBeTruthy();
+      expect(await bench().list()).toBeDefined();
+    }
+    expect(finished).toBe(false);
+    const result = await running;
+    expect(result.report.verdict).toBe("pass");
+    expect(readout("verdict").textContent).toBe("pass");
   });
 });

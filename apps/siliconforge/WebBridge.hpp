@@ -13,6 +13,8 @@
 
 #include <webfront/WebFront.hpp>
 
+#include <exec/static_thread_pool.hpp>
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -486,8 +488,14 @@ private:
         app.cppFunction("sf.bench.open", [](std::string name) {
             return benchReply(bench::open(name));
         });
-        app.cppFunction("sf.bench.run", [](std::string file) {
-            return benchReply(bench::run(file));
+        // A scenario can simulate up to an hour: the run goes to a worker thread and the Promise settles when it is
+        // done, so the server thread keeps serving every browser meanwhile. The pool has one thread, so two runs of
+        // the same scenario never write the same files at once. The answer is sent from the server context.
+        app.cppFunction("sf.bench.run", [this](std::string file) {
+            namespace ex = webfront::networking::ex;
+            return ex::starts_on(benchWorker.get_scheduler(), ex::just(std::move(file)) | ex::then([](std::string name) {
+                                                                  return benchReply(bench::run(name));
+                                                              }));
         });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
@@ -654,6 +662,7 @@ private:
     std::string                        circuitView{"null"};
     unsigned                           circuitRevision{0};
     instruments::SignalRecorder        recorder;
+    exec::static_thread_pool           benchWorker{1};  // Runs the scenarios; joined, after the work in flight, with the bridge.
     std::optional<webfront::http::RouteTable::Registration> renderers;
     unsigned                 chipRevision{0};
     std::uint64_t            serialEpoch{0};  // Protected by clientsMutex.

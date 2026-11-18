@@ -153,6 +153,11 @@ if(SILICONFORGE_BUILD_APP)
         string(JSON _ui_bench_scenario SET "${_ui_bench_scenario}" name "\"PWM setpoint that cannot hold\"")
         string(JSON _ui_bench_scenario SET "${_ui_bench_scenario}" steps 1 measure expect "{\"value\": 50, \"tolerance\": 0.5}")
         file(WRITE ${_ui_bench_project}/scenarios/off-target.json "${_ui_bench_scenario}\n")
+        # A run of about four seconds: long enough to check that the window stays served while a scenario runs.
+        file(READ ${PROJECT_SOURCE_DIR}/scenarios/pwm-setpoint.json _ui_bench_scenario)
+        string(JSON _ui_bench_scenario SET "${_ui_bench_scenario}" name "\"Twenty simulated seconds\"")
+        string(JSON _ui_bench_scenario SET "${_ui_bench_scenario}" steps "[{\"wait\": \"20s\"}, {\"measure\": {\"id\": \"duty\", \"pin\": \"D6\", \"quantity\": \"dutyCycle\", \"window\": \"1ms\", \"expect\": {\"value\": 25, \"tolerance\": 0.5}}}]")
+        file(WRITE ${_ui_bench_project}/scenarios/slow.json "${_ui_bench_scenario}\n")
         webfront_add_jasmine_test(NAME UI-Bench TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/bench.spec.js ARGS --port 0)
         set_tests_properties(UI-Bench PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})

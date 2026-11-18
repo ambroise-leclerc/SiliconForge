@@ -190,6 +190,14 @@ sur le répertoire courant du projet :
   identique à l’octet près ; sinon le panneau liste les chemins JSON qui diffèrent (empreinte d’une entrée, valeur
   d’une mesure, verdict).
 
+`sf.bench.run` s’exécute sur un fil de travail (un seul, donc deux essais ne s’écrivent jamais en même temps) et sa
+Promise se résout à la fin : un scénario de plusieurs minutes simulées ne retarde ni les autres appels ni les autres
+connexions. Fermer la fenêtre attend la fin de l’essai en cours.
+
+Les preuves sont lues et écrites comme des fichiers ordinaires : un lien symbolique est refusé à l’ouverture
+(`O_NOFOLLOW`), une FIFO ne bloque pas la lecture, et l’écriture passe par un nouveau fichier renommé sur l’ancien,
+de sorte qu’un lien physique vers un fichier extérieur n’est jamais tronqué.
+
 La page ne donne jamais de chemin : elle nomme un scénario ou un essai de ces listes, et un nom qui contient un
 séparateur est refusé (`siliconforge.unknownScenario`, `siliconforge.unknownRun`). Une interface servie à d’autres
 machines (`--address 0.0.0.0`) ne peut donc ni lire ni écrire hors du projet. Les fonctions sont `sf.bench.list`,

@@ -9,6 +9,10 @@
 #include <iterator>
 #include <string>
 
+#if defined(__unix__) || defined(__APPLE__)
+#include <sys/stat.h>
+#endif
+
 using namespace siliconforge;
 using Json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -227,11 +231,12 @@ SCENARIO("The window does not follow links out of the project", "[app][bench]") 
             THEN("the run is not opened") {
                 REQUIRE_FALSE(app::bench::open("pwm-setpoint"));
             }
-            AND_THEN("running the scenario again leaves the file alone and keeps no evidence") {
+            AND_THEN("running the scenario again replaces the link by a plain file and leaves the target alone") {
                 const auto result = app::bench::run("pwm-setpoint.json");
-                REQUIRE_FALSE(result);
-                CHECK(result.error().code == "siliconforge.evidenceNotKept");
+                REQUIRE(result);
                 CHECK(text(outside / "secret.txt") == "secret");
+                CHECK_FALSE(fs::is_symlink(fs::symlink_status(directory / "report.json")));
+                CHECK(text(directory / "report.json").starts_with("{"));
             }
         }
         WHEN("the directory of a run is a link to a directory outside the project") {
@@ -266,6 +271,48 @@ SCENARIO("The window does not follow links out of the project", "[app][bench]") 
                 CHECK(result.error().code == "siliconforge.unknownScenario");
             }
         }
+        WHEN("report.json of a run is a hard link to a file outside the project") {
+            fs::remove(directory / "report.json");
+            std::error_code error;
+            fs::create_hard_link(outside / "secret.txt", directory / "report.json", error);
+            if (error)
+                SKIP("Cannot create a hard link: " << error.message());
+            const auto result = app::bench::run("pwm-setpoint.json");
+            THEN("the run keeps its evidence in a new file and the other file keeps its content") {
+                REQUIRE(result);
+                CHECK(text(outside / "secret.txt") == "secret");
+                CHECK(text(directory / "report.json").starts_with("{"));
+                CHECK(fs::hard_link_count(directory / "report.json") == 1);
+            }
+        }
         fs::remove_all(outside);
     }
 }
+
+#if defined(__unix__) || defined(__APPLE__)
+SCENARIO("The window does not wait on a special file in a run directory", "[app][bench]") {
+    GIVEN("a run kept by the command line") {
+        Project    project;
+        const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
+        const auto directory = scenario::defaultEvidenceDirectory(file);
+        REQUIRE(scenario::keepEvidence(scenario::run(file), directory));
+        WHEN("trace.vcd is a FIFO nobody writes to") {
+            fs::remove(directory / "trace.vcd");
+            REQUIRE(::mkfifo((directory / "trace.vcd").c_str(), 0600) == 0);
+            const auto opened = app::bench::open("pwm-setpoint");
+            THEN("the run opens at once, without a trace") {
+                REQUIRE(opened);
+                CHECK(opened->at("trace").is_null());
+            }
+        }
+        WHEN("report.json is a FIFO nobody writes to") {
+            fs::remove(directory / "report.json");
+            REQUIRE(::mkfifo((directory / "report.json").c_str(), 0600) == 0);
+            THEN("the run is not opened and not listed, and the listing returns") {
+                CHECK_FALSE(app::bench::open("pwm-setpoint"));
+                CHECK(app::bench::list().at("runs").empty());
+            }
+        }
+    }
+}
+#endif
