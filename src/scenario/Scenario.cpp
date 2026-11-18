@@ -71,6 +71,7 @@ struct Step {
     PinState              pinState{PinState::Low};
     std::string           text;
     std::size_t           port{0};
+    std::size_t           watched{0};  ///< Component condition: index in State::watchedStates.
     std::optional<double> above;
     std::optional<double> below;
     // measure
@@ -271,34 +272,45 @@ void expectation(Step& step, const Json& expect, const std::string& path, u64 cl
                    std::format("A duty cycle over {} cycles is resolved to {:.3g} %: the tolerance cannot be smaller", step.duration, resolution));
         return;
     }
-    // A pin changes at most once per cycle: no frequency above half the clock. Two rising edges one period apart fit
-    // in any window of at least one period, depending on its phase: only a shorter window can never measure the
-    // lowest expected frequency. Whether the edges are there is then for the measurement to tell.
-    const auto lowest = step.quantity == "frequency" ? *step.minimum : (*step.maximum > 0 ? 1 / *step.maximum : INFINITY);
+    // Refused only when no expected value can be measured. A pin changes at most once per cycle: nothing above half
+    // the clock. Two rising edges one period apart fit, with the right phase, in a closed window of one period: a
+    // window shorter than the period of the highest expected frequency never holds two. Whether a window caught its
+    // edges is then for the measurement to tell.
+    const auto lowest  = step.quantity == "frequency" ? *step.minimum : (*step.maximum > 0 ? 1 / *step.maximum : INFINITY);
+    const auto highest = step.quantity == "frequency" ? *step.maximum : (*step.minimum > 0 ? 1 / *step.minimum : INFINITY);
     if (lowest > clock / 2)
         reject(Problem::Cause::Capacity, path, std::format("A pin of a {} Hz MCU cannot toggle above {} Hz", clockHz, formatNumber(clock / 2)));
-    if (lowest > 0 && static_cast<double>(step.duration) < clock / lowest)
+    if (highest > 0 && static_cast<double>(step.duration) < clock / highest)
         reject(Problem::Cause::Capacity,
                path,
-               std::format("The window of {} cycles is shorter than one period of a {} Hz signal ({:.6g} cycles): it can never hold two rising edges",
+               std::format("The window of {} cycles is shorter than one period of a {} Hz signal ({:.6g} cycles), the highest expected: it can "
+                           "never hold two rising edges",
                            step.duration,
-                           formatNumber(lowest),
-                           clock / lowest));
+                           formatNumber(highest),
+                           clock / highest));
 }
 
 /// A pin measured over [from, to] from its logged changes and its state at reset.
 void measure(Measurement& result, const std::vector<Transition>& changes, PinState initial, u64 clockHz) {
-    auto state  = initial;
+    // The window is closed, [from, to]: a change at `from` belongs to it, and so does an edge there.
+    auto prior  = initial;  // Just before `from`.
     auto cursor = changes.begin();
-    for (; cursor != changes.end() && cursor->at <= result.from; ++cursor)
-        state = cursor->state;
+    for (; cursor != changes.end() && cursor->at < result.from; ++cursor)
+        prior = cursor->state;
     std::vector<Transition> inside;
     for (; cursor != changes.end() && cursor->at <= result.to; ++cursor)
         inside.push_back(*cursor);
+    auto start = prior;  // At `from`, once its own changes are applied.
+    for (const auto& change : inside)
+        if (change.at == result.from)
+            start = change.state;
+    const auto constant = std::ranges::none_of(inside, [&](const Transition& change) {
+        return change.at > result.from;
+    });
     // A rising edge goes from low to high. A pin that floats has no defined level: neither its edges nor its time
     // count as a signal, so a window where it floats, even briefly, cannot be measured.
     std::vector<std::size_t> rising;
-    auto                     before = state;
+    auto                     before = prior;
     for (std::size_t i = 0; i < inside.size(); ++i) {
         if (before == PinState::Low && inside[i].state == PinState::High)
             rising.push_back(i);
@@ -306,18 +318,18 @@ void measure(Measurement& result, const std::vector<Transition>& changes, PinSta
     }
     result.risingEdges = static_cast<unsigned>(rising.size());
 
-    if (state == PinState::Floating && inside.empty()) {
+    if (start == PinState::Floating && constant) {
         result.detail = "The pin floats during the whole window";
         return;
     }
-    if (state == PinState::Floating || std::ranges::any_of(inside, [](const Transition& change) {
+    if (start == PinState::Floating || std::ranges::any_of(inside, [](const Transition& change) {
             return change.state == PinState::Floating;
         })) {
         result.detail = "The pin floats during part of the window: its level is not defined there";
         return;
     }
-    if (inside.empty() && result.quantity == "dutyCycle") {
-        result.value = state == PinState::High ? 100.0 : 0.0;
+    if (constant && result.quantity == "dutyCycle") {
+        result.value = start == PinState::High ? 100.0 : 0.0;
         return;
     }
     if (rising.size() < 2) {
@@ -468,6 +480,18 @@ struct Scenario::State {
     /// state reached and left between two instruction boundaries is not missed.
     std::function<bool()> watch;
     std::optional<Cycles> satisfiedAt;
+    /// The component states a waitFor of the scenario watches, and their values at each change since reset: what a
+    /// step that begins after the core went past its start needs to know the value at its start.
+    std::vector<std::pair<std::string, std::string>>    watchedStates;
+    std::vector<std::vector<std::pair<Cycles, double>>> stateHistory;
+
+    void recordStates(Cycles at) {
+        for (std::size_t k = 0; k < watchedStates.size(); ++k) {
+            const auto value = model->state(watchedStates[k].first, watchedStates[k].second).value_or(0);
+            if (stateHistory[k].empty() || stateHistory[k].back().second != value)
+                stateHistory[k].emplace_back(at, value);
+        }
+    }
 
     void notice(Cycles at) {
         if (watch && !satisfiedAt && watch()) {
@@ -491,8 +515,10 @@ struct Scenario::State {
                 notice(at);
             });
             pin.subscribeDrive([this](const Pin&, Cycles at) {
-                if (model)
+                if (model) {
                     model->update();
+                    recordStates(at);
+                }
                 notice(at);
             });
         }
@@ -512,6 +538,8 @@ struct Scenario::State {
             changes.clear();
         for (auto& log : transmitted)
             log.clear();
+        stateHistory.assign(watchedStates.size(), {});
+        recordStates(0);
         watch = {};
         satisfiedAt.reset();
     }
@@ -644,6 +672,11 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
                 step.component = waitFor.at("component").get<std::string>();
                 step.stateName = waitFor.at("state").get<std::string>();
                 check.observable(step.component, step.stateName, wherePath);
+                const auto watchedState = std::pair{step.component, step.stateName};
+                const auto found        = std::ranges::find(watchedStates, watchedState);
+                step.watched            = static_cast<std::size_t>(found - watchedStates.begin());
+                if (found == watchedStates.end())
+                    watchedStates.push_back(watchedState);
                 if (waitFor.contains("above"))
                     step.above = waitFor.at("above").get<double>();
                 if (waitFor.contains("below"))
@@ -808,6 +841,7 @@ Report Scenario::run() {
                         record.detail = step.volts ? std::format("probe on {} at {} V", step.probe, formatNumber(*step.volts))
                                                    : std::format("probe on {} removed", step.probe);
                     }
+                    s.recordStates(*record.applied);
                     if (*record.applied != begin)
                         record.detail += std::format(", applied at {} cycles: the instruction in progress at {} ends first", *record.applied, begin);
                     break;
@@ -869,13 +903,23 @@ Report Scenario::run() {
                                 return serialMatch().has_value();
                             };
                             break;
-                        case Step::Condition::Component:
-                            // Component states are not logged: a state reached during the overshoot counts from the
-                            // boundary, at most one instruction late.
-                            if (componentHolds())
-                                satisfied = device.cycles();
+                        case Step::Condition::Component: {
+                            const auto& values = s.stateHistory[step.watched];
+                            const auto  holds  = [&](double value) {
+                                return (!step.above || value > *step.above) && (!step.below || value < *step.below);
+                            };
+                            auto cursor = values.begin();
+                            auto value  = cursor->second;  // Recorded at reset.
+                            for (; cursor != values.end() && cursor->first <= begin; ++cursor)
+                                value = cursor->second;
+                            if (holds(value))
+                                satisfied = begin;
+                            for (; !satisfied && cursor != values.end(); ++cursor)
+                                if (holds(cursor->second))
+                                    satisfied = cursor->first;
                             s.watch = componentHolds;
                             break;
+                        }
                     }
                     s.satisfiedAt = satisfied;
                     while (!s.satisfiedAt && device.cycles() < deadline) {

@@ -64,13 +64,19 @@ cycles, l’instruction se termine d’abord. Ce dépassement ne décale pas la 
 
 - Un stimulus (`set`) prend effet à la première frontière d’instruction à partir de son instant planifié, au plus
   quelques cycles plus tard. Le rapport donne les deux : `start`, l’instant planifié, et `applied`, le cycle où le
-  stimulus a pris effet.
-- Une mesure porte exactement sur `[début, début + fenêtre]` : les changements de la broche sont enregistrés au cycle
-  où ils se produisent, et ceux du dépassement sont exclus.
+  stimulus a pris effet. Les étapes suivantes restent sur la chronologie planifiée : une attente qui suit un stimulus
+  compte son délai depuis l’instant planifié, et un délai plus court que l’instruction en cours expire avant que le
+  stimulus ait pu agir.
+- Une mesure porte exactement sur la fenêtre fermée `[début, début + fenêtre]` : un front situé sur l’une des deux
+  bornes compte, et ceux du dépassement sont exclus. Les changements d’une broche sont datés du cycle où le cœur les
+  produit ; un front engendré par un périphérique (comparaison d’un timer) pendant une instruction de plusieurs
+  cycles est daté de la fin de cette instruction, car le cœur traite les événements entre deux instructions
+  ([ADR 0002](adr/0002-modele-temporel.md)). Une période mesurée peut ainsi varier d’un ou deux cycles.
 - Une attente `waitFor` est évaluée à chaque changement d’une broche, du circuit ou d’un port série, au cycle de ce
   changement, et non par échantillonnage : un niveau atteint puis quitté en deux cycles la satisfait. Son instant de
-  fin est le cycle où la condition a été remplie. Seul l’état d’un composant atteint pendant le dépassement initial,
-  qui n’est pas enregistré, est daté de la frontière d’instruction suivante.
+  fin est le cycle où la condition a été remplie. Les niveaux des broches, les octets émis et les états de composant
+  surveillés par une attente sont enregistrés à chaque changement : une condition déjà remplie au début de l’étape
+  l’est à son instant planifié, même quand le cœur l’a dépassé.
 
 | Étape | Effet |
 | --- | --- |
@@ -111,7 +117,7 @@ nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 | `schema` | Étape mal formée, durée sans unité, identifiant de mesure en double |
 | `wiring` | Circuit invalide, puce qui ne tient pas sur la carte, sonde sur une broche absente du breadboard |
 | `resource` | Microcontrôleur inconnu, composant, état, broche ou port série absent, état non modifiable de l’extérieur |
-| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période à la plus basse fréquence attendue (elle ne peut jamais contenir deux fronts montants), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
+| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période de la plus haute fréquence attendue (elle ne peut contenir deux fronts montants pour aucune valeur attendue), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
 | `schedule` | Étape placée (`at`) avant la durée minimale des étapes qui la précèdent |
 
 ## La commande

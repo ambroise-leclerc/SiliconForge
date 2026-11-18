@@ -313,9 +313,9 @@ TEST_CASE("A scenario that cannot run on the bench is refused before the run, wi
         expectProblem(document, Capacity, "/steps/1/measure/expect", "resolved to 1 %");
     }
     SECTION("A frequency the window is too short to measure") {
-        // 62 400 Hz at least: one period lasts up to 256.4 cycles.
-        document["steps"][2]["measure"]["window"] = "256 cycles";
-        expectProblem(document, Capacity, "/steps/2/measure/expect", "is shorter than one period of a 62400 Hz signal");
+        // 62 600 Hz at most: no expected period is shorter than 255.6 cycles.
+        document["steps"][2]["measure"]["window"] = "255 cycles";
+        expectProblem(document, Capacity, "/steps/2/measure/expect", "is shorter than one period of a 62600 Hz signal");
     }
     SECTION("A frequency no pin can reach") {
         document["steps"][2]["measure"]["expect"] = Json{
@@ -502,4 +502,45 @@ TEST_CASE("A window of one period or more is accepted: the measurement tells whe
     CHECK_FALSE(missed.value);
     CHECK_FALSE(missed.passed);
     CHECK(missed.detail == "1 rising edge in the window: at least two are needed");
+}
+
+TEST_CASE("A component condition already met when the step begins is met at its start", "[scenario]") {
+    // The 1-cycle wait ends inside an instruction: the core stands past the 1-cycle deadline of the next step, yet the
+    // button has been released since reset.
+    auto document     = exampleWith("pwm_setpoint.hex");
+    document["steps"] = Json::parse(R"([
+        {"wait": "1 cycles"},
+        {"waitFor": {"component": "button-d2", "state": "pressed", "below": 0.5}, "timeout": "1 cycles"},
+        {"set": {"component": "button-d2", "state": "pressed", "value": true}},
+        {"waitFor": {"component": "button-d2", "state": "pressed", "above": 0.5}, "timeout": "10 cycles"}
+    ])");
+    const auto report = prepared(document)->run();
+    INFO(scenario::toJson(report).dump(2));
+    REQUIRE(report.verdict == scenario::Verdict::Pass);
+    CHECK(report.steps.at(1).start == 1);
+    CHECK(report.steps.at(1).end == 1);
+    // A state set by a stimulus counts from the boundary where the stimulus took effect.
+    CHECK(report.steps.at(3).end == report.steps.at(2).applied.value_or(0));
+}
+
+TEST_CASE("The edges at both ends of a measurement window belong to it", "[scenario]") {
+    // D6 rises at 15 896 and 16 152 cycles: a closed window of exactly one period from the first edge holds both.
+    for (const auto* quantity : {"frequency", "dutyCycle"}) {
+        auto document     = exampleWith("pwm_setpoint.hex");
+        document["steps"] = Json::parse(R"([{"wait": "15896 cycles"}])");
+        const auto expect =
+            std::string_view{
+                quantity
+        }
+                    == "frequency"
+                ? Json{{"value", 62500}, {"tolerance", 100}}
+                : Json{{"value", 25}, {"tolerance", 0.5}};
+        document["steps"].push_back(Json{
+            {"measure", {{"id", "window"}, {"pin", "D6"}, {"quantity", quantity}, {"window", "256 cycles"}, {"expect", expect}}}
+        });
+        const auto report = prepared(document)->run();
+        INFO(quantity << "\n" << scenario::toJson(report).dump(2));
+        CHECK(measurement(report, "window").risingEdges == 2);
+        CHECK(report.verdict == scenario::Verdict::Pass);
+    }
 }
