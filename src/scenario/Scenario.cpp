@@ -9,12 +9,23 @@
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <chrono>
 #include <cmath>
 #include <format>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <set>
+#include <system_error>
+#include <thread>
+
+#if defined(__unix__) || defined(__APPLE__)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cerrno>
+#endif
 
 namespace siliconforge::scenario {
 namespace {
@@ -1156,9 +1167,183 @@ Json toJson(const Report& report, std::string_view traceFile) {
         out["trace"] = {
             {   "format",                               "vcd"},
             {     "file",                           traceFile},
-            {"timescale", detail::VcdClock{clock}.timescale()}
+            {"timescale", detail::VcdClock{clock}.timescale()},
+            {   "sha256",                      hash(report.trace)}
         };
     return out;
+}
+
+std::filesystem::path defaultEvidenceDirectory(const std::filesystem::path& file) {
+    return std::filesystem::path{".siliconforge"} / "runs" / file.stem();
+}
+
+namespace {
+
+/// Evidence is read and written as plain files, so that a run directory cannot make a reader return, wait on or
+/// overwrite something else. Reading: a link is refused by the open itself (O_NOFOLLOW) and the descriptor is checked
+/// to be a regular file; the open does not wait (O_NONBLOCK), so a FIFO without a writer cannot hold the reader. Writing:
+/// the text goes to a new file that replaces the old one by a rename. The old inode is never opened, so a hard link
+/// to a file elsewhere keeps its content, and the new file is created exclusively, without following a link. Outside
+/// POSIX the checks come first, which is best effort.
+#if defined(__unix__) || defined(__APPLE__)
+/// Writes `text` to path.new, ready to replace `path` by publish().
+bool stageFile(const std::filesystem::path& path, std::string_view text) {
+    auto fresh = path;
+    fresh += ".new";
+    std::error_code error;
+    std::filesystem::remove(fresh, error);  // A leftover of an interrupted run; a link is removed, not followed.
+    const int descriptor = ::open(fresh.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0644);
+    if (descriptor < 0)
+        return false;
+    bool ok = true;
+    for (std::size_t done = 0; ok && done < text.size();) {
+        const auto written = ::write(descriptor, text.data() + done, text.size() - done);
+        if (written < 0 && errno == EINTR)
+            continue;
+        ok = written > 0;
+        done += ok ? static_cast<std::size_t>(written) : 0;
+    }
+    ok = ::close(descriptor) == 0 && ok;
+    if (!ok)
+        std::filesystem::remove(fresh, error);
+    return ok;
+}
+
+std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {
+    const int descriptor = ::open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (descriptor < 0)
+        return std::nullopt;
+    struct stat info {};
+    std::optional<std::string> text;
+    if (::fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode)) {
+        text.emplace();
+        char buffer[1 << 16];
+        for (;;) {
+            const auto count = ::read(descriptor, buffer, sizeof buffer);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count <= 0) {
+                if (count < 0)
+                    text.reset();
+                break;
+            }
+            text->append(buffer, static_cast<std::size_t>(count));
+        }
+    }
+    ::close(descriptor);
+    return text;
+}
+#else
+/// Writes `text` to path.new, ready to replace `path` by publish().
+bool stageFile(const std::filesystem::path& path, std::string_view text) {
+    auto fresh = path;
+    fresh += ".new";
+    std::error_code error;
+    std::filesystem::remove(fresh, error);
+    std::ofstream stream{fresh, std::ios::binary};
+    stream << text;
+    if (stream.flush())
+        return true;
+    stream.close();
+    std::filesystem::remove(fresh, error);
+    return false;
+}
+
+std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto      status = std::filesystem::symlink_status(path, error);
+    if (error || !std::filesystem::is_regular_file(status))
+        return std::nullopt;
+    return readFile(path);
+}
+#endif
+
+/// Makes the staged file the one at `path`: a rename, so a reader sees the old file or the new one, whole.
+bool publish(const std::filesystem::path& path) {
+    auto fresh = path;
+    fresh += ".new";
+    std::error_code error;
+    std::filesystem::rename(fresh, path, error);
+    if (error)
+        std::filesystem::remove(fresh, error);
+    return !error;
+}
+
+void discard(const std::filesystem::path& path) {
+    auto fresh = path;
+    fresh += ".new";
+    std::error_code error;
+    std::filesystem::remove(fresh, error);
+}
+
+}  // namespace
+
+std::expected<std::string, std::string> keepEvidence(const Report& report, const std::filesystem::path& directory) {
+    std::error_code error;
+    std::filesystem::create_directories(directory, error);
+    if (error)
+        return std::unexpected(std::format("Cannot create {}: {}", directory.generic_string(), error.message()));
+    const auto reportPath = directory / "report.json";
+    const auto tracePath  = directory / "trace.vcd";
+    const auto hasTrace   = !report.trace.empty();
+    // The report is valid UTF-8; replacing what would not be keeps the evidence even if a string slipped through.
+    auto text = toJson(report, hasTrace ? "trace.vcd" : "").dump(2, ' ', false, Json::error_handler_t::replace) + "\n";
+    // Both files are written whole before either replaces its predecessor, so a failure to write leaves the earlier
+    // evidence as it was. The report names the SHA-256 of its trace, and readers check it: the pair is consistent
+    // whenever they match, and the few moments between the two renames show as a mismatch, never as a mixed state.
+    if (!stageFile(reportPath, text) || (hasTrace && !stageFile(tracePath, report.trace))) {
+        discard(reportPath);
+        discard(tracePath);
+        return std::unexpected(std::format("Cannot write the evidence of the run in {}", directory.generic_string()));
+    }
+    if (hasTrace) {
+        // The trace first: the old report then sees a trace it does not match, until the new report replaces it.
+        if (!publish(tracePath)) {
+            discard(reportPath);
+            return std::unexpected(std::format("Cannot write the evidence of the run in {}", directory.generic_string()));
+        }
+        if (!publish(reportPath))
+            return std::unexpected(std::format("Cannot write the evidence of the run in {}", directory.generic_string()));
+    } else {
+        // The report first: readers take a trace only when their report names one, so a trace left by an earlier
+        // run is ignored from this moment, and removed.
+        if (!publish(reportPath))
+            return std::unexpected(std::format("Cannot write the evidence of the run in {}", directory.generic_string()));
+        std::filesystem::remove(tracePath, error);
+        if (error)
+            return std::unexpected(std::format("Cannot remove the trace of an earlier run, {}: {}", tracePath.generic_string(), error.message()));
+    }
+    return text;
+}
+
+std::expected<std::string, std::string> readReport(const std::filesystem::path& directory) {
+    auto report = readEvidenceFile(directory / "report.json");
+    if (!report)
+        return std::unexpected(std::format("No report in {}: report.json is missing or is not a plain file", directory.generic_string()));
+    const auto parsed = Json::parse(*report, nullptr, false);
+    if (!parsed.is_object() || !parsed.contains("verdict") || !parsed.contains("inputs"))
+        return std::unexpected(std::format("{} is not the report of a bench run", (directory / "report.json").generic_string()));
+    return std::move(*report);
+}
+
+std::expected<Evidence, std::string> readEvidence(const std::filesystem::path& directory) {
+    // A run being replaced shows for a moment a report and a trace that do not match: read again, a few times.
+    constexpr int attempts = 20;
+    for (int attempt = 1;; ++attempt) {
+        auto report = readReport(directory);
+        if (!report)
+            return std::unexpected(std::move(report.error()));
+        const auto parsed  = Json::parse(*report, nullptr, false);
+        const auto wanted  = parsed.contains("trace") ? parsed.at("trace").value("sha256", std::string{}) : std::string{};
+        if (wanted.empty())
+            return Evidence{std::move(*report), std::nullopt};  // The run kept no trace: a file left there is not its own.
+        auto trace = readEvidenceFile(directory / "trace.vcd");
+        if (trace && hash(*trace) == wanted)
+            return Evidence{std::move(*report), std::move(trace)};
+        if (attempt == attempts)
+            return std::unexpected(std::format("The trace of {} does not match its report: the run is being replaced, or was interrupted while it was", directory.generic_string()));
+        std::this_thread::sleep_for(std::chrono::milliseconds{25});
+    }
 }
 
 }  // namespace siliconforge::scenario

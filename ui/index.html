@@ -10,6 +10,7 @@
   <script src="breadboard.js" defer></script>
   <script src="pinout.js" defer></script>
   <script src="instruments.js" defer></script>
+  <script src="bench.js" defer></script>
   <script src="siliconforge.js" defer></script>
 </head>
 <body>
@@ -147,6 +148,40 @@
     </section>
 
     <aside class="side">
+      <section class="panel bench" id="bench" aria-label="Bench">
+        <h2 class="panel-header">Bench <span class="muted">scenarios and runs</span>
+          <button class="small end" data-action="refresh" title="Look again for scenarios and runs in the project directory">Refresh</button></h2>
+        <div class="bench-controls">
+          <select data-select="scenario" aria-label="Scenario" title="A scenario of the project (scenarios/*.json)"></select>
+          <button data-action="run" class="primary" title="Run it with the engine of siliconforge-bench and compare with the run it replaces">Run</button>
+        </div>
+        <div class="bench-controls">
+          <select data-select="run" aria-label="Run" title="A run kept in .siliconforge/runs, by this window or by siliconforge-bench"></select>
+          <button data-action="open" title="Show the evidence of this run">Open</button>
+        </div>
+        <p class="hint" data-readout="empty" hidden>No scenario in scenarios/ and no run in .siliconforge/runs of the project directory.</p>
+        <p class="error" role="alert" data-readout="error" hidden></p>
+        <div class="bench-result" data-section="details" hidden>
+          <p class="bench-title"><output class="verdict" data-readout="verdict"></output> <output data-readout="title"></output></p>
+          <p class="bench-comparison" data-readout="comparison"></p>
+          <details class="bench-changes" data-section="changes" hidden>
+            <summary>Show every difference</summary>
+            <ul data-list="changes"></ul>
+          </details>
+          <p class="error" data-readout="problem" hidden></p>
+          <h3>Measurements</h3>
+          <table class="bench-table"><tbody data-list="measurements"></tbody></table>
+          <h3>Steps</h3>
+          <table class="bench-table"><tbody data-list="steps"></tbody></table>
+          <h3>Serial output</h3>
+          <pre class="bench-serial" data-readout="serial"></pre>
+          <h3>Inputs</h3>
+          <ul class="bench-inputs" data-list="inputs"></ul>
+          <p class="hint"><output data-readout="trace"></output>
+            <button class="small" data-action="save-trace" title="Save trace.vcd (GTKWave, PulseView, Surfer)">Save trace</button></p>
+        </div>
+      </section>
+
       <section class="panel serial" aria-label="Serial monitor">
         <h2 class="panel-header">Serial monitor <span class="muted">USART0</span>
           <button id="serial-clear" class="small end">Clear</button></h2>

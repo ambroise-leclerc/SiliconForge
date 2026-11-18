@@ -20,7 +20,7 @@ configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedFirmware.hpp.in"
 add_library(SiliconForge_app INTERFACE)
 add_library(SiliconForge::app ALIAS SiliconForge_app)
 target_include_directories(SiliconForge_app INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
-target_link_libraries(SiliconForge_app INTERFACE SiliconForge::mcu SiliconForge::circuit WebFront::WebFront)
+target_link_libraries(SiliconForge_app INTERFACE SiliconForge::mcu SiliconForge::circuit SiliconForge::scenario WebFront::WebFront)
 target_compile_definitions(SiliconForge_app INTERFACE SILICONFORGE_UI_DIR="${PROJECT_SOURCE_DIR}/ui")
 
 add_executable(siliconforge main.cpp)

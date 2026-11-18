@@ -154,9 +154,13 @@ imprévu. Une mesure hors tolérance n’arrête pas l’essai, les suivantes so
   16 MHz, soit 625 unités par cycle. Une période qui n’est pas un nombre entier de femtosecondes donne une échelle de
   1 fs et des instants arrondis. `report.json` indique l’échelle dans `trace.timescale`.
 
-La trace et le rapport sont écrits même quand une assertion échoue. Une ancienne `trace.vcd` est toujours supprimée
-du répertoire, même quand le nouvel essai n’en produit pas (scénario incompatible) : chaque fichier présent
-correspond au rapport. Ils ne contiennent ni horodatage ni durée
+La trace et le rapport sont écrits même quand une assertion échoue. Les deux fichiers sont d’abord écrits en entier
+(`report.json.new`, `trace.vcd.new`) puis remplacent leurs prédécesseurs par un renommage : une écriture qui échoue
+laisse l’essai précédent intact. Le rapport nomme l’empreinte SHA-256 de sa trace (`trace.sha256`) et les lecteurs
+la vérifient : une trace n’est rendue qu’avec le rapport qui la désigne, et les instants entre les deux renommages
+apparaissent comme un désaccord (relu pendant une demi-seconde au plus), jamais comme un mélange de deux essais. Un
+essai sans trace ne fait pas confiance à un `trace.vcd` resté là : il est ignoré, et supprimé par `run`. Les
+fichiers temporaires `.new` d’un essai interrompu sont remplacés au suivant. Ils ne contiennent ni horodatage ni durée
 d’exécution réelle : deux essais sur les mêmes entrées produisent des fichiers identiques, échéance dépassée
 comprise.
 
@@ -173,6 +177,37 @@ const auto result = (*prepared)->run();  // repeatable: each run starts from a f
 const auto json   = scenario::toJson(result, "trace.vcd");
 ```
 
+## Dans la fenêtre
+
+Le panneau **Bench** de la fenêtre utilise le même moteur et écrit les mêmes preuves, au même endroit, que
+`siliconforge-bench` : la fenêtre et la commande partagent `scenario::keepEvidence` et
+`scenario::defaultEvidenceDirectory` ([`Scenario.hpp`](../include/siliconforge/scenario/Scenario.hpp)). Elle travaille
+sur le répertoire courant du projet :
+
+- la liste des scénarios vient de `scenarios/*.json`, celle des essais de `.siliconforge/runs/` (elle ne lit que les
+  rapports, jamais les traces, qui peuvent être volumineuses) ;
+- **Open** affiche les preuves d’un essai, quel que soit celui qui l’a lancé (l’agent, la CLI ou la fenêtre) : le
+  verdict, chaque mesure avec sa valeur et son attendu, chaque étape et son issue (le stimulus appliqué figure dans le
+  détail de l’étape `set`), la sortie série, l’empreinte des entrées, et la trace, que **Save trace** enregistre en
+  VCD ;
+- **Run** relance le scénario avec son propre MCU, sans toucher à l’émulation affichée, remplace les preuves de
+  l’essai précédent du même scénario et les compare à celles-ci. Deux essais sur les mêmes entrées donnent un rapport
+  identique à l’octet près ; sinon le panneau liste les chemins JSON qui diffèrent (empreinte d’une entrée, valeur
+  d’une mesure, verdict).
+
+`sf.bench.run` s’exécute sur un fil de travail (un seul, donc deux essais ne s’écrivent jamais en même temps) et sa
+Promise se résout à la fin : un scénario de plusieurs minutes simulées ne retarde ni les autres appels ni les autres
+connexions. Fermer la fenêtre attend la fin de l’essai en cours.
+
+Les preuves sont lues et écrites comme des fichiers ordinaires : un lien symbolique est refusé à l’ouverture
+(`O_NOFOLLOW`), une FIFO ne bloque pas la lecture, et l’écriture passe par un nouveau fichier renommé sur l’ancien,
+de sorte qu’un lien physique vers un fichier extérieur n’est jamais tronqué.
+
+La page ne donne jamais de chemin : elle nomme un scénario ou un essai de ces listes, et un nom qui contient un
+séparateur est refusé (`siliconforge.unknownScenario`, `siliconforge.unknownRun`). Une interface servie à d’autres
+machines (`--address 0.0.0.0`) ne peut donc ni lire ni écrire hors du projet. Les fonctions sont `sf.bench.list`,
+`sf.bench.open` et `sf.bench.run` ; l’API d’automatisation les expose en `siliconForge.bench`.
+
 ## Limites
 
 - Les stimuli disponibles sont les états interactifs des composants (boutons, potentiomètres) et les sondes de
@@ -180,4 +215,6 @@ const auto json   = scenario::toJson(result, "trace.vcd");
   #64.
 - Les mesures portent sur une broche à la fois ; pas encore de tension moyenne, de niveau d’un nœud du circuit ni de
   décodage UART dans un scénario.
-- Le premier incrément est qualifié sur l’ATmega328P simulé. La reprise de l’essai dans la fenêtre est l’objet de #60.
+- Le premier incrément est qualifié sur l’ATmega328P simulé.
+- La fenêtre affiche la trace en VCD à enregistrer, pas encore en courbes : on l’ouvre dans GTKWave, PulseView ou
+  Surfer. Elle n’édite pas les scénarios et ne choisit pas d’autre répertoire que celui du projet.
