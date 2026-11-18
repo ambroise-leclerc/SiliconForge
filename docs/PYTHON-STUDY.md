@@ -83,7 +83,7 @@ s'impose.
 | Parcours | Linux | Windows | macOS |
 | --- | --- | --- | --- |
 | `atdf2json`, `captures2gif` et leurs tests | Vérifié | Vérifié (MSVC 19.51, `/W4 /WX`) | Vérifié (AppleClang 21, libc++, `-Werror`) |
-| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Vérifié (avec `CliHelpRejectsInvalidOptions`) | `Atdf2JsonCommandLine` vérifié ; `McuCommandLine` non exécutable (voir ci-dessous) |
+| `McuCommandLine`, `Atdf2JsonCommandLine` (`cmake -P`) | Vérifié | Vérifié (avec `CliHelpRejectsInvalidOptions`) | Vérifié, avec WebFront corrigé (voir ci-dessous) |
 | `siliconforge_compare_dispatch` | Vérifié | Non compilé (Linux seulement) | Non compilé (Linux seulement) |
 | `UI-Mcu` (Jasmine) | Vérifié (WebKitGTK, Xvfb) | Non raccordé (WebView2) | Non raccordé (WKWebView) |
 
@@ -95,10 +95,12 @@ s'impose.
   133 ATDF de `Microchip.ATmega_DFP.3.1.264` : **133/133 identiques octet pour octet** (sortie et stderr), comme sous Linux.
 - Écart corrigé : `cmake/Warnings.cmake` passait `-Wshadow=local`, option propre à GCC, que Clang rejette. Clang reçoit
   désormais `-Wshadow`, qui couvre aussi les champs ; trois paramètres de `Circuit.cpp` (`supply`, `source`) ont été renommés.
-- Écart non corrigé : la cible `siliconforge` ne compile pas, à cause de la dépendance WebFront
-  (`webfront/frontend/Capture.hpp:109`, comparaison de `std::shared_ptr<CaptureProvider>` refusée par libc++).
-  `McuCommandLine` et `CliHelpRejectsInvalidOptions` ont besoin de cet exécutable : ils restent à vérifier sous macOS,
-  après correction en amont. `UI-Mcu` sous WKWebView reste non raccordé.
+- Écart en amont : la cible `siliconforge` ne compile pas avec WebFront 1.0.0 (`webfront/frontend/Capture.hpp:109`,
+  comparaison de `std::shared_ptr<CaptureProvider>` refusée par libc++ : ambroise-leclerc/WebFront#606). Avec la correction
+  proposée dans cette issue (`registry.provider.get() == owned.get()`) appliquée à une copie locale, tout se compile avec
+  `-Werror` et les 106 tests CTest hors `ui` passent, dont `McuCommandLine` et `CliHelpRejectsInvalidOptions`.
+  Le projet ne patche pas la dépendance : la tâche CI macOS ne construit que les outils et les tests unitaires, jusqu'à la
+  prochaine version de WebFront. `UI-Mcu` sous WKWebView reste non raccordé.
 
 ### Windows (MSVC 19.51, Visual Studio 2026 Build Tools, CMake 4.3.4, Ninja)
 
