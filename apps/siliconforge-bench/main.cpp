@@ -166,7 +166,8 @@ int execute(const Options& options) {
         return usageError;
     }
     const auto hasTrace = !report.trace.empty();
-    const auto json     = scenario::toJson(report, hasTrace ? "trace.vcd" : "").dump(2) + "\n";
+    // The report is valid UTF-8; replacing what would not be keeps the evidence even if a string slipped through.
+    const auto json = scenario::toJson(report, hasTrace ? "trace.vcd" : "").dump(2, ' ', false, nlohmann::json::error_handler_t::replace) + "\n";
     if (!write(out / "report.json", json) || (hasTrace && !write(out / "trace.vcd", report.trace))) {
         std::println(stderr, "Cannot write the evidence of the run in {}", out.generic_string());
         return usageError;

@@ -7,6 +7,7 @@
 #include <siliconforge/scenario/Scenario.hpp>
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <cmath>
 #include <format>
@@ -389,6 +390,48 @@ std::string vcd(Mcu& mcu, const std::vector<PinState>& initial, const std::vecto
     }
     if (clock.time(end) != time)
         out += std::format("#{}\n", clock.time(end));
+    return out;
+}
+
+std::string base64(std::string_view bytes) {
+    constexpr std::string_view alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string                out;
+    out.reserve((bytes.size() + 2) / 3 * 4);
+    for (std::size_t i = 0; i < bytes.size(); i += 3) {
+        const auto count = std::min<std::size_t>(3, bytes.size() - i);
+        u32        group = 0;
+        for (std::size_t k = 0; k < 3; ++k)
+            group = group << 8 | (k < count ? static_cast<u8>(bytes[i + k]) : 0u);
+        for (std::size_t k = 0; k < 4; ++k)
+            out += k <= count ? alphabet[group >> (18 - 6 * k) & 0x3F] : '=';
+    }
+    return out;
+}
+
+/// The bytes as UTF-8 text: valid sequences kept, every other byte replaced by U+FFFD.
+std::string readableText(std::string_view bytes) {
+    std::string out;
+    for (std::size_t i = 0; i < bytes.size();) {
+        const auto lead   = static_cast<u8>(bytes[i]);
+        const auto length = lead < 0x80 ? 1u : (lead >> 5) == 0x6 ? 2u : (lead >> 4) == 0xE ? 3u : (lead >> 3) == 0x1E ? 4u : 0u;
+        bool       valid  = length != 0 && i + length <= bytes.size();
+        u32        code   = length == 1 ? lead : length == 2 ? lead & 0x1Fu : length == 3 ? lead & 0x0Fu : lead & 0x07u;
+        for (std::size_t k = 1; valid && k < length; ++k) {
+            const auto next = static_cast<u8>(bytes[i + k]);
+            valid           = (next & 0xC0) == 0x80;
+            code            = code << 6 | (next & 0x3Fu);
+        }
+        // No overlong form, no surrogate, nothing beyond U+10FFFF.
+        constexpr std::array<u32, 5> smallest{0, 0, 0x80, 0x800, 0x10000};
+        valid = valid && code >= smallest[length] && code <= 0x10FFFF && (code < 0xD800 || code > 0xDFFF);
+        if (valid) {
+            out.append(bytes.substr(i, length));
+            i += length;
+        } else {
+            out += "\xEF\xBF\xBD";
+            ++i;
+        }
+    }
     return out;
 }
 
@@ -1080,7 +1123,15 @@ Json toJson(const Report& report, std::string_view traceFile) {
             entry["detail"] = measurement.detail;
         measurements.push_back(std::move(entry));
     }
-    out["serial"] = report.serial;
+    // Serial output is bytes, not text: base64 keeps them all, `text` shows them, invalid UTF-8 replaced by U+FFFD.
+    auto& serial = out["serial"] = Json::array();
+    for (std::size_t port = 0; port < report.serial.size(); ++port)
+        serial.push_back({
+            {  "port",                              port},
+            { "bytes",        report.serial[port].size()},
+            {"base64",       base64(report.serial[port])},
+            {  "text", readableText(report.serial[port])}
+        });
     if (!traceFile.empty())
         out["trace"] = {
             {   "format",                               "vcd"},

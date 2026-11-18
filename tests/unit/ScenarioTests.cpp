@@ -544,3 +544,30 @@ TEST_CASE("The edges at both ends of a measurement window belong to it", "[scena
         CHECK(report.verdict == scenario::Verdict::Pass);
     }
 }
+
+TEST_CASE("Binary serial output is kept in the report, reversibly", "[scenario]") {
+    // USART0 at 1 Mbaud (UBRR0 = 0) transmits 0xFF, 'o', 'k', then 0xC3 0xA9 ("é" in UTF-8).
+    siliconforge::test::AvrAssembler program;
+    program.ldi(16, 0x08).sts(0xC1, 16);             // UCSR0B: TXEN0
+    for (const unsigned byte : {0xFFu, unsigned{'o'}, unsigned{'k'}, 0xC3u, 0xA9u}) {
+        program.lds(17, 0xC0).sbrs(17, 5).rjmp(-4);  // Wait for UDRE0
+        program.ldi(18, byte).sts(0xC6, 18);         // UDR0
+    }
+    program.rjmp(-1);
+    auto document        = example();
+    document["firmware"] = hexFile(program, "siliconforge-scenario-binary.hex").generic_string();
+    document["initial"]  = Json::object();
+    document["steps"]    = Json::parse(R"([{"waitFor": {"serial": "ok"}, "timeout": "1ms"}, {"wait": "100us"}])");
+    const auto report    = prepared(document)->run();
+    REQUIRE(report.verdict == scenario::Verdict::Pass);
+    REQUIRE(report.serial.at(0) == std::string{"\xFFok\xC3\xA9"});
+
+    const auto json = scenario::toJson(report, "trace.vcd");
+    const auto text = json.dump(2);  // Throws on invalid UTF-8
+    INFO(text);
+    const auto& port = json["serial"][0];
+    CHECK(port["port"] == 0);
+    CHECK(port["bytes"] == 5);
+    CHECK(port["base64"] == "/29rw6k=");
+    CHECK(port["text"] == "\xEF\xBF\xBDok\xC3\xA9");  // U+FFFD for 0xFF, the valid "é" kept
+}

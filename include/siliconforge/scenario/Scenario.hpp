@@ -107,7 +107,7 @@ struct Report {
     Cycles                   duration{0};
     std::vector<StepRecord>  steps;
     std::vector<Measurement> measurements;
-    std::vector<std::string> serial;  ///< What the MCU transmitted on each serial port.
+    std::vector<std::string> serial;  ///< The bytes the MCU transmitted on each serial port, as they are: not text.
     std::string              trace;   ///< Value Change Dump of every pin, one time unit per clock cycle; empty when nothing ran.
 };
 

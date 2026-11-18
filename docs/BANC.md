@@ -144,10 +144,10 @@ imprévu. Une mesure hors tolérance n’arrête pas l’essai, les suivantes so
 
 - `report.json` : verdict ; version du moteur et du format ; empreinte SHA-256 et chemin du scénario, du circuit et du
   firmware ; microcontrôleur et horloge ; chaque étape avec son issue, ses instants planifiés de début et de fin, le
-  cycle où un stimulus a pris effet (`applied`) (en cycles et en
-  secondes) et son détail ; chaque mesure avec sa valeur, son unité, sa fenêtre, le nombre de fronts montants et
-  l’attendu ; la sortie série ; la cause d’une incompatibilité, avec l’empreinte de chaque entrée lue avant le
-  refus.
+  cycle où un stimulus a pris effet (`applied`), en cycles et en secondes, et son détail ; chaque mesure avec sa
+  valeur, son unité, sa fenêtre, le nombre de fronts montants et l’attendu ; la sortie série de chaque port, en octets
+  (`base64`, réversible) et en texte (`text`, les octets qui ne forment pas de l’UTF-8 remplacés par U+FFFD) ; la
+  cause d’une incompatibilité, avec l’empreinte de chaque entrée lue avant le refus.
 - `trace.vcd` : toutes les broches depuis le reset, à ouvrir dans GTKWave, PulseView ou Surfer. L’échelle de temps est
   la plus grande échelle valide (1, 10 ou 100 s, ms, µs, ns, ps ou fs) qui divise la période d’horloge : 100 ps à
   16 MHz, soit 625 unités par cycle. Une période qui n’est pas un nombre entier de femtosecondes donne une échelle de

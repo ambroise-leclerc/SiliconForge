@@ -136,3 +136,25 @@ expect_report("${WORK}/reused" incompatible)
 if(EXISTS "${WORK}/reused/trace.vcd")
     message(FATAL_ERROR "The trace of the earlier run survived beside an incompatible report")
 endif()
+
+# A firmware that transmits bytes which are not UTF-8 (0xFF, then "ok" and "é"): the verdict and the evidence are kept,
+# the bytes in base64 and as text with U+FFFD for what is not UTF-8.
+file(WRITE "${WORK}/binary.hex" ":1000000008E00093C1001091C00015FFFCCF2FEF56
+:100010002093C6001091C00015FFFCCF2FE620935F
+:10002000C6001091C00015FFFCCF2BE62093C60040
+:100030001091C00015FFFCCF23EC2093C600109157
+:0E004000C00015FFFCCF29EA2093C600FFCFB9
+:00000001FF
+")
+file(READ "${example}" d)
+string(JSON d SET "${d}" circuit "\"${SOURCE}/circuits/arduino-demo.json\"")
+string(JSON d SET "${d}" firmware "\"binary.hex\"")
+string(JSON d SET "${d}" initial "{}")
+string(JSON d SET "${d}" steps "[{\"waitFor\": {\"serial\": \"ok\"}, \"timeout\": \"1ms\"}, {\"wait\": \"100us\"}]")
+file(WRITE "${WORK}/binary.json" "${d}")
+run(0 run --out "${WORK}/binary" "${WORK}/binary.json")
+expect_report("${WORK}/binary" pass)
+string(JSON encoded GET "${report}" serial 0 base64)
+if(NOT encoded STREQUAL "/29rw6k=" OR NOT EXISTS "${WORK}/binary/trace.vcd")
+    message(FATAL_ERROR "The serial bytes or the trace were not kept:\n${report}")
+endif()
