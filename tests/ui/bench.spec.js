@@ -53,6 +53,20 @@ describe("The bench in the window", () => {
     ]);
   });
 
+  it("lists every difference between two runs, not a sample", () => {
+    const measurements = (value) => Array.from({length: 9}, (_, index) => ({id: `m${index}`, value: value + index}));
+    const report = (value) => ({scenario: "s", verdict: "pass", inputs: [], steps: [], serial: [], measurements: measurements(value)});
+    bench().show({run: "s", directory: "d", report: report(2), trace: null, previous: report(1), identical: false});
+    expect(readout("comparison").textContent).toContain("9 place(s)");
+    const details = panel().querySelector("[data-section=changes]");
+    expect(details.hidden).toBe(false);
+    const paths = [...details.querySelectorAll("li code")].map((code) => code.textContent);
+    expect(paths.length).toBe(9);
+    expect(paths[8]).toBe("/measurements/8/value");
+    bench().show({run: "s", directory: "d", report: report(1), trace: null, previous: report(1), identical: true});
+    expect(details.hidden).toBe(true);
+  });
+
   it("opens a failed run and finds the stimulus, the measure, the expectation, the verdict and the trace", async () => {
     await bench().run("off-target.json");
     const opened = await bench().open("off-target");

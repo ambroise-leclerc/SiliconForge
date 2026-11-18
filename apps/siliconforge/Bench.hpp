@@ -33,23 +33,40 @@ struct Refusal {
     return !name.empty() && name != "." && name != ".." && name.find_first_of("/\\") == std::string_view::npos;
 }
 
+/// True when `path`, relative to the working directory, and each directory above it that exists are what they seem:
+/// no link anywhere on the way. A link could lead the bench outside the project; the files of the evidence are
+/// refused as links by the library, at the open itself.
+[[nodiscard]] inline bool withoutLinks(const std::filesystem::path& path) {
+    std::filesystem::path walked;
+    for (const auto& part : path) {
+        walked /= part;
+        std::error_code error;
+        const auto      status = std::filesystem::symlink_status(walked, error);
+        if (std::filesystem::is_symlink(status))
+            return false;
+    }
+    return true;
+}
+
 /// Names the scenarios (`scenarios/*.json`) and the runs that hold a report, sorted.
 [[nodiscard]] inline nlohmann::json list() {
     auto           scenarios = nlohmann::json::array();
     auto           runs      = nlohmann::json::array();
     std::error_code error;
     std::vector<std::filesystem::path> files;
-    for (std::filesystem::directory_iterator it{scenarioDirectory, error}, end; !error && it != end; it.increment(error))
-        if (it->path().extension() == ".json" && it->is_regular_file(error))
-            files.push_back(it->path());
+    if (withoutLinks(scenarioDirectory))
+        for (std::filesystem::directory_iterator it{scenarioDirectory, error}, end; !error && it != end; it.increment(error))
+            if (it->path().extension() == ".json" && std::filesystem::is_regular_file(it->symlink_status(error)))
+                files.push_back(it->path());
     std::ranges::sort(files);
     for (const auto& file : files)
         scenarios.push_back(file.filename().string());
     std::vector<std::filesystem::path> directories;
     error.clear();
-    for (std::filesystem::directory_iterator it{runDirectory, error}, end; !error && it != end; it.increment(error))
-        if (it->is_directory(error) && std::filesystem::exists(it->path() / "report.json", error))
-            directories.push_back(it->path());
+    if (withoutLinks(runDirectory))
+        for (std::filesystem::directory_iterator it{runDirectory, error}, end; !error && it != end; it.increment(error))
+            if (std::filesystem::is_directory(it->symlink_status(error)))
+                directories.push_back(it->path());
     std::ranges::sort(directories);
     for (const auto& directory : directories) {
         const auto evidence = scenario::readEvidence(directory);
@@ -71,7 +88,7 @@ struct Refusal {
 
 /// Opens the evidence kept for a run, whoever ran it.
 [[nodiscard]] inline std::expected<nlohmann::json, Refusal> open(std::string_view name) {
-    if (!plainName(name))
+    if (!plainName(name) || !withoutLinks(runDirectory / name))
         return std::unexpected(Refusal{"siliconforge.unknownRun", std::string{"Unknown run: "} + std::string{name}});
     auto evidence = scenario::readEvidence(runDirectory / name);
     if (!evidence)
@@ -84,9 +101,12 @@ struct Refusal {
 /// the same inputs on the same engine give the same report, so a difference is a change of inputs or of behavior.
 [[nodiscard]] inline std::expected<nlohmann::json, Refusal> run(std::string_view file) {
     const std::filesystem::path path = scenarioDirectory / std::string{file};
-    if (!plainName(file) || !std::filesystem::is_regular_file(path))
+    std::error_code error;
+    if (!plainName(file) || !withoutLinks(path) || !std::filesystem::is_regular_file(path, error))
         return std::unexpected(Refusal{"siliconforge.unknownScenario", std::string{"Unknown scenario: "} + std::string{file}});
     const auto directory = scenario::defaultEvidenceDirectory(path);
+    if (!withoutLinks(directory))
+        return std::unexpected(Refusal{"siliconforge.evidenceNotKept", directory.generic_string() + " is or goes through a link: the evidence stays inside the project"});
     const auto before    = scenario::readEvidence(directory);
     const auto report    = scenario::run(path);
     const auto kept      = scenario::keepEvidence(report, directory);

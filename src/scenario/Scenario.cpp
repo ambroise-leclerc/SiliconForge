@@ -17,6 +17,14 @@
 #include <set>
 #include <system_error>
 
+#if defined(__unix__) || defined(__APPLE__)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include <cerrno>
+#endif
+
 namespace siliconforge::scenario {
 namespace {
 using Json = nlohmann::json;
@@ -1168,11 +1176,69 @@ std::filesystem::path defaultEvidenceDirectory(const std::filesystem::path& file
 
 namespace {
 
+/// Evidence is read and written as plain files: a link at the place of report.json or trace.vcd is refused, not
+/// followed, so that a run directory cannot be made to disclose or overwrite a file elsewhere. On POSIX the link is
+/// refused by the open itself (O_NOFOLLOW) and the descriptor is checked to be a regular file, so that nothing can
+/// be swapped in between a check and the use; elsewhere the check comes first, which is best effort.
+#if defined(__unix__) || defined(__APPLE__)
 bool writeFile(const std::filesystem::path& path, std::string_view text) {
+    const int descriptor = ::open(path.c_str(), O_WRONLY | O_CREAT | O_TRUNC | O_NOFOLLOW | O_CLOEXEC, 0644);
+    if (descriptor < 0)
+        return false;
+    struct stat info {};
+    bool        ok = ::fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode);
+    for (std::size_t done = 0; ok && done < text.size();) {
+        const auto written = ::write(descriptor, text.data() + done, text.size() - done);
+        if (written < 0 && errno == EINTR)
+            continue;
+        ok = written > 0;
+        done += ok ? static_cast<std::size_t>(written) : 0;
+    }
+    return ::close(descriptor) == 0 && ok;
+}
+
+std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {
+    const int descriptor = ::open(path.c_str(), O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+    if (descriptor < 0)
+        return std::nullopt;
+    struct stat info {};
+    std::optional<std::string> text;
+    if (::fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode)) {
+        text.emplace();
+        char buffer[1 << 16];
+        for (;;) {
+            const auto count = ::read(descriptor, buffer, sizeof buffer);
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count <= 0) {
+                if (count < 0)
+                    text.reset();
+                break;
+            }
+            text->append(buffer, static_cast<std::size_t>(count));
+        }
+    }
+    ::close(descriptor);
+    return text;
+}
+#else
+bool writeFile(const std::filesystem::path& path, std::string_view text) {
+    std::error_code error;
+    if (std::filesystem::is_symlink(std::filesystem::symlink_status(path, error)))
+        return false;
     std::ofstream stream{path, std::ios::binary};
     stream << text;
     return static_cast<bool>(stream.flush());
 }
+
+std::optional<std::string> readEvidenceFile(const std::filesystem::path& path) {
+    std::error_code error;
+    const auto      status = std::filesystem::symlink_status(path, error);
+    if (error || !std::filesystem::is_regular_file(status))
+        return std::nullopt;
+    return readFile(path);
+}
+#endif
 
 }  // namespace
 
@@ -1195,13 +1261,13 @@ std::expected<std::string, std::string> keepEvidence(const Report& report, const
 }
 
 std::expected<Evidence, std::string> readEvidence(const std::filesystem::path& directory) {
-    auto report = readFile(directory / "report.json");
+    auto report = readEvidenceFile(directory / "report.json");
     if (!report)
-        return std::unexpected(std::format("No report in {}", directory.generic_string()));
+        return std::unexpected(std::format("No report in {}: report.json is missing or is not a plain file", directory.generic_string()));
     const auto parsed = Json::parse(*report, nullptr, false);
     if (!parsed.is_object() || !parsed.contains("verdict") || !parsed.contains("inputs"))
         return std::unexpected(std::format("{} is not the report of a bench run", (directory / "report.json").generic_string()));
-    return Evidence{std::move(*report), readFile(directory / "trace.vcd")};
+    return Evidence{std::move(*report), readEvidenceFile(directory / "trace.vcd")};
 }
 
 }  // namespace siliconforge::scenario

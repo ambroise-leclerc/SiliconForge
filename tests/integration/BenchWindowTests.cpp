@@ -186,3 +186,86 @@ SCENARIO("The window refuses what the project does not hold", "[app][bench]") {
         }
     }
 }
+
+namespace {
+
+/// Makes a symbolic link, or skips the case where the platform does not allow it.
+void link(const fs::path& target, const fs::path& at) {
+    std::error_code error;
+    fs::create_directories(at.parent_path(), error);
+    fs::create_symlink(target, at, error);
+    if (error)
+        SKIP("Cannot create a symbolic link: " << error.message());
+}
+
+}  // namespace
+
+SCENARIO("The window does not follow links out of the project", "[app][bench]") {
+    GIVEN("a project and a file outside it") {
+        Project       project;
+        const auto    outside = project.root.parent_path() / "siliconforge-bench-window-outside";
+        fs::remove_all(outside);
+        fs::create_directories(outside);
+        std::ofstream{outside / "secret.txt"} << "secret";
+        const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
+        const auto directory = scenario::defaultEvidenceDirectory(file);
+        REQUIRE(scenario::keepEvidence(scenario::run(file), directory));
+
+        WHEN("trace.vcd of a run is a link to that file") {
+            fs::remove(directory / "trace.vcd");
+            link(outside / "secret.txt", directory / "trace.vcd");
+            const auto opened = app::bench::open("pwm-setpoint");
+            THEN("the run opens without the trace, and nothing of the file is returned") {
+                REQUIRE(opened);
+                CHECK(opened->at("trace").is_null());
+                CHECK(opened->dump().find("secret") == std::string::npos);
+            }
+        }
+        WHEN("report.json of a run is a link to that file") {
+            fs::remove(directory / "report.json");
+            link(outside / "secret.txt", directory / "report.json");
+            THEN("the run is not opened") {
+                REQUIRE_FALSE(app::bench::open("pwm-setpoint"));
+            }
+            AND_THEN("running the scenario again leaves the file alone and keeps no evidence") {
+                const auto result = app::bench::run("pwm-setpoint.json");
+                REQUIRE_FALSE(result);
+                CHECK(result.error().code == "siliconforge.evidenceNotKept");
+                CHECK(text(outside / "secret.txt") == "secret");
+            }
+        }
+        WHEN("the directory of a run is a link to a directory outside the project") {
+            fs::remove_all(directory);
+            link(outside, directory);
+            THEN("the run is neither opened, listed nor written to") {
+                CHECK_FALSE(app::bench::open("pwm-setpoint"));
+                CHECK(app::bench::list().at("runs").empty());
+                const auto result = app::bench::run("pwm-setpoint.json");
+                REQUIRE_FALSE(result);
+                CHECK(result.error().code == "siliconforge.evidenceNotKept");
+                CHECK_FALSE(fs::exists(outside / "report.json"));
+            }
+        }
+        WHEN(".siliconforge/runs itself is a link outside the project") {
+            fs::remove_all(fs::path{".siliconforge"});
+            link(outside, fs::path{".siliconforge"} / "runs");
+            THEN("nothing is written through it") {
+                const auto result = app::bench::run("pwm-setpoint.json");
+                REQUIRE_FALSE(result);
+                CHECK_FALSE(fs::exists(outside / "pwm-setpoint"));
+            }
+        }
+        WHEN("a scenario is a link to a file outside the project") {
+            fs::copy_file(sourceDir / "scenarios" / "pwm-setpoint.json", outside / "elsewhere.json");
+            link(outside / "elsewhere.json", fs::path{"scenarios"} / "elsewhere.json");
+            THEN("it is neither listed nor run") {
+                const auto names = app::bench::list().at("scenarios");
+                CHECK(names == Json::array({"off-target.json", "pwm-setpoint.json"}));
+                const auto result = app::bench::run("elsewhere.json");
+                REQUIRE_FALSE(result);
+                CHECK(result.error().code == "siliconforge.unknownScenario");
+            }
+        }
+        fs::remove_all(outside);
+    }
+}

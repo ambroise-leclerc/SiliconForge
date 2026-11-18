@@ -342,3 +342,8 @@ select {
 .bench-inputs { list-style: none; margin: 0; padding: 0; font-size: 12px; }
 .bench-inputs li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .bench-inputs .muted { overflow-wrap: anywhere; }
+.bench-changes { font-size: 12px; margin: 2px 0 6px; }
+.bench-changes summary { cursor: pointer; color: var(--muted); }
+.bench-changes ul { list-style: none; margin: 4px 0 0; padding: 0; max-height: 12em; overflow: auto; }
+.bench-changes li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.bench-changes code { overflow-wrap: anywhere; }

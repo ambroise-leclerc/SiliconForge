@@ -37,6 +37,7 @@ window.SiliconForgeBench = (root, host) => {
 
   const api = {
     get result() { return current; },
+    show,
     differences,
     list: async () => parse(await host.call("sf.bench.list")),
     /** Opens the evidence kept for a run, whoever ran it. */
@@ -47,6 +48,7 @@ window.SiliconForgeBench = (root, host) => {
     trace: () => current?.trace ?? null,
   };
 
+  /** Shows a result as `run` and `open` return it. */
   function show(result) {
     current = result;
     render();
@@ -104,7 +106,10 @@ window.SiliconForgeBench = (root, host) => {
 
   function renderComparison() {
     const out = $("[data-readout=comparison]");
+    const details = $("[data-section=changes]");
     out.dataset.state = "";
+    details.hidden = true;
+    details.open = false;
     if (!current || current.identical === undefined) { out.textContent = ""; return; }
     if (current.previous === null) {
       out.textContent = "No earlier run of this scenario to compare with.";
@@ -113,9 +118,15 @@ window.SiliconForgeBench = (root, host) => {
       out.dataset.state = "same";
     } else {
       const changes = differences(current.previous, current.report);
-      out.textContent = `Differs from the earlier run at ${changes.length} place(s): ` +
-        changes.slice(0, 6).map((c) => `${c.path} ${format(c.before)} → ${format(c.after)}`).join("; ") + (changes.length > 6 ? "; …" : "");
+      out.textContent = `Differs from the earlier run at ${changes.length} place(s).`;
       out.dataset.state = "different";
+      // Every path is listed: the summary above is a count, not a sample.
+      $("[data-list=changes]").replaceChildren(...changes.map((change) => {
+        const item = element("li");
+        item.append(element("code", change.path), element("span", `${format(change.before)} → ${format(change.after)}`, "muted"));
+        return item;
+      }));
+      details.hidden = false;
     }
   }
 
