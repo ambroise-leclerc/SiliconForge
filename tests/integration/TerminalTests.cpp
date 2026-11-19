@@ -99,3 +99,21 @@ TEST_CASE("Nothing is registered unless WebFront allows PTY pages", "[app][termi
     AppWithoutPty plain;
     CHECK(terminal::registerClients(plain, fs::current_path())["enabled"] == false);
 }
+
+TEST_CASE("A client does not inherit the session of the terminal or the agent the application was started from", "[app][terminal]") {
+    const std::map<std::string, std::string> inherited{
+        {"PATH", "/usr/bin"}, {"HOME", "/home/user"}, {"LANG", "fr_FR.UTF-8"},
+        {"ANTHROPIC_BASE_URL", "https://proxy.example"}, {"CLAUDE_CODE_USE_BEDROCK", "1"}, {"CLAUDE_CODE_OAUTH_TOKEN", "token"},
+        // Started from the terminal of VSCodium, itself running Claude Code.
+        {"CLAUDECODE", "1"}, {"CLAUDE_CODE_SSE_PORT", "51234"}, {"CLAUDE_CODE_SESSION_ID", "abc"}, {"CLAUDE_CODE_ENTRYPOINT", "cli"},
+        {"CLAUDE_CODE_MESSAGING_SOCKET", "/tmp/s"}, {"CLAUDE_CODE_MESSAGING_TOKEN", "secret"}, {"ENABLE_IDE_INTEGRATION", "true"},
+        {"TERM_PROGRAM", "vscode"}, {"TERM_PROGRAM_VERSION", "1.0"}, {"VSCODE_GIT_IPC_HANDLE", "/tmp/git"},
+        {"VSCODE_GIT_ASKPASS_MAIN", "/opt/askpass.js"}, {"GIT_ASKPASS", "/opt/askpass.sh"},
+    };
+    const auto client = terminal::clientEnvironment(inherited);
+    CHECK(client == std::map<std::string, std::string>{{"PATH", "/usr/bin"}, {"HOME", "/home/user"}, {"LANG", "fr_FR.UTF-8"},
+                                                       {"ANTHROPIC_BASE_URL", "https://proxy.example"},
+                                                       {"CLAUDE_CODE_USE_BEDROCK", "1"}, {"CLAUDE_CODE_OAUTH_TOKEN", "token"}});
+    // A GIT_ASKPASS the user set themselves is theirs to keep.
+    CHECK(terminal::clientEnvironment({{"GIT_ASKPASS", "/opt/mine.sh"}}).contains("GIT_ASKPASS"));
+}

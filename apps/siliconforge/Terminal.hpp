@@ -60,6 +60,32 @@ inline constexpr Client clients[] = {
     return variables;
 }
 
+/// What the environment of the application says about the terminal or the agent it was started from, and that must not
+/// reach a client of its own: the client would join that session. Started from the terminal of VSCodium, the
+/// application carried the port of the IDE of the outer Claude Code (`CLAUDE_CODE_SSE_PORT`) and its session; the
+/// embedded client connected to the same IDE and took it from the first one ("switched to another Claude Code session").
+/// The settings of the user (provider, token, model, proxy) are kept.
+[[nodiscard]] inline bool belongsToHostSession(std::string_view name) {
+    constexpr std::string_view exact[] = {
+        "CLAUDECODE", "CLAUDE_PID", "ENABLE_IDE_INTEGRATION", "CLAUDE_CODE_SSE_PORT", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_EXECPATH",
+        "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_BRIDGE_SESSION_ID",
+        "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
+        "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "TERMINAL_EMULATOR",
+    };
+    for (const auto candidate : exact)
+        if (name == candidate)
+            return true;
+    return name.starts_with("VSCODE_") || name.starts_with("CURSOR_TRACE") || name.starts_with("JETBRAINS_");
+}
+
+/// The environment a client starts with: that of the application, without the session of the terminal or the agent
+/// that started it. A `GIT_ASKPASS` that the IDE provided goes with it, since its channel (`VSCODE_GIT_IPC_HANDLE`) goes.
+[[nodiscard]] inline std::map<std::string, std::string> clientEnvironment(std::map<std::string, std::string> variables) {
+    const bool ideAskpass = variables.contains("VSCODE_GIT_ASKPASS_MAIN") || variables.contains("VSCODE_GIT_IPC_HANDLE");
+    std::erase_if(variables, [&](const auto& entry) { return belongsToHostSession(entry.first) || (ideAskpass && entry.first == "GIT_ASKPASS"); });
+    return variables;
+}
+
 /// The executable `program` names in `path`, or nothing.
 [[nodiscard]] inline std::optional<std::filesystem::path> find(std::string_view program, const std::string& path) {
 #if defined(_WIN32)
@@ -110,7 +136,7 @@ nlohmann::json registerClients(App& app, const std::filesystem::path& directory)
     if constexpr (requires { app.allowsPtyPages(); }) {
         if (!app.allowsPtyPages())
             return {{"enabled", false}, {"clients", list}};
-        const auto environment = currentEnvironment();
+        const auto environment = clientEnvironment(currentEnvironment());
         const auto path        = environment.contains("PATH") ? environment.at("PATH") : std::string{};
         const auto add         = [&](std::string_view id, std::string_view title, std::string argv0, bool available) {
             list.push_back({{"id", id}, {"title", title}, {"available", available}});

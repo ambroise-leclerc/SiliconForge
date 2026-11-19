@@ -164,7 +164,9 @@ if(SILICONFORGE_BUILD_APP)
         # The agent terminal (#55), in the same project directory, with the shell standing for a client.
         webfront_add_jasmine_test(NAME UI-Terminal TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/terminal.spec.js ARGS --port 0)
-        set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
+        # Started as from the terminal of an IDE running an agent: the client must not inherit that session.
+        set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${_ui_bench_project}
+            ENVIRONMENT "CLAUDE_CODE_SSE_PORT=51234;CLAUDECODE=1;TERM_PROGRAM=vscode;VSCODE_GIT_IPC_HANDLE=/tmp/none;CLAUDE_CODE_USE_BEDROCK=1")
         # Opt-in qualification of the clients installed on the machine (docs/TERMINAL.md): no test of the suite needs one.
         webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)

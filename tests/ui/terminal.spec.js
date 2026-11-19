@@ -54,6 +54,13 @@ describe("The agent terminal in the window", () => {
     await waitForScreen("pwm-setpoint.json");
   });
 
+  it("does not hand the client the session of the IDE or the agent the application was started from", async () => {
+    // The test is started with those variables set. Reaching the IDE of another session made the embedded client take
+    // it from the first one; the settings of the user stay.
+    type("printf 'host-%s-%s-%s\\n' \"${CLAUDE_CODE_SSE_PORT:-none}\" \"${TERM_PROGRAM:-none}\" \"${CLAUDE_CODE_USE_BEDROCK:-none}\"\r");
+    await waitForScreen("host-none-none-1");
+  });
+
   it("gives the program the size of the panel and follows its changes", async () => {
     const size = () => `${terminal().terminal.rows} ${terminal().terminal.cols}`;
     type("stty size\r");

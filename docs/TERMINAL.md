@@ -13,8 +13,12 @@ commandes, ses raccourcis et sa connexion au fournisseur : SiliconForge ne les v
 - **Quels programmes.** L’application nomme les programmes ; la page n’envoie jamais de ligne de commande. Un client
   est proposé s’il est trouvé dans le `PATH` de l’application, sinon il apparaît grisé (« not installed »). Le shell
   est `$SHELL` (`COMSPEC` sous Windows) ; il sert aux commandes du banc comme `siliconforge-bench`.
-- **Environnement.** Le client reçoit l’environnement de l’application (`HOME`, `PATH`, sa configuration) et démarre
-  dans le répertoire de travail de SiliconForge, c’est-à-dire le projet.
+- **Environnement.** Le client reçoit l’environnement de l’application (`HOME`, `PATH`, sa configuration, ses
+  variables de fournisseur) et démarre dans le répertoire de travail de SiliconForge, c’est-à-dire le projet. Les
+  variables qui désignent la session d’où l’application a été lancée en sont retirées : `TERM_PROGRAM*`, `VSCODE_*`,
+  `CLAUDECODE` et les `CLAUDE_CODE_*` de session (`SSE_PORT`, `SESSION_ID`, `MESSAGING_*`...), `ENABLE_IDE_INTEGRATION`.
+  Lancé depuis le terminal de VSCodium où tournait Claude Code, le client embarqué se rattachait sinon à l’IDE de cette
+  session et la lui prenait (« switched to another Claude Code session »).
 - **Une session par client.** Elle survit au rechargement de la page, au masquage du panneau (**Hide**) et au
   changement de client. **Open** rattache la session qui tourne et rejoue sa sortie récente.
 - **Fermeture.** **Close client** termine le client et ses processus au premier plan. Le banc, la simulation et les
