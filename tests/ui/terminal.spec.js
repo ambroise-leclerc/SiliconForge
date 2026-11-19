@@ -1,6 +1,7 @@
 // The agent terminal in the native window (#55): a program runs in a native pseudoterminal in the project directory,
 // takes typed input, follows the size of the panel, is interrupted by Ctrl+C, and the bench stays usable once it is
 // closed. The shell stands for a client: the same session carries Claude Code, Codex, OpenCode and Mistral Vibe.
+// The shell is sh on Linux and macOS and cmd.exe (ConPTY) on Windows: the few commands that differ are written once below.
 // The test runs in the project directory made by tests/CMakeLists.txt (scenarios/pwm-setpoint.json...).
 jasmine.getEnv().configure({random: false});
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
@@ -28,6 +29,20 @@ describe("The agent terminal in the window", () => {
   /** Types as the user does: through xterm.js, so that the adapter carries it to the pseudoterminal. */
   const type = (text) => terminal().terminal.input(text, true);
 
+  const windows = navigator.userAgent.includes("Windows");
+  /** Prints `label-value` by a command whose echo cannot match: only its execution can. */
+  const say = (label, value) => type(windows
+    ? `set SFV=${value}\r` + `echo ${label}-%SFV%\r`
+    : `printf '${label}-%s\\n' ${value}\r`);
+  const list = (directory) => type(windows ? `dir /b ${directory}\r` : `ls ${directory}\r`);
+  /** Prints the size the program sees, and what the screen then shows for the given rows and columns. */
+  const showSize = () => type(windows
+    ? "powershell -NoProfile -Command \"$s = $Host.UI.RawUI.WindowSize; 'size-{0}-{1}' -f $s.Height, $s.Width\"\r"
+    : "stty size\r");
+  const sizeText = (rows, cols) => (windows ? `size-${rows}-${cols}` : `${rows} ${cols}`);
+  /** Runs a command that lasts 30 seconds unless it is interrupted. */
+  const longCommand = () => type(windows ? "ping -n 31 127.0.0.1 > nul\r" : "sleep 30\r");
+
   beforeAll(async () => {
     await webFront.ready;
     await terminal().ready;
@@ -47,45 +62,51 @@ describe("The agent terminal in the window", () => {
     expect(panel().hidden).toBe(false);
     await terminal().open("shell");
     expect(status().textContent).toBe("running");
-    // The printf format splits the result from the command that is echoed back, so only the execution can match.
-    type("printf 'sf-%s\\n' 42\r");
+    // The format (or the variable) splits the result from the command that is echoed back, so only the execution can match.
+    say("sf", 42);
     await waitForScreen("sf-42");
-    type("ls scenarios\r");
+    list("scenarios");
     await waitForScreen("pwm-setpoint.json");
   });
 
   it("does not hand the client the session of the IDE or the agent the application was started from", async () => {
     // The test is started with those variables set. Reaching the IDE of another session made the embedded client take
     // it from the first one; the settings of the user stay.
-    type("printf 'host-%s-%s-%s\\n' \"${CLAUDE_CODE_SSE_PORT:-none}\" \"${TERM_PROGRAM:-none}\" \"${CLAUDE_CODE_USE_BEDROCK:-none}\"\r");
-    await waitForScreen("host-none-none-1");
+    if (windows) {
+      // cmd leaves the name of an unset variable as it is.
+      type("echo host-%CLAUDE_CODE_SSE_PORT%-%TERM_PROGRAM%-%CLAUDE_CODE_USE_BEDROCK%\r");
+      await waitForScreen("host-%CLAUDE_CODE_SSE_PORT%-%TERM_PROGRAM%-1");
+    } else {
+      type("printf 'host-%s-%s-%s\\n' \"${CLAUDE_CODE_SSE_PORT:-none}\" \"${TERM_PROGRAM:-none}\" \"${CLAUDE_CODE_USE_BEDROCK:-none}\"\r");
+      await waitForScreen("host-none-none-1");
+    }
   });
 
   it("gives the program the size of the panel and follows its changes", async () => {
-    const size = () => `${terminal().terminal.rows} ${terminal().terminal.cols}`;
-    type("stty size\r");
-    await waitForScreen(size());
+    const size = () => sizeText(terminal().terminal.rows, terminal().terminal.cols);
+    showSize();
+    await waitForScreen(size(), 30000);
     panel().style.height = "220px";
     const before = size();
     const end = Date.now() + 10000;
     while (size() === before && Date.now() < end) await sleep(50);
     expect(size()).not.toBe(before);
     await sleep(300);  // The new size reaches the pseudoterminal through the bridge.
-    type("stty size; printf 'size-%s\\n' done\r");
-    await waitForScreen("size-done");
+    showSize();
+    await waitForScreen(size(), 30000);
     expect(screen().split("\n").filter((line) => line === size()).length).toBeGreaterThanOrEqual(1);
   });
 
   it("interrupts the program in the foreground with Ctrl+C", async () => {
-    type("sleep 30\r");
+    longCommand();
     await sleep(500);
     type("\x03");
-    type("printf 'after-%s\\n' 2\r");
+    say("after", 2);
     await waitForScreen("after-2", 10000);  // Far sooner than the 30 seconds of the sleep.
   });
 
   it("keeps the session when another client is shown or the page attaches again", async () => {
-    type("printf 'kept-%s\\n' 1\r");
+    say("kept", 1);
     await waitForScreen("kept-1");
     await terminal().open("shell");  // Attaches to the session that runs, replaying what it printed.
     await waitForScreen("kept-1");
@@ -106,7 +127,7 @@ describe("The agent terminal in the window", () => {
     // Three openings at once leave one terminal on the screen, and it is the one that takes the input.
     await Promise.all([terminal().open("shell"), terminal().open("shell"), terminal().open("shell")]);
     expect(screens()).toBe(1);
-    type("printf 'quick-%s\\n' 1\r");
+    say("quick", 1);
     await waitForScreen("quick-1");
   });
 
@@ -124,7 +145,7 @@ describe("The agent terminal in the window", () => {
   it("starts a new session after the client exited", async () => {
     await terminal().open("shell", true);
     expect(status().textContent).toBe("running");
-    type("printf 'again-%s\\n' 1\r");
+    say("again", 1);
     await waitForScreen("again-1");
     type("exit\r");
     const end = Date.now() + 10000;
