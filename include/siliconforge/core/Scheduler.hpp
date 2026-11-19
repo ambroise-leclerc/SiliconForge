@@ -36,7 +36,7 @@ public:
 
     /// Fires, in time order, every event due at or before `now`. Callbacks may schedule or cancel events.
     void runDue(Cycles now) {
-        runDue(now, [](Cycles) {});
+        drain(now, [](Cycles) {});
     }
 
     /// During each callback expose its scheduled time through the device clock, then restore the instruction boundary.
@@ -46,7 +46,7 @@ public:
             Cycles end;
             ~Restore() { clock = end; }
         } restore{clock, clock};
-        runDue(restore.end, [&](Cycles at) { clock = at; });
+        drain(restore.end, [&](Cycles at) { clock = at; });
     }
 
     void clear() noexcept { events.clear(); }
@@ -55,7 +55,7 @@ public:
 
 private:
     template <typename Before>
-    void runDue(Cycles now, Before before) {
+    void drain(Cycles now, Before before) {
         while (!events.empty() && events.front().at <= now) {
             auto event = std::move(events.front());
             events.erase(events.begin());
@@ -63,6 +63,7 @@ private:
             event.callback(event.at);
         }
     }
+
     struct Event {
         Cycles   at;
         EventId  id;

@@ -45,6 +45,9 @@ TEST_CASE("The device clock follows each overdue event and returns to the instru
     CHECK(observed == std::vector<Cycles>{8, 9});
     CHECK(clock == 10);
     scheduler.schedule(11, [](Cycles) { throw 1; });
+    scheduler.runDueWithClock(clock);
+    CHECK(clock == 10);
+    CHECK(scheduler.nextEventAt() == 11);
     clock = 12;
     CHECK_THROWS(scheduler.runDueWithClock(clock));
     CHECK(clock == 12);
