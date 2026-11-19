@@ -67,9 +67,9 @@ describe("The PWM correction loop in the window", () => {
     const released = measurement(report, "duty-released");
     expect(released.verdict).toBe("fail");
     expect(released.expected).toEqual({min: 0, max: 0.1});
-    // One pulse of a timer count per period at OCR0A = 0, dated at the instruction boundaries of the core.
-    expect(released.value).toBeGreaterThan(0.1);
-    expect(released.value).toBeLessThan(1);
+    // One pulse of a timer count per period at OCR0A = 0: one cycle out of 256, as on the hardware.
+    expect(released.value).toBe(0.390625);
+    expect(measurement(report, "duty-released-again").value).toBe(0.390625);
     expect(measurement(report, "duty-held").verdict).toBe("pass");
     expect(bench().trace()).toContain("D6_PD6");
   });

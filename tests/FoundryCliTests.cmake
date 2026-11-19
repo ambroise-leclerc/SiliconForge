@@ -65,7 +65,8 @@ if(NOT verdict STREQUAL "fail" OR value LESS 24.5 OR value GREATER 25.5)
 endif()
 
 # First change of the agent: a setpoint of 0 %. Timer0 in Fast PWM still drives D6 high for one count per period at
-# OCR0A = 0, so the bench finds a deviation: the verdict fails, the measurement and the trace are kept.
+# OCR0A = 0, so the bench finds a deviation, in both released phases: the pulse of one cycle out of 256 (0.390625 %, as
+# on the hardware, #73). The verdict fails, the measurements and the trace are kept.
 run(0 git apply ${SOURCE}/tests/foundry/1-setpoint-off.patch)
 build_and_run(1)
 expect_built_firmware()
@@ -73,10 +74,12 @@ string(FIND "${stdout}" "FAIL duty-released dutyCycle on D6" position)
 if(position EQUAL -1)
     message(FATAL_ERROR "The deviation is not in the summary:\n${stdout}")
 endif()
-measurement(duty-released)
-if(NOT verdict STREQUAL "fail" OR NOT value GREATER 0.1 OR NOT value LESS 1)
-    message(FATAL_ERROR "With OCR0A = 0, duty-released is ${value} % (${verdict}): expected a pulse of one or two cycles per period")
-endif()
+foreach(id IN ITEMS duty-released duty-released-again)
+    measurement(${id})
+    if(NOT verdict STREQUAL "fail" OR NOT value EQUAL 0.390625)
+        message(FATAL_ERROR "With OCR0A = 0, ${id} is ${value} % (${verdict}): expected one cycle out of 256, 0.390625 %")
+    endif()
+endforeach()
 measurement(duty-held)
 if(NOT verdict STREQUAL "pass")
     message(FATAL_ERROR "The held setpoint broke with the first change:\n${report}")

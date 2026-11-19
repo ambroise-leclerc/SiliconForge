@@ -19,18 +19,20 @@ le banc constate l’écart avec le firmware actuel (25 % relâché).
 
 La modification évidente, `SETPOINT_RELEASED_PERCENT 0` ([`1-setpoint-off.patch`](../tests/foundry/1-setpoint-off.patch)),
 ne suffit pas : en Fast PWM non inversée, `OCR0A = 0` laisse la sortie à l’état haut pendant un pas du timer à chaque
-période (une impulsion de 62,5 ns tous les 16 µs, soit 0,39 % sur le matériel). Le banc mesure cet écart et conserve la
-trace où l’impulsion se voit. La correction ([`2-disconnect-oc0a.patch`](../tests/foundry/2-disconnect-oc0a.patch))
+période : une impulsion de 62,5 ns tous les 16 µs, soit 0,390625 %. Le banc mesure cet écart, la même valeur que sur
+le matériel, et conserve la trace où l’impulsion se voit. La correction ([`2-disconnect-oc0a.patch`](../tests/foundry/2-disconnect-oc0a.patch))
 déconnecte OC0A pour la consigne 0 % et laisse D6 à l’état bas par PORTD.
 
 ```console
 $ git apply tests/foundry/1-setpoint-off.patch && make -s -C firmware prebuilt
 $ siliconforge-bench run scenarios/pwm-setpoint.json; echo $?
 PWM setpoint on D6: fail
-  [failed]   1 measure  Released setpoint: off — duty-released = 0.78125 %
+  [failed]   1 measure  Released setpoint: off — duty-released = 0.390625 %
   ...
-  FAIL duty-released dutyCycle on D6: 0.78125 % (expected 0 to 0.1 %)
-  ok   duty-held dutyCycle on D6: 75.0064 % (expected 74.5 to 75.5 %)
+  FAIL duty-released dutyCycle on D6: 0.390625 % (expected 0 to 0.1 %)
+  ok   duty-held dutyCycle on D6: 75 % (expected 74.5 to 75.5 %)
+  ok   frequency frequency on D6: 62500 Hz (expected 62400 to 62600 Hz)
+  FAIL duty-released-again dutyCycle on D6: 0.390625 % (expected 0 to 0.1 %)
 1
 $ git apply tests/foundry/2-disconnect-oc0a.patch && make -s -C firmware prebuilt
 $ siliconforge-bench run scenarios/pwm-setpoint.json; echo $?
@@ -50,7 +52,7 @@ dépôt Git à part. Ils exigent avr-gcc, make et Git.
 
 | Test | Parcours |
 | --- | --- |
-| `ctest -R FoundryCommandLine` | Le terminal seul. Il constate l’écart de 25 % avant modification. La première modification compilée donne le code de sortie 1 avec une mesure entre 0,1 et 1 %, et la mesure enfoncée reste conforme. Il vérifie aussi que le HEX chargé est celui qui vient d’être compilé, que `git diff` montre le changement et que la trace existe. La correction donne le code de sortie 0, et un second essai produit le même rapport et la même trace. |
+| `ctest -R FoundryCommandLine` | Le terminal seul. Il constate l’écart de 25 % avant modification. La première modification compilée donne le code de sortie 1 avec 0,390625 % dans les deux phases relâchées, et la mesure enfoncée reste conforme. Il vérifie aussi que le HEX chargé est celui qui vient d’être compilé, que `git diff` montre le changement et que la trace existe. La correction donne le code de sortie 0, et un second essai produit le même rapport et la même trace. |
 | `ctest -R UI-Foundry` | La fenêtre native (Linux), avec le shell du terminal intégré dans le rôle de l’agent. L’agent applique sa modification, compile et lance le banc. La personne retrouve le changement en diff dans l’éditeur. Elle ouvre ensuite l’essai échoué dans le panneau **Bench** (consigne, mesure, verdict, trace de D6). L’agent corrige. La personne relance enfin le scénario depuis la fenêtre et obtient un rapport identique à celui de l’agent. Le délai est écrit dans `.siliconforge/foundry-delay.txt` du projet de test. |
 
 Pour jouer l’exercice avec un vrai client, ouvrir la fenêtre dans un projet préparé par `FoundryProject.cmake`, choisir
@@ -90,19 +92,18 @@ placement.
 
 | Essai | Interventions | Relectures | Délai | Remarques |
 | --- | --- | --- | --- | --- |
-| Agent (Claude Opus 5.5) dans un terminal, sur une copie du projet, 2026-11-19 | 1 (la consigne) | 0 | 49 s | Trois essais du banc. Le premier montre l’impulsion (0,78 %). Le deuxième, firmware corrigé, échoue encore : relâchée, D6 n’a plus de front, donc la fréquence ne se mesure plus. L’agent déplace cette mesure dans la phase enfoncée du scénario, et le troisième essai passe, reproduit à l’octet près. Délai mesuré à l’horloge, temps de réponse du modèle compris. |
+| Agent (Claude Opus 5.5) dans un terminal, sur une copie du projet, 2026-11-19 | 1 (la consigne) | 0 | 49 s | Trois essais du banc. Le premier montre l’impulsion (0,78 % avant #73, voir les limites). Le deuxième, firmware corrigé, échoue encore : relâchée, D6 n’a plus de front, donc la fréquence ne se mesure plus. L’agent déplace cette mesure dans la phase enfoncée du scénario, et le troisième essai passe, reproduit à l’octet près. Délai mesuré à l’horloge, temps de réponse du modèle compris. |
 | `UI-Foundry`, fenêtre native, Linux x86-64, WebKitGTK, avr-gcc 14.3.0 | 1 (la consigne) | 3 (diff, essai échoué, relance) | 2,1 s | Les modifications de l’agent sont rejouées par le shell. Ce délai mesure la boucle elle-même, sans le temps de réflexion d’un modèle : c’est un plancher. |
 
 Le scénario de l’exercice tient compte de la leçon du premier essai : la mesure de fréquence est dans la phase enfoncée.
 
 ## Limites
 
-- **Largeur d’une impulsion d’un cycle.** Le cœur date les fronts produits par un périphérique à la fin de l’instruction
-  en cours ([ADR 0002](adr/0002-modele-temporel.md), [BANC.md](BANC.md#le-temps-dun-essai)). L’impulsion d’un pas du
-  timer (1 cycle à 16 MHz) apparaît donc large de 2 cycles (0,78 %) ou de 0 cycle (0 %), selon l’alignement de la boucle
-  principale. Le matériel donnerait 0,39 %. L’exercice reste valide, car les deux valeurs non nulles dépassent
-  l’attendu. En revanche, une impulsion de largeur nulle passe inaperçue : avec la première modification, la dernière
-  mesure (`duty-released-again`) donne 0 % alors que le matériel montrerait encore l’impulsion.
+- **Largeur d’une impulsion d’un cycle.** L’essai de l’agent a eu lieu avant #73. Le cœur datait alors les fronts
+  produits par un périphérique à la fin de l’instruction en cours, si bien que l’impulsion apparaissait large de 2
+  cycles (0,78 %) ou de 0 cycle (0 %, donc invisible dans `duty-released-again`). Depuis #73, les fronts sont datés au
+  cycle où le timer les produit : l’impulsion mesure 0,390625 % dans les deux phases, comme sur le matériel, et les
+  tests l’exigent.
 - **`make prebuilt` hors du dépôt.** `blink.elf`, compilé avec `-g`, contient le chemin de ses sources : compilé
   depuis une copie du projet, il diffère de celui du dépôt. Les HEX, dont `pwm_setpoint.hex`, n’en dépendent pas.
 - Le délai de la référence manuelle n’a pas encore été chronométré, pas plus que l’exercice avec un client lancé dans le
