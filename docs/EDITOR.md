@@ -39,13 +39,13 @@ sans perdre ni écraser ce que l’autre vient de faire. La décision est décri
   - **Overwrite with my version** écrit le texte local par-dessus la version du disque qui vient d’être lue (refusé
     de nouveau si le fichier a encore changé entre-temps) ;
   - **Use the disk version** met la version du disque dans l’éditeur et **garde le texte local** : **Restore my text**
-    le remet dans le tampon, prêt à être enregistré, et il est conservé dans le stockage du navigateur de la page
-    jusqu’à sa restauration ou sa suppression (**Discard it**) ;
+    le remet dans le tampon, prêt à être enregistré, et il est conservé dans le stockage du navigateur de la page,
+    rangé sous le nom du répertoire du projet, jusqu’à sa restauration ou sa suppression (**Discard it**) ;
   - **Cancel** ne décide rien : le tampon reste tel quel, le fichier aussi.
   Si le fichier a disparu ou n’est plus du texte, il n’y a pas de version à comparer : le texte local reste dans
   l’éditeur et dans le volet de gauche, d’où on peut le copier.
 - **Écriture.** Le fichier est écrit à côté (`<nom>.sf-save`) puis renommé par-dessus : l’agent ne lit jamais un demi-
-  fichier, et les permissions sont conservées. Entre la vérification de version et le renommage, il reste une courte fenêtre
+  fichier, et les permissions sont conservées (sur macOS, les attributs étendus et l’ACL aussi). Entre la vérification de version et le renommage, il reste une courte fenêtre
   pendant laquelle un autre programme pourrait écrire ; son écriture serait alors perdue.
 - **Git sans gêner l’agent.** Les commandes Git de l’éditeur sont en lecture seule et ne prennent pas le verrou de
   l’index (`--no-optional-locks`) : un `git commit` de l’agent ne rencontre jamais un `index.lock` laissé par l’éditeur.
@@ -55,7 +55,7 @@ sans perdre ni écraser ce que l’autre vient de faire. La décision est décri
 La page nomme un fichier par un chemin relatif au répertoire du projet. L’application refuse les chemins absolus, les
 `..`, tout composant `.git`, et les liens qui sortent du répertoire ou mènent à `.git` (le chemin est résolu avant
 d’être comparé au répertoire). Aucun chemin de la page n’est passé à un shell sans guillemets, et Git est lancé sans
-programme de diff ni filtre externe (`--no-ext-diff --no-textconv`). Comme le terminal, l’éditeur donne accès aux
+programme de diff, filtre externe ni moniteur de système de fichiers (`--no-ext-diff --no-textconv`, `core.fsmonitor=false`) : la configuration d’un dépôt venu d’ailleurs ne lance aucun programme. Comme le terminal, l’éditeur donne accès aux
 fichiers de l’utilisateur à toute page de l’origine de l’application : le port reste local.
 
 ## Dans la page
@@ -95,6 +95,7 @@ des fins de ligne LF, puis `del`. Sont vérifiés en plus des cas de Linux : un 
 label `ui` : le test se lance à la main.
 
 macOS 27.2.1, arm64, WKWebView, shell `sh` (pseudoterminal natif), Git 2.52.0, 2026-11-19 : `ctest -R UI-Editor` passe (10 cas
-sur 10, 3,5 s) et `siliconforge_bridge_tests "[project]"` passe (9 cas, 151 assertions). Les captures (`editor-colors-dark.png`,
+sur 10, 3 s) et `siliconforge_bridge_tests "[project]"` passe (11 cas, 167 assertions, dont les attributs étendus et le
+refus du hook `core.fsmonitor`). Les captures (`editor-colors-dark.png`,
 `editor-colors-light.png`, `editor-both-versions.png`, `editor-changes.png`) montrent le texte coloré aligné sur le champ de
 saisie. La fenêtre exige la session graphique de l’utilisateur ; la CI macOS exclut le label `ui` : le test se lance à la main.

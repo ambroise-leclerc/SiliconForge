@@ -100,6 +100,36 @@ if(SILICONFORGE_BUILD_APP)
     target_compile_definitions(siliconforge_bridge_tests PRIVATE SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
 
+    # The project directory of the bench (it works on the scenarios and runs of the working directory).
+    macro(siliconforge_ui_bench_project directory)
+        file(REMOVE_RECURSE ${directory})
+        file(COPY ${PROJECT_SOURCE_DIR}/scenarios/pwm-setpoint.json DESTINATION ${directory}/scenarios)
+        file(COPY ${PROJECT_SOURCE_DIR}/circuits/arduino-demo.json DESTINATION ${directory}/circuits)
+        file(COPY ${PROJECT_SOURCE_DIR}/firmware/prebuilt/pwm_setpoint.hex DESTINATION ${directory}/firmware/prebuilt)
+    endmacro()
+
+    # The agent terminal (#55) and the editor of the sources (#56) on a native frontend, with the shell of the terminal
+    # standing for the agent. The terminal runs in `bench_project`; the editor in a directory of its own, remade before
+    # each run since the test edits it. A macro, not a function: the tests are registered in the caller's scope.
+    macro(siliconforge_add_agent_ui_tests frontend bench_project)
+        webfront_add_jasmine_test(NAME UI-Terminal TARGET siliconforge_ui_test FRONTEND ${frontend}
+            SPECS ui/terminal.spec.js ARGS --port 0)
+        # Started as from the terminal of an IDE running an agent: the client must not inherit that session.
+        set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${bench_project}
+            ENVIRONMENT "CLAUDE_CODE_SSE_PORT=51234;CLAUDECODE=1;TERM_PROGRAM=vscode;VSCODE_GIT_IPC_HANDLE=/tmp/none;CLAUDE_CODE_USE_BEDROCK=1")
+        set(_ui_editor_project ${CMAKE_CURRENT_BINARY_DIR}/ui-editor-project)
+        add_test(NAME UI-Editor-Project COMMAND ${CMAKE_COMMAND} -DPROJECT=${_ui_editor_project} -P ${CMAKE_CURRENT_SOURCE_DIR}/EditorProject.cmake)
+        set_tests_properties(UI-Editor-Project PROPERTIES FIXTURES_SETUP ui-editor-project)
+        webfront_add_jasmine_test(NAME UI-Editor TARGET siliconforge_ui_test FRONTEND ${frontend}
+            SPECS ui/editor.spec.js ARGS --port 0)
+        set_tests_properties(UI-Editor PROPERTIES WORKING_DIRECTORY ${_ui_editor_project} FIXTURES_REQUIRED ui-editor-project)
+        # Opt-in qualification of the clients installed on the machine (docs/TERMINAL.md): no test of the suite needs one.
+        webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND ${frontend}
+            SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
+        set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${bench_project})
+        set_property(TEST UI-Terminal UI-Editor UI-Editor-Project UI-TerminalClients APPEND PROPERTY LABELS ui)
+    endmacro()
+
     get_target_property(_ui_webfront_definitions WebFront::WebFront INTERFACE_COMPILE_DEFINITIONS)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBKITGTK")
         # WebFront's autodetected option is scoped to its subdirectory; expose it to the helper's validation.
@@ -145,10 +175,7 @@ if(SILICONFORGE_BUILD_APP)
         # The bench: a project directory of the build tree (the bench works on the scenarios and runs of the working
         # directory) with the example scenario and a variant whose first measurement cannot hold.
         set(_ui_bench_project ${CMAKE_CURRENT_BINARY_DIR}/ui-bench-project)
-        file(REMOVE_RECURSE ${_ui_bench_project})
-        file(COPY ${PROJECT_SOURCE_DIR}/scenarios/pwm-setpoint.json DESTINATION ${_ui_bench_project}/scenarios)
-        file(COPY ${PROJECT_SOURCE_DIR}/circuits/arduino-demo.json DESTINATION ${_ui_bench_project}/circuits)
-        file(COPY ${PROJECT_SOURCE_DIR}/firmware/prebuilt/pwm_setpoint.hex DESTINATION ${_ui_bench_project}/firmware/prebuilt)
+        siliconforge_ui_bench_project(${_ui_bench_project})
         file(READ ${PROJECT_SOURCE_DIR}/scenarios/pwm-setpoint.json _ui_bench_scenario)
         string(JSON _ui_bench_scenario SET "${_ui_bench_scenario}" name "\"PWM setpoint that cannot hold\"")
         string(JSON _ui_bench_scenario SET "${_ui_bench_scenario}" steps 1 measure expect "{\"value\": 50, \"tolerance\": 0.5}")
@@ -161,27 +188,11 @@ if(SILICONFORGE_BUILD_APP)
         webfront_add_jasmine_test(NAME UI-Bench TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/bench.spec.js ARGS --port 0)
         set_tests_properties(UI-Bench PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
-        # The agent terminal (#55), in the same project directory, with the shell standing for a client.
-        webfront_add_jasmine_test(NAME UI-Terminal TARGET siliconforge_ui_test FRONTEND WebKitGTK
-            SPECS ui/terminal.spec.js ARGS --port 0)
-        # Started as from the terminal of an IDE running an agent: the client must not inherit that session.
-        set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${_ui_bench_project}
-            ENVIRONMENT "CLAUDE_CODE_SSE_PORT=51234;CLAUDECODE=1;TERM_PROGRAM=vscode;VSCODE_GIT_IPC_HANDLE=/tmp/none;CLAUDE_CODE_USE_BEDROCK=1")
-        # The editor of the sources (#56): a project directory of its own, remade before each run since the test edits it.
-        set(_ui_editor_project ${CMAKE_CURRENT_BINARY_DIR}/ui-editor-project)
-        add_test(NAME UI-Editor-Project COMMAND ${CMAKE_COMMAND} -DPROJECT=${_ui_editor_project} -P ${CMAKE_CURRENT_SOURCE_DIR}/EditorProject.cmake)
-        set_tests_properties(UI-Editor-Project PROPERTIES FIXTURES_SETUP ui-editor-project)
-        webfront_add_jasmine_test(NAME UI-Editor TARGET siliconforge_ui_test FRONTEND WebKitGTK
-            SPECS ui/editor.spec.js ARGS --port 0)
-        set_tests_properties(UI-Editor PROPERTIES WORKING_DIRECTORY ${_ui_editor_project} FIXTURES_REQUIRED ui-editor-project)
-        # Opt-in qualification of the clients installed on the machine (docs/TERMINAL.md): no test of the suite needs one.
-        webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND WebKitGTK
-            SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
-        set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench UI-Terminal UI-Editor UI-Editor-Project UI-TerminalClients APPEND PROPERTY LABELS ui)
+        siliconforge_add_agent_ui_tests(WebKitGTK ${_ui_bench_project})
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
     elseif((CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WKWEBVIEW")
            OR (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBVIEW2"))
-        # macOS and Windows (#55): only the agent terminal is wired to the native frontend so far. The window needs the
+        # macOS and Windows (#55, #56): only the agent terminal and the editor are wired to the native frontend so far. The window needs the
         # desktop session of a logged-in user.
         if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
             set(WEBFRONT_EMBED_WKWEBVIEW ON)
@@ -193,25 +204,8 @@ if(SILICONFORGE_BUILD_APP)
         add_executable(siliconforge_ui_test ../apps/siliconforge/main.cpp)
         target_link_libraries(siliconforge_ui_test PRIVATE SiliconForge::app SiliconForge_options)
         set(_ui_bench_project ${CMAKE_CURRENT_BINARY_DIR}/ui-bench-project)
-        file(REMOVE_RECURSE ${_ui_bench_project})
-        file(COPY ${PROJECT_SOURCE_DIR}/scenarios/pwm-setpoint.json DESTINATION ${_ui_bench_project}/scenarios)
-        file(COPY ${PROJECT_SOURCE_DIR}/circuits/arduino-demo.json DESTINATION ${_ui_bench_project}/circuits)
-        file(COPY ${PROJECT_SOURCE_DIR}/firmware/prebuilt/pwm_setpoint.hex DESTINATION ${_ui_bench_project}/firmware/prebuilt)
-        webfront_add_jasmine_test(NAME UI-Terminal TARGET siliconforge_ui_test FRONTEND ${_ui_frontend}
-            SPECS ui/terminal.spec.js ARGS --port 0)
-        set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${_ui_bench_project}
-            ENVIRONMENT "CLAUDE_CODE_SSE_PORT=51234;CLAUDECODE=1;TERM_PROGRAM=vscode;VSCODE_GIT_IPC_HANDLE=/tmp/none;CLAUDE_CODE_USE_BEDROCK=1")
-        webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND ${_ui_frontend}
-            SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
-        set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
-        # The editor of the sources (#56): the same fixture as on Linux; the shell of the terminal is the agent.
-        set(_ui_editor_project ${CMAKE_CURRENT_BINARY_DIR}/ui-editor-project)
-        add_test(NAME UI-Editor-Project COMMAND ${CMAKE_COMMAND} -DPROJECT=${_ui_editor_project} -P ${CMAKE_CURRENT_SOURCE_DIR}/EditorProject.cmake)
-        set_tests_properties(UI-Editor-Project PROPERTIES FIXTURES_SETUP ui-editor-project)
-        webfront_add_jasmine_test(NAME UI-Editor TARGET siliconforge_ui_test FRONTEND ${_ui_frontend}
-            SPECS ui/editor.spec.js ARGS --port 0)
-        set_tests_properties(UI-Editor PROPERTIES WORKING_DIRECTORY ${_ui_editor_project} FIXTURES_REQUIRED ui-editor-project)
-        set_property(TEST UI-Terminal UI-Editor UI-Editor-Project UI-TerminalClients APPEND PROPERTY LABELS ui)
+        siliconforge_ui_bench_project(${_ui_bench_project})
+        siliconforge_add_agent_ui_tests(${_ui_frontend} ${_ui_bench_project})
     else()
         message(STATUS "Native UI tests skipped: they need WebFront's WebKitGTK (Linux), WKWebView (macOS) or WebView2 (Windows) frontend")
     endif()

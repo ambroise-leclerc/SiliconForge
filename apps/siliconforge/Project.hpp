@@ -20,6 +20,9 @@
 #if !defined(_WIN32)
 #include <sys/wait.h>
 #endif
+#if defined(__APPLE__)
+#include <copyfile.h>
+#endif
 
 /// The sources of the project directory, for the editor of the window (ADR 0009, #56): the files the agent and the
 /// person work on together, their Git changes, and a save that never overwrites a change made behind the editor's back.
@@ -322,6 +325,10 @@ public:
             }
         }
         std::filesystem::permissions(temporary, std::filesystem::status(*target, error).permissions(), error);
+#if defined(__APPLE__)
+        // The extended attributes (Finder tags, quarantine...) and the ACL of the file stay with it.
+        ::copyfile(target->c_str(), temporary.c_str(), nullptr, COPYFILE_METADATA);
+#endif
         std::filesystem::rename(temporary, *target, error);
         if (error) {
             std::filesystem::remove(temporary, error);
@@ -421,12 +428,13 @@ private:
         return bytes;
     }
 
-    /// Runs `git <arguments>` in the directory: no color, no pager, no optional lock.
+    /// Runs `git <arguments>` in the directory: no color, no pager, no optional lock, and no fsmonitor hook (a program the
+    /// configuration of the repository would run: the directory may come from anywhere).
     [[nodiscard]] std::optional<std::string> git(const std::string& arguments, std::size_t limit, bool* truncated = nullptr) const {
         const auto directory = detail::quoted(detail::toUtf8(root));
         if (!directory)
             return std::nullopt;
-        return detail::capture("git --no-optional-locks --no-pager --literal-pathspecs -c core.quotepath=off -C " + *directory + " " + arguments, limit,
+        return detail::capture("git --no-optional-locks --no-pager --literal-pathspecs -c core.quotepath=off -c core.fsmonitor=false -C " + *directory + " " + arguments, limit,
                                truncated);
     }
 

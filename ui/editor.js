@@ -11,7 +11,8 @@
 window.SiliconForgeEditor = (root, host) => {
   const $ = (selector) => root.querySelector(selector);
   const pollInterval = 1500;
-  const storageKey = (path) => `siliconforge.recovered.${path}`;
+  // Per project directory: two projects served from one origin may both have a main.cpp.
+  const storageKey = (path) => `siliconforge.recovered.${listing.name}/${path}`;
 
   let listing = {name: "", git: false, truncated: false, files: []};
   let listingJson = "";
@@ -22,6 +23,7 @@ window.SiliconForgeEditor = (root, host) => {
   let filter = {text: "", changedOnly: true};
   let timer = null;
   let ticks = 0;
+  let polling = false;
   let chain = Promise.resolve();  // Reads and saves, one after the other.
   let notice = "";
 
@@ -273,6 +275,7 @@ window.SiliconForgeEditor = (root, host) => {
   async function openFile(path) {
     fail(null);
     await host.ready;
+    if (!listing.name) await refreshList();  // The key of the kept text names the project.
     syncBuffer();
     let buffer = buffers.get(path);
     if (!buffer) {
@@ -451,7 +454,12 @@ window.SiliconForgeEditor = (root, host) => {
     timer = null;
     if (visible) {
       enqueue(refreshList).catch(fail);
-      timer = setInterval(() => api.poll().catch(() => {}), pollInterval);
+      // One look at the disk at a time: a slow answer does not queue the next ones behind it.
+      timer = setInterval(() => {
+        if (polling) return;
+        polling = true;
+        api.poll().catch(() => {}).finally(() => { polling = false; });
+      }, pollInterval);
     }
   }
 

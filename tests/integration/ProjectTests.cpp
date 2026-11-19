@@ -10,6 +10,10 @@
 #include <random>
 #include <vector>
 
+#if defined(__APPLE__)
+#include <sys/xattr.h>
+#endif
+
 using namespace siliconforge::app::project;
 namespace fs = std::filesystem;
 using nlohmann::json;
@@ -289,3 +293,43 @@ TEST_CASE("Reading the Git changes does not take the lock of the index", "[app][
     CHECK(statusOf(project.list(), "a.txt") == "M");
     CHECK(std::string{(*project.diff("a.txt"))["diff"]}.contains("+b"));
 }
+
+#if !defined(_WIN32)
+TEST_CASE("A hook of the repository configuration is not run to read the changes", "[app][project][git]") {
+    if (!hasGit())
+        SKIP("git is not installed");
+    Directory directory;
+    git(directory.path, "init -q");
+    put(directory.path / "a.txt", "a\n");
+    git(directory.path, "add -A");
+    git(directory.path, "commit -q -m initial");
+    put(directory.path / "a.txt", "b\n");
+    // core.fsmonitor names a program Git would run at each status: a repository from elsewhere could make it anything.
+    const auto marker = directory.path.parent_path() / (directory.path.filename().string() + ".fsmonitor-ran");
+    put(directory.path / "hook.sh", "#!/bin/sh\ntouch '" + marker.string() + "'\n");
+    fs::permissions(directory.path / "hook.sh", fs::perms::owner_all);
+    git(directory.path, "config core.fsmonitor '" + (directory.path / "hook.sh").string() + "'");
+    fs::remove(marker);
+
+    const Project project{directory.path};
+    CHECK(statusOf(project.list(), "a.txt") == "M");
+    CHECK(std::string{(*project.diff("a.txt"))["diff"]}.contains("+b"));
+    CHECK_FALSE(fs::exists(marker));
+    fs::remove(marker);
+}
+#endif
+
+#if defined(__APPLE__)
+TEST_CASE("A save keeps the extended attributes of the file", "[app][project]") {
+    Directory directory;
+    put(directory.path / "tagged.txt", "a\n");
+    REQUIRE(::setxattr((directory.path / "tagged.txt").c_str(), "com.siliconforge.test", "kept", 4, 0, 0) == 0);
+    const Project project{directory.path};
+    REQUIRE(project.write("tagged.txt", "b\n", versionIn(*project.read("tagged.txt"))));
+    CHECK(get(directory.path / "tagged.txt") == "b\n");
+    char value[8]{};
+    const auto size = ::getxattr((directory.path / "tagged.txt").c_str(), "com.siliconforge.test", value, sizeof value, 0, 0);
+    REQUIRE(size == 4);
+    CHECK(std::string(value, 4) == "kept");
+}
+#endif

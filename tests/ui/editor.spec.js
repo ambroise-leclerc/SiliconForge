@@ -171,16 +171,17 @@ describe("The editor of the project sources in the window", () => {
     await editor().useDisk();
     expect(editor().text).toBe("// written by the agent\n");
     expect(editor().state.dirty).toBe(false);
+    const project = JSON.parse(await call("sf.files.list")).name;  // The kept text is filed under the project directory.
     expect(editor().state.recovered).toBe("// my edit\n");
     expect(part("[data-view=recovered]").hidden).toBe(false);
-    expect(localStorage.getItem("siliconforge.recovered.src/pwm.cpp")).toBe("// my edit\n");
+    expect(localStorage.getItem(`siliconforge.recovered.${project}/src/pwm.cpp`)).toBe("// my edit\n");
 
     // ... and Restore brings it back, ready to be saved over the version now on the disk.
     expect(editor().restore()).toBe(true);
     expect(editor().text).toBe("// my edit\n");
     expect(editor().state.dirty).toBe(true);
     expect(editor().state.recovered).toBe(null);
-    expect(localStorage.getItem("siliconforge.recovered.src/pwm.cpp")).toBe(null);
+    expect(localStorage.getItem(`siliconforge.recovered.${project}/src/pwm.cpp`)).toBe(null);
     expect(await editor().save()).toBe(true);
     expect((await read("src/pwm.cpp")).content).toBe("// my edit\n");
   });
