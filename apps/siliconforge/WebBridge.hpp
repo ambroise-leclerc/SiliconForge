@@ -3,6 +3,7 @@
 #include "Simulation.hpp"
 
 #include "Bench.hpp"
+#include "Terminal.hpp"
 #include "EmbeddedFirmware.hpp"
 
 #include <nlohmann/json.hpp>
@@ -497,6 +498,10 @@ private:
                                                                   return benchReply(bench::run(name));
                                                               }));
         });
+        // The agent terminal (ADR 0009): the programs the page may open in a pseudoterminal, as JSON text. The sessions
+        // themselves are the callbacks of WebFront's PTY page, registered here under sf.terminal.<client>.
+        terminals = terminal::registerClients(app, std::filesystem::current_path()).dump();
+        app.cppFunction("sf.terminal.clients", [this] { return terminals; });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
         app.cppFunction("sf.step", [this] { simulation.step(); });
@@ -659,6 +664,7 @@ private:
     nlohmann::json                     description;  // Selected circuit, null for none.
     std::string                        circuitName;
     std::unique_ptr<circuit::Circuit>  circuit;      // The selected circuit when the present MCU is the one it names.
+    std::string                        terminals;       // sf.terminal.clients
     std::string                        circuitView{"null"};
     unsigned                           circuitRevision{0};
     instruments::SignalRecorder        recorder;

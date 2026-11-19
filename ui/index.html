@@ -5,12 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark light">
   <title>SiliconForge</title>
+  <link rel="stylesheet" href="vendor/xterm/xterm.css">
   <link rel="stylesheet" href="style.css">
   <script src="WebFront.js"></script>
   <script src="breadboard.js" defer></script>
   <script src="pinout.js" defer></script>
   <script src="instruments.js" defer></script>
+  <script src="vendor/xterm/xterm.js" defer></script>
+  <script src="vendor/xterm/addon-fit.js" defer></script>
   <script src="bench.js" defer></script>
+  <script src="terminal.js" defer></script>
   <script src="siliconforge.js" defer></script>
 </head>
 <body>
@@ -58,6 +62,8 @@
     <label class="field">Example
       <select id="example-select" aria-label="Example" title="A ready-made firmware with its circuit"></select>
     </label>
+    <span class="separator" aria-hidden="true"></span>
+    <button id="terminal-toggle" aria-pressed="false" aria-controls="terminal" title="Run your agent (Claude Code, Codex, OpenCode, Mistral Vibe) in the project directory">Agent terminal</button>
     <span class="separator" aria-hidden="true"></span>
     <label class="button" title="Load an Intel HEX or ELF firmware">Load firmware…
       <input type="file" id="firmware-file" accept=".hex,.ihx,.elf" hidden>
@@ -205,6 +211,19 @@
         <div class="registers" id="registers"></div>
       </section>
     </aside>
+
+    <section class="panel terminal" id="terminal" aria-label="Agent terminal" hidden>
+      <h2 class="panel-header">Agent terminal <span class="muted">project directory</span>
+        <select data-select="client" aria-label="Client" title="The client installed on this machine; it keeps its own sign-in"></select>
+        <button data-action="open" class="primary" title="Open a session, or start a new one after it exited">Open</button>
+        <button data-action="hangup" title="End the session: the client is closed, the bench is untouched">Close client</button>
+        <output class="terminal-status" data-readout="status"></output>
+        <button class="small end" data-action="close" title="Hide the terminal; the session keeps running">Hide</button>
+      </h2>
+      <p class="hint" data-readout="disabled" hidden>The terminal is only available when the interface listens on the loopback address (127.0.0.1 or ::1).</p>
+      <p class="error" role="alert" data-readout="error" hidden></p>
+      <div class="terminal-screen" data-view="screen"></div>
+    </section>
   </main>
 </body>
 </html>

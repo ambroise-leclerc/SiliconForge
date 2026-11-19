@@ -131,13 +131,14 @@ select {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
   grid-template-rows: auto minmax(250px, 1fr);
-  grid-template-areas: "board side" "instruments side";
+  grid-template-areas: "board side" "instruments side" "terminal terminal";
+  grid-auto-rows: auto;
   gap: 10px;
   padding: 2px 16px 14px;
 }
 @media (max-width: 1000px) {
   body { display: block; }
-  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "board" "instruments" "side"; }
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "board" "instruments" "side" "terminal"; }
   .instruments { min-height: 340px; }
 }
 .panel { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px; padding: 10px 12px; min-width: 0; box-shadow: var(--shadow); }
@@ -347,3 +348,12 @@ select {
 .bench-changes ul { list-style: none; margin: 4px 0 0; padding: 0; max-height: 12em; overflow: auto; }
 .bench-changes li { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
 .bench-changes code { overflow-wrap: anywhere; }
+
+/* Agent terminal ---------------------------------------------------------------------------------------------------- */
+.terminal { grid-area: terminal; display: flex; flex-direction: column; height: 340px; min-height: 200px; resize: vertical; overflow: hidden; }
+.terminal[hidden] { display: none; }
+.terminal-screen { flex: 1; min-height: 0; padding: 4px 6px; background: var(--bg); border-radius: 6px; }
+.terminal-screen .xterm { height: 100%; }
+.terminal-status[data-state=running] { color: var(--ok, #3fb950); }
+.terminal-status[data-state=exited] { color: var(--muted); }
+#terminal-toggle[aria-pressed=true] { background: var(--panel-raised); border-color: var(--accent, currentColor); }

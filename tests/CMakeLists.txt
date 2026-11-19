@@ -95,7 +95,7 @@ if(SILICONFORGE_BUILD_APP)
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
                 -DWORK=${CMAKE_CURRENT_BINARY_DIR}/McuCommandLine -P ${CMAKE_CURRENT_SOURCE_DIR}/McuCliTests.cmake)
     set_tests_properties(McuCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
-    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp)
+    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp integration/TerminalTests.cpp)
     target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options Catch2::Catch2WithMain)
     target_compile_definitions(siliconforge_bridge_tests PRIVATE SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
@@ -161,7 +161,17 @@ if(SILICONFORGE_BUILD_APP)
         webfront_add_jasmine_test(NAME UI-Bench TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/bench.spec.js ARGS --port 0)
         set_tests_properties(UI-Bench PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
+        # The agent terminal (#55), in the same project directory, with the shell standing for a client.
+        webfront_add_jasmine_test(NAME UI-Terminal TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/terminal.spec.js ARGS --port 0)
+        # Started as from the terminal of an IDE running an agent: the client must not inherit that session.
+        set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${_ui_bench_project}
+            ENVIRONMENT "CLAUDE_CODE_SSE_PORT=51234;CLAUDECODE=1;TERM_PROGRAM=vscode;VSCODE_GIT_IPC_HANDLE=/tmp/none;CLAUDE_CODE_USE_BEDROCK=1")
+        # Opt-in qualification of the clients installed on the machine (docs/TERMINAL.md): no test of the suite needs one.
+        webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
+        set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench UI-Terminal UI-TerminalClients APPEND PROPERTY LABELS ui)
     else()
         message(STATUS "Native UI tests skipped: they need Linux and WebFront's WebKitGTK frontend")
     endif()

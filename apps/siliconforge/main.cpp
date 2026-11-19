@@ -168,8 +168,20 @@ int runHeadless(Mcu& mcu, const Options& options) {
     return reason == StopReason::BudgetReached ? 0 : 2;
 }
 
+/// The agent terminal runs programs with the privileges of the user: WebFront allows it only on a literal loopback
+/// address and for pages of the application's own origin.
+bool isLoopback(const std::string& address) {
+    return address == "::1" || address.starts_with("127.");
+}
+
 webfront::WebFrontConfig webConfig(const Options& options) {
-    return {.address = options.address, .port = options.port, .documentRoot = options.ui, .window = {.title = "SiliconForge", .width = 1480, .height = 960}};
+    webfront::WebFrontConfig config{.address = options.address, .port = options.port, .documentRoot = options.ui,
+                                    .window = {.title = "SiliconForge", .width = 1480, .height = 960}};
+    if (isLoopback(options.address)) {
+        config.allowPtyPages                    = true;
+        config.contentPolicy.allowMissingOrigin = false;
+    }
+    return config;
 }
 
 /// The circuit of the command line: its description and the name the interface shows.
