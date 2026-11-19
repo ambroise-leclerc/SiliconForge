@@ -81,7 +81,7 @@ Codes d’erreur : `siliconforge.unknownFile`, `notText`, `tooLarge`, `fileChang
 - `ctest -R "siliconforge_bridge_tests"` (cas `[project]`) : accès aux fichiers, chemins refusés (dont les liens),
   version et refus d’écraser, fins de ligne et permissions, fichiers binaires ou trop gros, liste et diff Git,
   dossier d’un dépôt, absence de verrou de l’index.
-- `ctest -R UI-Editor` (fenêtre native ; Linux et Windows) : liste, ouverture, modification et enregistrement ; rechargement d’un
+- `ctest -R UI-Editor` (fenêtre native ; Linux, macOS et Windows) : liste, ouverture, modification et enregistrement ; rechargement d’un
   tampon propre ; tampon modifié signalé sans être remplacé ; les deux versions, **Cancel**, **Use the disk version**
   puis **Restore my text**, **Overwrite with my version** ; texte coloré selon le langage, aligné sur le champ de saisie et défilant avec lui ; chemins refusés ; changements laissés par un shell du
   terminal (fichier modifié, nouveau, supprimé) vus dans la liste et en diff. Le dossier du test est refait avant
@@ -94,5 +94,7 @@ des fins de ligne LF, puis `del`. Sont vérifiés en plus des cas de Linux : un 
 (`main.cpp::$DATA`) : tous refusés. La fenêtre exige la session graphique de l’utilisateur ; la CI Windows exclut le
 label `ui` : le test se lance à la main.
 
-macOS : `UI-Editor` est câblé comme sur Windows (WKWebView, shell `sh`) mais n’a pas été exécuté ; il reste à qualifier.
-Les tests C++ y tournent en intégration continue.
+macOS 27.2.1, arm64, WKWebView, shell `sh` (pseudoterminal natif), Git 2.52.0, 2026-11-19 : `ctest -R UI-Editor` passe (10 cas
+sur 10, 3,5 s) et `siliconforge_bridge_tests "[project]"` passe (9 cas, 151 assertions). Les captures (`editor-colors-dark.png`,
+`editor-colors-light.png`, `editor-both-versions.png`, `editor-changes.png`) montrent le texte coloré aligné sur le champ de
+saisie. La fenêtre exige la session graphique de l’utilisateur ; la CI macOS exclut le label `ui` : le test se lance à la main.
