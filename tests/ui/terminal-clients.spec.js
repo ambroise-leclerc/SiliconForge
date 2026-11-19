@@ -28,6 +28,12 @@ describe("The agent clients in the terminal", () => {
     await terminal().ready;
   });
 
+  // A machine without any client (CI) must still run one case: the harness counts a suite of pending cases as failed.
+  it("offers each client, installed or not", () => {
+    expect(terminal().enabled).toBe(true);
+    expect(terminal().clients.map((client) => client.id)).toEqual(["claude", "codex", "opencode", "vibe", "shell"]);
+  });
+
   for (const id of ["claude", "codex", "opencode", "vibe"]) {
     it(`runs ${id} when it is installed`, async () => {
       const client = terminal().clients.find((candidate) => candidate.id === id);
