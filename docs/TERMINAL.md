@@ -76,11 +76,30 @@ macOS 27.2.1, arm64, WKWebView, 2026-11-19 :
 la session, fermeture suivie d’un essai de banc, nouvelle session. Sous macOS seuls `UI-Terminal` et
 `UI-TerminalClients` sont raccordés à WKWebView ; la fenêtre exige la session graphique de l’utilisateur.
 
+Windows 11 10.0.22631, x86-64, WebView2 157.0.4341.60 (ConPTY, `cmd.exe`), 2026-11-19 :
+
+| Client | Version | Dessine | Saisie | Redimensionnement | `Ctrl+C` | Fermeture, banc |
+| --- | --- | --- | --- | --- | --- | --- |
+| Claude Code | 2.1.328 | oui | non observée³ | oui | quitte au second | oui |
+| Codex | 0.170.0 | oui | oui | oui | quitte au second | oui |
+| OpenCode | — | non installé | — | — | — | — |
+| Mistral Vibe | — | non installé | — | — | — | — |
+
+³ Le dossier de la construction n’était pas encore approuvé : Claude Code affichait « Is this a project you created or
+one you trust? » (« No, exit » par défaut), qui n’affiche pas le texte tapé. Le dossier n’a pas été approuvé ; le
+`Ctrl+C` a donc quitté la boîte de dialogue, pas l’interface principale.
+
+`UI-Terminal` passe sous Windows (9 cas sur 9) avec `cmd.exe` : répertoire du projet, saisie, taille (relevée par
+`$Host.UI.RawUI.WindowSize`, la sortie de `mode con` dépendant de la langue de Windows), `Ctrl+C` (une commande `ping`
+interrompue), reprise de la session, fermeture suivie d’un essai de banc, nouvelle session. Comme sous macOS, seuls
+`UI-Terminal` et `UI-TerminalClients` sont raccordés à WebView2 ; la fenêtre exige la session graphique de
+l’utilisateur. La CI Windows les exclut (`-LE ui`) : ils se lancent à la main.
+
 | Plateforme | État |
 | --- | --- |
 | Linux | qualifié ci-dessus |
 | macOS | qualifié ci-dessus |
-| Windows (ConPTY) | à qualifier, idem |
+| Windows (ConPTY) | qualifié ci-dessus ; OpenCode et Vibe n’y sont pas installés, Claude Code attend l’approbation du dossier |
 
 Pour qualifier une plateforme : construire avec le moteur natif, installer les clients, lancer `ctest -R UI-Terminal`
 puis ajouter la ligne au tableau. Le test des clients affiche ses observations dans l’échec de l’attente
