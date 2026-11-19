@@ -95,7 +95,7 @@ if(SILICONFORGE_BUILD_APP)
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
                 -DWORK=${CMAKE_CURRENT_BINARY_DIR}/McuCommandLine -P ${CMAKE_CURRENT_SOURCE_DIR}/McuCliTests.cmake)
     set_tests_properties(McuCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
-    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp integration/TerminalTests.cpp)
+    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp integration/TerminalTests.cpp integration/ProjectTests.cpp)
     target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options Catch2::Catch2WithMain)
     target_compile_definitions(siliconforge_bridge_tests PRIVATE SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
