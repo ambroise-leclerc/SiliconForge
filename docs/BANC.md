@@ -69,9 +69,9 @@ cycles, l’instruction se termine d’abord. Ce dépassement ne décale pas la 
   stimulus ait pu agir.
 - Une mesure porte exactement sur la fenêtre fermée `[début, début + fenêtre]` : un front situé sur l’une des deux
   bornes compte, et ceux du dépassement sont exclus. Les changements d’une broche sont datés du cycle où le cœur les
-  produit ; un front engendré par un périphérique (comparaison d’un timer) pendant une instruction de plusieurs
-  cycles est daté de la fin de cette instruction, car le cœur traite les événements entre deux instructions
-  ([ADR 0002](adr/0002-modele-temporel.md)). Une période mesurée peut ainsi varier d’un ou deux cycles.
+  produit ; un front engendré par un périphérique (comparaison d’un timer) est daté de son cycle prévu, même pendant
+  une instruction de plusieurs cycles. Les événements restent traités entre les instructions
+  ([ADR 0002](adr/0002-modele-temporel.md)).
 - Une attente `waitFor` est évaluée à chaque changement d’une broche, du circuit ou d’un port série, au cycle de ce
   changement, et non par échantillonnage : un niveau atteint puis quitté en deux cycles la satisfait. Son instant de
   fin est le cycle où la condition a été remplie. Les niveaux des broches, les octets émis et les états de composant

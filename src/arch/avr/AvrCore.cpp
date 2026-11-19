@@ -90,7 +90,7 @@ RunResult AvrCore::execute(Cycles budget, bool honourBreakpoints) {
 
     while (cycles < end) {
         if (cycles >= scheduler.nextEventAt())
-            scheduler.runDue(cycles);
+            scheduler.runDueWithClock(cycles);
 
         if (interrupts.any() && (sreg & sreg::I) && !interruptDelay) {
             serviceInterrupt();
@@ -125,7 +125,7 @@ RunResult AvrCore::execute(Cycles budget, bool honourBreakpoints) {
     }
     // Events due exactly at the end of the run belong to it: observers must see the state at that instant.
     if (cycles >= scheduler.nextEventAt())
-        scheduler.runDue(cycles);
+        scheduler.runDueWithClock(cycles);
     return {StopReason::BudgetReached, cycles - start};
 }
 
