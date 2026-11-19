@@ -231,7 +231,8 @@ public:
 
     [[nodiscard]] const std::filesystem::path& directory() const { return root; }
 
-    /// The files of the directory, those with a change first: `{name, git, truncated, files: [{path, status}]}`. The
+    /// The files of the directory, those with a change first: `{name, root, git, truncated, files: [{path, status}]}`
+    /// (`root` is the full path of the directory, which tells two projects of the same name apart). The
     /// status is "" (unchanged), "M" (modified), "A" (added), "D" (deleted), "R" (renamed), "U" (conflict) or "?" (not
     /// tracked).
     [[nodiscard]] nlohmann::json list() const {
@@ -254,7 +255,7 @@ public:
         nlohmann::json files = nlohmann::json::array();
         for (const auto& [path, status] : sorted)
             files.push_back({{"path", path}, {"status", status}});
-        return {{"name", detail::toUtf8(root.filename())}, {"git", prefix.has_value()}, {"truncated", truncated}, {"files", std::move(files)}};
+        return {{"name", detail::toUtf8(root.filename())}, {"root", detail::toUtf8(root)}, {"git", prefix.has_value()}, {"truncated", truncated}, {"files", std::move(files)}};
     }
 
     /// `{path, content, version, lineEndings}` of a text file. `content` keeps the line endings of the file.
@@ -324,11 +325,16 @@ public:
                 return std::unexpected{Failure{std::string{code::writeFailed}, "Cannot write " + std::string{name}}};
             }
         }
-        std::filesystem::permissions(temporary, std::filesystem::status(*target, error).permissions(), error);
 #if defined(__APPLE__)
-        // The extended attributes (Finder tags, quarantine...) and the ACL of the file stay with it.
-        ::copyfile(target->c_str(), temporary.c_str(), nullptr, COPYFILE_METADATA);
+        // The extended attributes (Finder tags, quarantine...), the ACL, the owner and the permissions stay with the file.
+        // copyfile may refuse some of them (a volume without extended attributes, an owner that is not ours): that is no
+        // reason to refuse the save, so only its failure sends us to the plain permissions below.
+        const bool kept = ::copyfile(target->c_str(), temporary.c_str(), nullptr, COPYFILE_METADATA) == 0;
+#else
+        const bool kept = false;
 #endif
+        if (!kept)
+            std::filesystem::permissions(temporary, std::filesystem::status(*target, error).permissions(), error);
         std::filesystem::rename(temporary, *target, error);
         if (error) {
             std::filesystem::remove(temporary, error);
@@ -392,6 +398,10 @@ private:
         const auto relative = detail::fromUtf8(name);
         if (relative.is_absolute() || relative.has_root_name() || relative.has_root_directory())
             return refuse("Not a path of the project");
+        // The name `.git` is looked for twice: in the path as given, and in the path as the file system resolved it. The
+        // second look is what catches the other names of the same folder (`.GIT` on a case-insensitive volume, `.git.` or
+        // `.git ` and the short name `GIT~1` on Windows, a link): it relies on weakly_canonical returning the real name
+        // of what exists, so a new way to name a file that it does not resolve needs a test in ProjectTests.cpp.
         const auto inside = [](const std::filesystem::path& path) {
             return std::ranges::none_of(path, [](const std::filesystem::path& part) {
                 const auto text = detail::lower(part.string());

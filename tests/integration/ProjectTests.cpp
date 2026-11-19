@@ -98,6 +98,8 @@ TEST_CASE("The files of a directory are listed, opened and saved", "[app][projec
     const Project project{directory.path};
 
     const auto list = project.list();
+    CHECK(list["name"] == directory.path.filename().string());
+    CHECK(list["root"] == directory.path.generic_string());  // The full path tells two projects of one name apart.
     CHECK(list["files"].size() == 2);
     CHECK(statusOf(list, "main.cpp") == "");
     CHECK(statusOf(list, "src/pwm.cpp") == "");

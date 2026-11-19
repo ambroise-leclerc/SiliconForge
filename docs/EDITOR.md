@@ -40,7 +40,7 @@ sans perdre ni écraser ce que l’autre vient de faire. La décision est décri
     de nouveau si le fichier a encore changé entre-temps) ;
   - **Use the disk version** met la version du disque dans l’éditeur et **garde le texte local** : **Restore my text**
     le remet dans le tampon, prêt à être enregistré, et il est conservé dans le stockage du navigateur de la page,
-    rangé sous le nom du répertoire du projet, jusqu’à sa restauration ou sa suppression (**Discard it**) ;
+    rangé sous le chemin complet du répertoire du projet (deux projets de même nom ne se mêlent pas), jusqu’à sa restauration ou sa suppression (**Discard it**) ;
   - **Cancel** ne décide rien : le tampon reste tel quel, le fichier aussi.
   Si le fichier a disparu ou n’est plus du texte, il n’y a pas de version à comparer : le texte local reste dans
   l’éditeur et dans le volet de gauche, d’où on peut le copier.
@@ -68,7 +68,7 @@ Côté C++ ([`Project.hpp`](../apps/siliconforge/Project.hpp)), les fonctions re
 
 | Fonction | Réponse |
 | --- | --- |
-| `sf.files.list()` | `{name, git, truncated, files: [{path, status}]}` |
+| `sf.files.list()` | `{name, root, git, truncated, files: [{path, status}]}` |
 | `sf.files.read(path)` | `{path, content, version, lineEndings}` |
 | `sf.files.version(path)` | `{version}`, `null` si le fichier a disparu ou n’est plus du texte |
 | `sf.files.write(path, content, version)` | `{version}` ; refusé avec `siliconforge.fileChanged` si le fichier n’est plus à cette version |

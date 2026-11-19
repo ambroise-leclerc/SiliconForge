@@ -171,7 +171,7 @@ describe("The editor of the project sources in the window", () => {
     await editor().useDisk();
     expect(editor().text).toBe("// written by the agent\n");
     expect(editor().state.dirty).toBe(false);
-    const project = JSON.parse(await call("sf.files.list")).name;  // The kept text is filed under the project directory.
+    const project = JSON.parse(await call("sf.files.list")).root;  // The kept text is filed under the full path of the project directory.
     expect(editor().state.recovered).toBe("// my edit\n");
     expect(part("[data-view=recovered]").hidden).toBe(false);
     expect(localStorage.getItem(`siliconforge.recovered.${project}/src/pwm.cpp`)).toBe("// my edit\n");

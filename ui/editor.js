@@ -11,10 +11,11 @@
 window.SiliconForgeEditor = (root, host) => {
   const $ = (selector) => root.querySelector(selector);
   const pollInterval = 1500;
-  // Per project directory: two projects served from one origin may both have a main.cpp.
-  const storageKey = (path) => `siliconforge.recovered.${listing.name}/${path}`;
+  // Per project directory, by its full path: two projects served from one origin (one port) may both have a main.cpp,
+  // and even a folder of the same name.
+  const storageKey = (path) => `siliconforge.recovered.${listing.root}/${path}`;
 
-  let listing = {name: "", git: false, truncated: false, files: []};
+  let listing = {name: "", root: "", git: false, truncated: false, files: []};
   let listingJson = "";
   const buffers = new Map();  // path -> {path, base, version, text, lineEndings, error, deleted, stale, recovered}
   let current = null;         // The buffer shown.
@@ -275,7 +276,7 @@ window.SiliconForgeEditor = (root, host) => {
   async function openFile(path) {
     fail(null);
     await host.ready;
-    if (!listing.name) await refreshList();  // The key of the kept text names the project.
+    if (!listing.root) await refreshList();  // The key of the kept text names the project.
     syncBuffer();
     let buffer = buffers.get(path);
     if (!buffer) {
