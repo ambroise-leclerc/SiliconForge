@@ -19,6 +19,7 @@
   let circuit = null;  // The circuit the chip is plugged in (sf.circuit()), null for a bare board
   let instruments = null;
   let bench = null;
+  let terminal = null;
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
   const waiters = new Set();
 
@@ -66,6 +67,8 @@
     get instruments() { return instruments; },
     /** The bench: `list()`, `run(scenarioFile)`, `open(runName)`, the shown `result`; see ui/bench.js. */
     get bench() { return bench; },
+    /** The agent terminal: `clients`, `open(id)`, `hangUp()`, `state`; see ui/terminal.js. */
+    get terminal() { return terminal; },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -484,6 +487,8 @@
   applyTheme(theme);
   instruments = window.SiliconForgeInstruments($("instruments"), {call, get state() { return state; }, get circuit() { return circuit; }});
   bench = window.SiliconForgeBench($("bench"), {call, ready: webFront.ready});
+  terminal = window.SiliconForgeTerminal($("terminal"), {call, ready: webFront.ready});
+  $("terminal-toggle").addEventListener("click", () => terminal.show($("terminal").hidden));
   bindControls();
   webFront.ready.then(() => {
     $("status").textContent = "connected";
