@@ -86,3 +86,26 @@ SCENARIO("Timer0 in Phase Correct PWM mode", "[avr][timer0][pwm]") {
         CHECK(*bench.dutyCycle("PD6") == Catch::Approx(128.0 / 255.0).epsilon(0.01));
     }
 }
+
+TEST_CASE("Timer0 timestamps one-cycle PWM pulses inside multi-cycle instructions", "[avr][timer0][pwm]") {
+    auto mcu = idleMcu();
+    mcu->load(AvrAssembler{}.nop().rjmp(-2).image());  // Three-cycle loop shifts the instruction alignment each period.
+    auto& data = mcu->dataSpace();
+    std::vector<std::pair<Cycles, PinState>> edges;
+    mcu->pin("D6")->subscribe([&](const Pin& pin, Cycles at) { edges.emplace_back(at, pin.state()); });
+    data.write(ddrd, 0x40);
+    data.write(ocr0a, 0);
+    data.write(tccr0a, 0x83);
+    data.write(tccr0b, 0x01);
+    edges.clear();
+    mcu->run(1024);
+    REQUIRE(edges.size() >= 6);
+    for (std::size_t i = 0; i + 1 < edges.size(); i += 2) {
+        CHECK(edges[i].second == PinState::High);
+        CHECK(edges[i + 1].second == PinState::Low);
+        CHECK(edges[i + 1].first - edges[i].first == 1);
+        if (i >= 2)
+            CHECK(edges[i].first - edges[i - 2].first == 256);
+    }
+    CHECK(mcu->cycles() == 1024);
+}

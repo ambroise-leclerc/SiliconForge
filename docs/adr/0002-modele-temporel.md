@@ -19,6 +19,8 @@ le temps réel pour que les tests automatiques soient rapides.
   de son prochain changement observable (comparaison, débordement, fin de trame, fin de conversion) et le place dans
   l'ordonnanceur (`Scheduler`). Le cœur ne consulte l'ordonnanceur qu'entre deux instructions. Lorsqu'un registre
   est lu (ex. `TCNT0`), le périphérique se met à jour paresseusement jusqu'au cycle courant.
+  Les événements traités après une instruction sont datés de leur cycle prévu ; pendant leur traitement, les
+  observateurs et les circuits voient ce cycle, puis l'horloge revient à la fin de l'instruction.
 - **Sommeil.** En mode `SLEEP`, le temps saute directement au prochain événement : un firmware qui dort entre deux
   interruptions s'émule des dizaines de fois plus vite que le temps réel.
 - **Déterminisme.** Aucune source de temps réel n'intervient dans l'émulation : à firmware et stimuli identiques,

@@ -32,3 +32,20 @@ SCENARIO("The scheduler fires events in time order", "[core][scheduler]") {
         CHECK(scheduler.nextEventAt() == Scheduler::never);
     }
 }
+
+TEST_CASE("The device clock follows each overdue event and returns to the instruction boundary", "[core][scheduler]") {
+    Scheduler scheduler;
+    Cycles clock = 10;
+    std::vector<Cycles> observed;
+    scheduler.schedule(8, [&](Cycles at) {
+        observed.push_back(clock);
+        scheduler.schedule(at + 1, [&](Cycles) { observed.push_back(clock); });
+    });
+    scheduler.runDueWithClock(clock);
+    CHECK(observed == std::vector<Cycles>{8, 9});
+    CHECK(clock == 10);
+    scheduler.schedule(11, [](Cycles) { throw 1; });
+    clock = 12;
+    CHECK_THROWS(scheduler.runDueWithClock(clock));
+    CHECK(clock == 12);
+}
