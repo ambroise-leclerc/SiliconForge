@@ -137,6 +137,7 @@ ctest --test-dir build --output-on-failure
 - [Programmable bench: scenarios and `siliconforge-bench`](docs/BANC.md) (in French)
 - [Agent terminal: Claude Code, Codex, OpenCode or Mistral Vibe in the window](docs/TERMINAL.md) (in French)
 - [Source editor: read and edit what the agent changed, with the Git differences](docs/EDITOR.md) (in French)
+- [The PWM correction loop: from the setpoint to a reproducible measurement, with and without the Foundry](docs/FOUNDRY.md) (in French)
 - [Core qualification: method (French)](docs/QUALIFICATION.md) and [matrix per chip](docs/qualification/README.md)
 - [Architecture and contributing](docs/ARCHITECTURE.md)
 - [WebFront 1.0: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.0.md) (earlier reports: [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))

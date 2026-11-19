@@ -1,0 +1,13 @@
+diff --git a/firmware/src/pwm_setpoint.c b/firmware/src/pwm_setpoint.c
+index ef12385..d20280a 100644
+--- a/firmware/src/pwm_setpoint.c
++++ b/firmware/src/pwm_setpoint.c
+@@ -5,7 +5,7 @@
+ #include <stdint.h>
+ 
+ #ifndef SETPOINT_RELEASED_PERCENT
+-#define SETPOINT_RELEASED_PERCENT 25
++#define SETPOINT_RELEASED_PERCENT 0
+ #endif
+ #ifndef SETPOINT_PRESSED_PERCENT
+ #define SETPOINT_PRESSED_PERCENT 75

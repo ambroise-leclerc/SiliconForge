@@ -19,4 +19,4 @@ Le premier parcours utilise l’ATmega328P simulé, les fichiers de circuit et l
 
 Une extension d’IDE simplifierait l’édition mais lierait la conduite du banc au cycle de vie d’un éditeur. Une interface de conversation propriétaire imposerait de maintenir un agent supplémentaire. Nous concentrons l’investissement sur le terminal et la revue des sources ([ADR 0009](0009-poste-agentique.md)), ainsi que sur le banc programmable ([ADR 0010](0010-banc-programmable.md)).
 
-Nous évaluerons cette orientation sur le même exercice avant et après intégration, en comptant les interventions manuelles et le délai jusqu’à une mesure reproductible. La vitesse de génération du code seule ne permet pas d’estimer le gain sur banc.
+Nous évaluerons cette orientation sur le même exercice avant et après intégration, en comptant les interventions manuelles et le délai jusqu’à une mesure reproductible. La vitesse de génération du code seule ne permet pas d’estimer le gain sur banc. L’exercice et ses mesures sont décrits dans [FOUNDRY.md](../FOUNDRY.md).
