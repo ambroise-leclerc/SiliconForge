@@ -21,6 +21,12 @@ sans perdre ni écraser ce que l’autre vient de faire. La décision est décri
   (repérées par `●` dans la liste). **Save** ou `Ctrl+S` enregistre. Un fichier CRLF reste CRLF ; un fichier qui mêle
   les fins de ligne s’affiche mais n’est pas modifiable, pour que l’enregistrement ne les altère pas. Seuls les
   fichiers texte UTF-8 de moins de 1 Mio s’ouvrent ; un fichier binaire ou trop gros ne montre que ses différences.
+- **Coloration syntaxique.** Le texte est coloré par [Prism](https://prismjs.com) selon le nom du fichier : C et C++
+  (`.c`, `.h`, `.cpp`, `.hpp`, `.ino`...), Python, JSON, Bash, CMake (`CMakeLists.txt`, `.cmake`), JavaScript, CSS,
+  HTML et XML, Markdown, YAML, Makefile, TOML, INI et Rust ; un autre fichier reste en texte simple. Au-delà de
+  200 000 caractères le texte n'est plus coloré, pour que la frappe reste fluide. Le `<textarea>` reste le champ
+  d'édition (curseur, sélection, copier-coller, accessibilité) : son texte est transparent et une copie colorée est
+  dessinée dessous, défilant avec lui. Les couleurs suivent le thème clair ou sombre.
 - **Différences.** L’onglet **Changes** montre le diff unifié du fichier enregistré contre le dernier commit
   (`git diff HEAD`), sans les modifications non enregistrées du tampon. Un fichier non suivi s’affiche entièrement
   ajouté ; un fichier supprimé s’affiche en diff seul.
@@ -55,7 +61,7 @@ fichiers de l’utilisateur à toute page de l’origine de l’application : le
 ## Dans la page
 
 `window.siliconForge.editor` (voir [`ui/editor.js`](../ui/editor.js)) : `files`, `open(path)`, `text`, `save()`,
-`state` (`{path, dirty, stale, deleted, error, view, conflict, recovered}`), `conflict` (`{mine, disk}`), `keepMine()`,
+`language`, `state` (`{path, dirty, stale, deleted, error, view, conflict, recovered}`), `conflict` (`{mine, disk}`), `keepMine()`,
 `useDisk()`, `cancel()`, `restore()`, `view("edit" | "diff")`, `poll()`, `refresh()`, `show(visible)`.
 
 Côté C++ ([`Project.hpp`](../apps/siliconforge/Project.hpp)), les fonctions renvoient du JSON :
@@ -77,7 +83,7 @@ Codes d’erreur : `siliconforge.unknownFile`, `notText`, `tooLarge`, `fileChang
   dossier d’un dépôt, absence de verrou de l’index.
 - `ctest -R UI-Editor` (Linux, fenêtre native) : liste, ouverture, modification et enregistrement ; rechargement d’un
   tampon propre ; tampon modifié signalé sans être remplacé ; les deux versions, **Cancel**, **Use the disk version**
-  puis **Restore my text**, **Overwrite with my version** ; chemins refusés ; changements laissés par un shell du
+  puis **Restore my text**, **Overwrite with my version** ; texte coloré selon le langage, aligné sur le champ de saisie et défilant avec lui ; chemins refusés ; changements laissés par un shell du
   terminal (fichier modifié, nouveau, supprimé) vus dans la liste et en diff. Le dossier du test est refait avant
   chaque exécution (fixture `UI-Editor-Project`) et devient un dépôt Git si `git` est installé.
 

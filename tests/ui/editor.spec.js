@@ -82,6 +82,52 @@ describe("The editor of the project sources in the window", () => {
     expect((await read("main.cpp")).content).toBe("int main() {\n  return 1;\n}\n");
   });
 
+  it("colors the text by the language of the file, under the text being edited", async () => {
+    await editor().open("main.cpp");
+    expect(editor().language).toBe("cpp");
+    const area = part("[data-view=text]");
+    const code = part("[data-view=highlight]");
+    const tokens = (type) => [...code.querySelectorAll(`.token.${type}`)].map((token) => token.textContent);
+    expect(code.textContent).toBe(editor().text + "\n");  // The same text, so the same boxes.
+    expect(tokens("keyword")).toEqual(jasmine.arrayContaining(["int", "return"]));
+    expect(tokens("number")).toContain("1");
+    const keyword = [...code.querySelectorAll(".token.keyword")][0];
+    expect(getComputedStyle(keyword).color).not.toBe(getComputedStyle(code).color);
+    // The textarea only carries the caret and the selection: its own text is not drawn, the copy under it is.
+    expect(getComputedStyle(area).webkitTextFillColor).toBe("rgba(0, 0, 0, 0)");
+    for (const property of ["fontFamily", "fontSize", "lineHeight", "tabSize", "paddingTop", "paddingLeft"]) {
+      expect(getComputedStyle(code.parentElement)[property]).withContext(property).toBe(getComputedStyle(area)[property]);
+    }
+    expect(code.parentElement.getBoundingClientRect().width).toBe(area.getBoundingClientRect().width);
+
+    // Typing recolors, and scrolling the text scrolls the colored copy with it.
+    const original = area.value;
+    area.value = "// a comment\n" + "int x = 0;\n".repeat(200);
+    area.dispatchEvent(new Event("input", {bubbles: true}));
+    await until(() => tokens("comment").includes("// a comment"), "the new comment colored");
+    area.scrollTop = 300;
+    area.dispatchEvent(new Event("scroll"));
+    expect(code.parentElement.scrollTop).toBe(area.scrollTop);
+    expect(area.scrollTop).toBeGreaterThan(200);
+    area.value = original;
+    area.dispatchEvent(new Event("input", {bubbles: true}));
+    await until(() => tokens("comment").length === 0, "the colors back to the saved text");
+    expect(editor().state.dirty).toBe(false);
+    document.documentElement.dataset.theme = "dark";
+    await capture("editor-colors-dark");
+    document.documentElement.dataset.theme = "light";
+    await capture("editor-colors-light");
+    delete document.documentElement.dataset.theme;
+
+    // A file whose language is not known stays plain, and a language change follows the file.
+    await editor().open("notes.txt");
+    expect(editor().language).toBe("plain");
+    expect(code.textContent).toBe("Notes for the agent\n\n");
+    expect(code.querySelector(".token")).toBe(null);
+    await editor().open("src/pwm.cpp");
+    expect(editor().language).toBe("cpp");
+  });
+
   it("reloads a clean buffer that changed on the disk", async () => {
     await editor().open("src/pwm.cpp");
     expect(editor().text).toBe("// PWM at 25 %\n");

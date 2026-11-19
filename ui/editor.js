@@ -26,6 +26,48 @@ window.SiliconForgeEditor = (root, host) => {
   let notice = "";
 
   const parse = (json) => JSON.parse(json);
+
+  // Syntax highlighting: Prism (ui/vendor/prism) colors a copy of the text drawn under the transparent textarea.
+  const languages = {
+    c: "c", h: "c", cpp: "cpp", cc: "cpp", cxx: "cpp", hpp: "cpp", hh: "cpp", hxx: "cpp", ino: "cpp", py: "python", json: "json", sh: "bash", bash: "bash",
+    cmake: "cmake", js: "javascript", mjs: "javascript", css: "css", html: "markup", htm: "markup", xml: "markup", svg: "markup", md: "markdown",
+    yml: "yaml", yaml: "yaml", mk: "makefile", toml: "toml", ini: "ini", cfg: "ini", rs: "rust",
+  };
+  const maxHighlighted = 200000;  // Characters: beyond that the text stays plain, so that typing stays smooth.
+  let drawn = null;               // [text, language] of the highlighted copy.
+  let frame = 0;
+
+  /** The Prism grammar of a file, from its name. */
+  function languageOf(path) {
+    const name = path.split("/").pop();
+    if (name === "CMakeLists.txt") return "cmake";
+    if (name === "Makefile" || name === "makefile" || name === "GNUmakefile") return "makefile";
+    const dot = name.lastIndexOf(".");
+    return dot > 0 ? languages[name.slice(dot + 1).toLowerCase()] ?? null : null;
+  }
+
+  /** Redraws the colored copy when the text or the language changed. */
+  function highlight() {
+    const code = $("[data-view=highlight]");
+    const area = $("[data-view=text]");
+    const text = area.value;
+    const wanted = current ? languageOf(current.path) : null;
+    const language = wanted && window.Prism?.languages?.[wanted] && text.length <= maxHighlighted ? wanted : null;
+    if (drawn && drawn[0] === text && drawn[1] === language) return;
+    drawn = [text, language];
+    code.dataset.language = language ?? "plain";
+    // The last line break is drawn so that a final empty line has its height. Prism escapes the text it returns.
+    if (language) code.innerHTML = window.Prism.highlight(text, window.Prism.languages[language], language) + "\n";
+    else code.textContent = text + "\n";
+    syncScroll();
+  }
+
+  function syncScroll() {
+    const area = $("[data-view=text]");
+    const pre = $("[data-view=highlight]").parentElement;
+    pre.scrollTop = area.scrollTop;
+    pre.scrollLeft = area.scrollLeft;
+  }
   const dirty = (buffer) => buffer && buffer.error === null && !buffer.deleted && buffer.text !== buffer.base;
 
   const api = {
@@ -40,6 +82,8 @@ window.SiliconForgeEditor = (root, host) => {
       };
     },
     get text() { return current ? current.text : ""; },
+    /** The language the text is colored as ("cpp", "python"...), "plain" when it is not. */
+    get language() { return $("[data-view=highlight]").dataset.language ?? "plain"; },
     set text(value) { edit(value); },
     /** The two versions of a refused save: {mine, disk}, or null. */
     get conflict() { return conflict ? {mine: conflict.mine, disk: conflict.disk} : null; },
@@ -141,9 +185,11 @@ window.SiliconForgeEditor = (root, host) => {
     const buffer = current;
     const showText = mode === "edit" && buffer && !buffer.error && !buffer.deleted && conflict === null;
     text.hidden = !(mode === "edit" && conflict === null);
+    $("[data-view=code]").hidden = text.hidden;
     text.disabled = !showText || buffer.lineEndings === "mixed";
     if (buffer && !buffer.error && !buffer.deleted && text.value !== buffer.text) text.value = buffer.text;
     if (!buffer || buffer.error || buffer.deleted) text.value = "";
+    highlight();
     diff.hidden = !(mode === "diff" && conflict === null);
     $("[data-view=conflict]").hidden = conflict === null;
     if (conflict) {
@@ -251,6 +297,7 @@ window.SiliconForgeEditor = (root, host) => {
     if (!current || current.error || current.deleted || conflict !== null) throw new Error("No file to edit");
     current.text = value;
     $("[data-view=text]").value = value;
+    highlight();
     renderBar();
     renderList();
   }
@@ -369,8 +416,15 @@ window.SiliconForgeEditor = (root, host) => {
       try { answer = parse(await host.call("sf.files.version", buffer.path)); } catch { answer = null; }
       if (current === buffer && conflict === null && answer) {
         if (answer.version === null) {
-          buffer.gone = !buffer.deleted && !buffer.error;  // Removed, or no longer text: the buffer keeps what it holds.
+          if (!dirty(buffer) && !buffer.error && listing.files.find((file) => file.path === buffer.path)?.status === "D") {
+            // Deleted and nothing unsaved: it becomes a change to read, like a file opened after its deletion.
+            Object.assign(buffer, {deleted: true, base: "", text: "", version: null, gone: false, stale: false});
+            mode = "diff";
+          } else {
+            buffer.gone = !buffer.deleted && !buffer.error;  // Removed, or no longer text: the buffer keeps what it holds.
+          }
           render();
+          if (mode === "diff") await loadDiff();
         } else if (answer.version !== buffer.version || buffer.gone) {
           buffer.gone = false;
           syncBuffer();
@@ -403,7 +457,12 @@ window.SiliconForgeEditor = (root, host) => {
 
   function close() { show(false); }
 
-  $("[data-view=text]").addEventListener("input", () => { syncBuffer(); renderBar(); renderList(); });
+  $("[data-view=text]").addEventListener("input", () => {
+    syncBuffer(); renderBar(); renderList();
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(highlight);
+  });
+  $("[data-view=text]").addEventListener("scroll", syncScroll);
   $("[data-view=text]").addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "s") {
       event.preventDefault();

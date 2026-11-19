@@ -57,8 +57,8 @@ std::string versionIn(const json& answer) {
 
 std::string statusOf(const json& list, std::string_view path) {
     for (const auto& file : list["files"])
-        if (file["path"] == path)
-            return file["status"];
+        if (file["path"].get<std::string>() == path)
+            return file["status"].get<std::string>();
     return "absent";
 }
 
