@@ -24,6 +24,7 @@ window.SiliconForgeTerminal = (root, host) => {
     open,
     hangUp,
     show,
+    display,
     refresh,
   };
 
@@ -144,10 +145,16 @@ window.SiliconForgeTerminal = (root, host) => {
     await shown.page.hangUp();
   }
 
-  function show(visible = root.hidden) {
+  /** Shows or hides the panel itself; the window calls it when its tab is chosen or left. */
+  function display(visible) {
     root.hidden = !visible;
-    document.getElementById("terminal-toggle")?.setAttribute("aria-pressed", String(visible));
     if (visible) shown?.terminal.focus();
+  }
+
+  /** Brings the terminal forward, or goes back to the bench: through the tabs of the window when it has them. */
+  function show(visible = root.hidden) {
+    if (host.select) host.select(visible);
+    else display(visible);
   }
 
   $("[data-action=open]").addEventListener("click", () => {

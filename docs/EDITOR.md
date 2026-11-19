@@ -1,12 +1,12 @@
 # Éditeur des sources
 
-Le bouton **Sources** de la barre d’outils ouvre, dans la fenêtre et à côté du [terminal agentique](TERMINAL.md), les
+L’onglet **Sources** de la colonne de droite, voisin de l’onglet du [terminal agentique](TERMINAL.md), ouvre les
 fichiers du répertoire du projet : on y lit, modifie et enregistre le code, et on y voit les différences Git avec le
 dernier commit. L’agent écrit dans ce répertoire depuis son terminal ; la personne relit et corrige au même endroit,
 sans perdre ni écraser ce que l’autre vient de faire. La décision est décrite dans l’[ADR 0009](adr/0009-poste-agentique.md).
 
 > **Écart avec l’ADR.** L’ADR parle d’une « fenêtre distincte ». WebFront ne fournit qu’une fenêtre native par
-> application : l’éditeur est un panneau de cette fenêtre, affiché côte à côte avec le terminal. Une fenêtre séparée
+> application : l’éditeur est un onglet de cette fenêtre, voisin de celui du terminal. Une fenêtre séparée
 > demanderait une fonction de WebFront qui n’existe pas.
 
 ## Comportement
