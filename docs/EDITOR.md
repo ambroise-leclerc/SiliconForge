@@ -44,9 +44,17 @@ sans perdre ni écraser ce que l’autre vient de faire. La décision est décri
   - **Cancel** ne décide rien : le tampon reste tel quel, le fichier aussi.
   Si le fichier a disparu ou n’est plus du texte, il n’y a pas de version à comparer : le texte local reste dans
   l’éditeur et dans le volet de gauche, d’où on peut le copier.
-- **Écriture.** Le fichier est écrit à côté (`<nom>.sf-save`) puis renommé par-dessus : l’agent ne lit jamais un demi-
-  fichier, et les permissions sont conservées (sur macOS, les attributs étendus et l’ACL aussi). Entre la vérification de version et le renommage, il reste une courte fenêtre
-  pendant laquelle un autre programme pourrait écrire ; son écriture serait alors perdue.
+- **Écriture.** Le texte est écrit dans un fichier temporaire à côté du fichier (`.<nom>.sf-` et 16 chiffres
+  hexadécimaux), au nom unique, créé en exclusivité et sans suivre les liens : rien de ce qui existe déjà, ni un lien
+  vers l’extérieur du projet, n’est jamais écrit ni tronqué. Il remplace ensuite le fichier : l’agent ne lit jamais un
+  demi-fichier, et les permissions sont conservées (sur macOS, les attributs étendus et l’ACL aussi). Les fichiers
+  temporaires n’apparaissent pas dans la liste.
+- **Vérification et remplacement.** Sous Linux et macOS, les deux fichiers sont échangés en une seule opération, puis la
+  version de ce qui est sorti est vérifiée : si ce n’est pas celle que la page avait lue, l’échange est défait, donc ce
+  que l’agent a écrit revient en place et aucune sauvegarde ne l’a masqué. Ne peut encore se perdre que l’écriture d’un
+  programme qui garde l’ancien fichier ouvert et y écrit dans les microsecondes qui suivent la vérification. Sous Windows,
+  qui n’a pas cet échange, la version est vérifiée de nouveau juste avant le renommage : la fenêtre se réduit sans se
+  fermer, et un enregistrement de l’agent dans cet intervalle est perdu.
 - **Git sans gêner l’agent.** Les commandes Git de l’éditeur sont en lecture seule et ne prennent pas le verrou de
   l’index (`--no-optional-locks`) : un `git commit` de l’agent ne rencontre jamais un `index.lock` laissé par l’éditeur.
 

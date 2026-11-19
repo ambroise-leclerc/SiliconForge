@@ -59,6 +59,15 @@ std::string versionIn(const json& answer) {
     return answer["version"].get<std::string>();
 }
 
+/// The files of a directory that look like a temporary file of a save.
+std::vector<std::string> leftovers(const fs::path& directory) {
+    std::vector<std::string> names;
+    for (const auto& entry : fs::directory_iterator{directory})
+        if (detail::isTemporary(entry.path().filename().string()))
+            names.push_back(entry.path().filename().string());
+    return names;
+}
+
 std::string statusOf(const json& list, std::string_view path) {
     for (const auto& file : list["files"])
         if (file["path"].get<std::string>() == path)
@@ -114,7 +123,7 @@ TEST_CASE("The files of a directory are listed, opened and saved", "[app][projec
     REQUIRE(saved);
     CHECK(get(directory.path / "src" / "pwm.cpp") == "// pwm at 62.5 kHz\n");
     CHECK((*saved)["version"] == (*project.read("src/pwm.cpp"))["version"]);
-    CHECK_FALSE(fs::exists(directory.path / "src" / "pwm.cpp.sf-save"));
+    CHECK(leftovers(directory.path / "src").empty());
 }
 
 TEST_CASE("Only the files of the project can be named", "[app][project]") {
@@ -335,3 +344,90 @@ TEST_CASE("A save keeps the extended attributes of the file", "[app][project]") 
     CHECK(std::string(value, 4) == "kept");
 }
 #endif
+
+TEST_CASE("A change made while a save is under way is neither overwritten nor hidden", "[app][project]") {
+    Directory directory;
+    put(directory.path / "main.cpp", "one\n");
+    Project project{directory.path};
+    const auto opened = project.read("main.cpp");
+    REQUIRE(opened);
+
+    SECTION("the agent writes into the file") {
+        project.beforeReplace = [&] { put(directory.path / "main.cpp", "two, written in place\n"); };
+        const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
+        REQUIRE_FALSE(refused);
+        CHECK(refused.error().code == code::fileChanged);
+        CHECK(get(directory.path / "main.cpp") == "two, written in place\n");
+    }
+    SECTION("the agent replaces the file") {
+        project.beforeReplace = [&] {
+            put(directory.path / "new.tmp", "two, replaced\n");
+            fs::rename(directory.path / "new.tmp", directory.path / "main.cpp");
+        };
+        const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
+        REQUIRE_FALSE(refused);
+        CHECK(refused.error().code == code::fileChanged);
+        CHECK(get(directory.path / "main.cpp") == "two, replaced\n");
+    }
+    SECTION("the agent deletes the file") {
+        project.beforeReplace = [&] { fs::remove(directory.path / "main.cpp"); };
+        const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
+        REQUIRE_FALSE(refused);
+        CHECK(refused.error().code == code::fileChanged);
+        CHECK_FALSE(fs::exists(directory.path / "main.cpp"));
+    }
+    CHECK(leftovers(directory.path).empty());
+
+    // Nothing changed in between: the save goes through.
+    project.beforeReplace = nullptr;
+    put(directory.path / "main.cpp", "one\n");
+    REQUIRE(project.write("main.cpp", "one, edited\n", versionIn(*project.read("main.cpp"))));
+    CHECK(get(directory.path / "main.cpp") == "one, edited\n");
+}
+
+TEST_CASE("A save never writes to a file that is already there", "[app][project]") {
+    Directory directory, outside;
+    put(directory.path / "main.cpp", "one\n");
+    put(outside.path / "precious.txt", "precious\n");
+    put(directory.path / "main.cpp.sf-save", "mine\n");  // The name an earlier version of the editor used.
+    const Project project{directory.path};
+#if !defined(_WIN32)
+    // A link where a temporary name could be taken: its target is not truncated, and the link stays.
+    fs::create_symlink(outside.path / "precious.txt", directory.path / ".main.cpp.sf-0000000000000000");
+#endif
+    REQUIRE(project.write("main.cpp", "two\n", versionIn(*project.read("main.cpp"))));
+    CHECK(get(directory.path / "main.cpp") == "two\n");
+    CHECK(get(directory.path / "main.cpp.sf-save") == "mine\n");
+    CHECK(get(outside.path / "precious.txt") == "precious\n");
+#if !defined(_WIN32)
+    CHECK(fs::is_symlink(directory.path / ".main.cpp.sf-0000000000000000"));
+#endif
+
+    // Several saves in a row leave nothing behind, and the temporary files are not offered as files of the project.
+    for (int i = 0; i < 5; ++i)
+        REQUIRE(project.write("main.cpp", std::format("{}\n", i), versionIn(*project.read("main.cpp"))));
+    put(directory.path / ".other.sf-0123456789abcdef", "left by a crash\n");
+    const auto list = project.list();
+    CHECK(statusOf(list, ".other.sf-0123456789abcdef") == "absent");
+    CHECK(statusOf(list, "main.cpp") == "");
+    CHECK(statusOf(list, "main.cpp.sf-save") == "");  // Not a temporary name of the new kind: a file like another.
+}
+
+TEST_CASE("A file removed from the index is still a change to read", "[app][project][git]") {
+    if (!hasGit())
+        SKIP("git is not installed");
+    Directory directory;
+    git(directory.path, "init -q");
+    put(directory.path / "gone.txt", "to delete\n");
+    put(directory.path / "keep.txt", "keep\n");
+    git(directory.path, "add -A");
+    git(directory.path, "commit -q -m initial");
+    git(directory.path, "rm -q gone.txt");  // Gone from the disk and from the index; the last commit still has it.
+    const Project project{directory.path};
+
+    CHECK(statusOf(project.list(), "gone.txt") == "D");
+    const auto diff = project.diff("gone.txt");
+    REQUIRE(diff);
+    CHECK(std::string{(*diff)["diff"]}.contains("-to delete"));
+    CHECK_FALSE(project.diff("never-existed.txt"));
+}

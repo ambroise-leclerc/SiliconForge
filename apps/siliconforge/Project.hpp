@@ -4,21 +4,31 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cerrno>
 #include <cstdint>
 #include <cstdio>
 #include <expected>
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <map>
+#include <random>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <system_error>
 #include <vector>
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
+#include <share.h>
+#include <sys/stat.h>
+#else
+#include <fcntl.h>
 #include <sys/wait.h>
+#include <unistd.h>
 #endif
 #if defined(__APPLE__)
 #include <copyfile.h>
@@ -218,6 +228,96 @@ namespace detail {
     return diff;
 }
 
+/// Whether `name` is one of the temporary files of a save: `.<name>.sf-` and 16 hexadecimal digits. They live for the
+/// instant of a save, and are not files of the project.
+[[nodiscard]] inline bool isTemporary(std::string_view name) {
+    constexpr std::string_view mark = ".sf-";
+    if (name.size() < 1 + mark.size() + 16 + 1 || name.front() != '.')
+        return false;
+    const auto digits = name.substr(name.size() - 16);
+    return name.substr(name.size() - 16 - mark.size(), mark.size()) == mark && std::ranges::all_of(digits, [](unsigned char c) { return std::isxdigit(c) != 0; });
+}
+
+/// Creates a file next to `target` that did not exist, holding `bytes`: a name of its own, created exclusively and without
+/// following a link, so that nothing already there (a file, a link to somewhere else) is ever written to.
+[[nodiscard]] inline std::expected<std::filesystem::path, std::error_code> createTemporary(const std::filesystem::path& target, std::string_view bytes) {
+    std::random_device random;
+    for (int attempt = 0; attempt < 64; ++attempt) {
+        std::filesystem::path name{"."};
+        name += target.filename();
+        name += std::filesystem::path{std::format(".sf-{:08x}{:08x}", random(), random())};
+        const auto candidate = target.parent_path() / name;
+#if defined(_WIN32)
+        int         descriptor = -1;
+        const auto  opened     = ::_wsopen_s(&descriptor, candidate.c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY, _SH_DENYNO, _S_IREAD | _S_IWRITE);
+        if (opened == EEXIST)
+            continue;
+        if (opened != 0)
+            return std::unexpected{std::error_code{opened, std::generic_category()}};
+        const auto close = [&] { ::_close(descriptor); };
+        std::size_t done = 0;
+        while (done < bytes.size()) {
+            const auto chunk   = static_cast<unsigned>(std::min<std::size_t>(bytes.size() - done, 1u << 20));
+            const int  written = ::_write(descriptor, bytes.data() + done, chunk);
+            if (written <= 0) {
+                const std::error_code failure{errno, std::generic_category()};
+                close();
+                std::error_code ignored;
+                std::filesystem::remove(candidate, ignored);
+                return std::unexpected{failure};
+            }
+            done += static_cast<std::size_t>(written);
+        }
+        close();
+#else
+        const int descriptor = ::open(candidate.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+        if (descriptor < 0) {
+            if (errno == EEXIST)
+                continue;
+            return std::unexpected{std::error_code{errno, std::generic_category()}};
+        }
+        std::size_t done = 0;
+        while (done < bytes.size()) {
+            const auto written = ::write(descriptor, bytes.data() + done, bytes.size() - done);
+            if (written < 0 && errno == EINTR)
+                continue;
+            if (written <= 0) {
+                const std::error_code failure{errno, std::generic_category()};
+                ::close(descriptor);
+                std::error_code ignored;
+                std::filesystem::remove(candidate, ignored);
+                return std::unexpected{failure};
+            }
+            done += static_cast<std::size_t>(written);
+        }
+        ::close(descriptor);
+#endif
+        return candidate;
+    }
+    return std::unexpected{std::make_error_code(std::errc::file_exists)};
+}
+
+/// Exchanges two files in one step (Linux, macOS). 0 on success; -1 with `errno` otherwise, ENOTSUP when the system or the
+/// file system cannot.
+[[nodiscard]] inline int exchange(const std::filesystem::path& a, const std::filesystem::path& b) {
+#if defined(__linux__)
+    const int result = ::renameat2(AT_FDCWD, a.c_str(), AT_FDCWD, b.c_str(), RENAME_EXCHANGE);
+    if (result != 0 && (errno == EINVAL || errno == ENOSYS))
+        errno = ENOTSUP;
+    return result;
+#elif defined(__APPLE__)
+    const int result = ::renamex_np(a.c_str(), b.c_str(), RENAME_SWAP);
+    if (result != 0 && errno == EINVAL)
+        errno = ENOTSUP;
+    return result;
+#else
+    (void)a;
+    (void)b;
+    errno = ENOTSUP;
+    return -1;
+#endif
+}
+
 }  // namespace detail
 
 class Project {
@@ -230,6 +330,10 @@ public:
     }
 
     [[nodiscard]] const std::filesystem::path& directory() const { return root; }
+
+    /// Called by write() once the new content is ready and the file was found at the expected version, just before the
+    /// replacement: a seam for tests, which play the agent writing in that interval.
+    std::function<void()> beforeReplace;
 
     /// The files of the directory, those with a change first: `{name, root, git, truncated, files: [{path, status}]}`
     /// (`root` is the full path of the directory, which tells two projects of the same name apart). The
@@ -247,6 +351,7 @@ public:
         } else {
             walk(entries);
         }
+        std::erase_if(entries, [](const auto& entry) { return detail::isTemporary(entry.first.substr(entry.first.rfind('/') + 1)); });
         std::vector<std::pair<std::string, std::string>> sorted(entries.begin(), entries.end());
         std::ranges::stable_sort(sorted, [](const auto& a, const auto& b) { return a.second.empty() < b.second.empty(); });
         const bool truncated = sorted.size() > maxListed;
@@ -311,20 +416,12 @@ public:
             return std::unexpected{Failure{std::string{code::tooLarge}, "The file would be larger than 1 MiB: " + std::string{name}}};
         if (!isText(bytes))
             return std::unexpected{Failure{std::string{code::notText}, "Not UTF-8 text: " + std::string{name}}};
-        // Written next to the file and renamed over it: the agent never reads half a file, and the permissions stay.
-        std::filesystem::path temporary = *target;
-        temporary += ".sf-save";
+        // Written to a file of its own next to the target, then put in its place: the agent never reads half a file.
+        const auto created = detail::createTemporary(*target, bytes);
+        if (!created)
+            return std::unexpected{Failure{std::string{code::writeFailed}, "Cannot write " + std::string{name} + ": " + created.error().message()}};
+        const auto& temporary = *created;
         std::error_code error;
-        {
-            std::ofstream out{temporary, std::ios::binary | std::ios::trunc};
-            out.write(bytes.data(), static_cast<std::streamsize>(bytes.size()));
-            out.flush();
-            if (!out) {
-                out.close();
-                std::filesystem::remove(temporary, error);
-                return std::unexpected{Failure{std::string{code::writeFailed}, "Cannot write " + std::string{name}}};
-            }
-        }
 #if defined(__APPLE__)
         // The extended attributes (Finder tags, quarantine...), the ACL, the owner and the permissions stay with the file.
         // copyfile may refuse some of them (a volume without extended attributes, an owner that is not ours): that is no
@@ -335,11 +432,14 @@ public:
 #endif
         if (!kept)
             std::filesystem::permissions(temporary, std::filesystem::status(*target, error).permissions(), error);
-        std::filesystem::rename(temporary, *target, error);
-        if (error) {
-            std::filesystem::remove(temporary, error);
-            return std::unexpected{Failure{std::string{code::writeFailed}, "Cannot replace " + std::string{name}}};
+        if (beforeReplace)
+            beforeReplace();
+        const auto replaced = replace(*target, temporary, expected);
+        if (!replaced) {
+            return std::unexpected{replaced.error()};
         }
+        if (!*replaced)
+            return std::unexpected{Failure{std::string{code::fileChanged}, "The file changed while it was saved, and was left as it is: " + std::string{name}}};
         return nlohmann::json{{"version", versionOf(bytes)}};
     }
 
@@ -363,8 +463,10 @@ public:
         if (!arg)
             return exists ? std::expected<nlohmann::json, Failure>{nlohmann::json{{"git", true}, {"diff", ""}, {"truncated", false}}} : unknown();
         if (!exists) {  // A deleted file is still one Git knows.
-            const auto known = git("ls-files --cached -- " + *arg, 4096);
-            if (!known || known->empty())
+            // In the index, or in the last commit: a file removed with `git rm` is in the commit only.
+            const auto known    = git("ls-files --cached -- " + *arg, 4096);
+            const auto inCommit = git("ls-tree --name-only HEAD -- " + *arg, 4096);
+            if ((!known || known->empty()) && (!inCommit || inCommit->empty()))
                 return unknown();
         }
         bool       truncated = false;
@@ -383,6 +485,55 @@ public:
 
 private:
     std::filesystem::path root;
+
+    /// Puts `temporary` in the place of `target`, provided `target` still is the version `expected` at the moment of the
+    /// replacement: true when done, false when the file had changed (nothing of it is lost), a failure otherwise.
+    ///
+    /// Checking the version and then renaming leaves a gap in which the agent may write. Where the system can exchange two
+    /// files in one step (Linux, macOS), the file is exchanged first and the version of what came out is checked: if it is
+    /// not the one that was read, the exchange is undone, so that what the agent wrote is back and no save has hidden it.
+    /// The only writes that can still be lost are those of a program that keeps the old file open and writes into it after
+    /// the check, within microseconds. Elsewhere (Windows) the version is checked again just before the rename, which narrows
+    /// the gap without closing it.
+    [[nodiscard]] static std::expected<bool, Failure> replace(const std::filesystem::path& target, const std::filesystem::path& temporary,
+                                                              std::string_view expected) {
+        const auto failure = [&](const std::string& what) {
+            return std::unexpected{Failure{std::string{code::writeFailed}, what + ": " + detail::toUtf8(target.filename())}};
+        };
+        std::error_code ignored;
+        if (detail::exchange(temporary, target) == 0) {
+            const auto before = load(temporary);  // What the file was at the moment of the exchange.
+            if (before && versionOf(*before) == expected) {
+                std::filesystem::remove(temporary, ignored);
+                return true;
+            }
+            if (detail::exchange(temporary, target) == 0) {
+                std::filesystem::remove(temporary, ignored);
+                return false;
+            }
+            return failure("The file changed while it was saved and could not be put back; the newer version is kept in " + detail::toUtf8(temporary));
+        }
+        if (errno == ENOENT) {  // The file was removed since it was read: that is a change too.
+            std::filesystem::remove(temporary, ignored);
+            return false;
+        }
+        if (errno != ENOTSUP) {
+            std::filesystem::remove(temporary, ignored);
+            return failure("Cannot replace");
+        }
+        const auto now = load(target);
+        if (!now || versionOf(*now) != expected) {
+            std::filesystem::remove(temporary, ignored);
+            return false;
+        }
+        std::error_code error;
+        std::filesystem::rename(temporary, target, error);
+        if (error) {
+            std::filesystem::remove(temporary, ignored);
+            return failure("Cannot replace");
+        }
+        return true;
+    }
 
     /// The file `name` names, inside the directory, or why it is refused.
     [[nodiscard]] std::expected<std::filesystem::path, Failure> resolve(std::string_view name) const {
