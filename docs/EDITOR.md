@@ -81,12 +81,18 @@ Codes d’erreur : `siliconforge.unknownFile`, `notText`, `tooLarge`, `fileChang
 - `ctest -R "siliconforge_bridge_tests"` (cas `[project]`) : accès aux fichiers, chemins refusés (dont les liens),
   version et refus d’écraser, fins de ligne et permissions, fichiers binaires ou trop gros, liste et diff Git,
   dossier d’un dépôt, absence de verrou de l’index.
-- `ctest -R UI-Editor` (Linux, fenêtre native) : liste, ouverture, modification et enregistrement ; rechargement d’un
+- `ctest -R UI-Editor` (fenêtre native ; Linux et Windows) : liste, ouverture, modification et enregistrement ; rechargement d’un
   tampon propre ; tampon modifié signalé sans être remplacé ; les deux versions, **Cancel**, **Use the disk version**
   puis **Restore my text**, **Overwrite with my version** ; texte coloré selon le langage, aligné sur le champ de saisie et défilant avec lui ; chemins refusés ; changements laissés par un shell du
   terminal (fichier modifié, nouveau, supprimé) vus dans la liste et en diff. Le dossier du test est refait avant
   chaque exécution (fixture `UI-Editor-Project`) et devient un dépôt Git si `git` est installé.
 
-macOS et Windows : l’éditeur est du C++ et du JavaScript portables et les tests C++ y tournent en intégration continue ;
-`UI-Editor` n’y est pas encore câblé (comme les autres tests de fenêtre, il faut la session graphique d’un utilisateur)
-et reste à qualifier.
+Windows 11 10.0.22631, x86-64, WebView2, `cmd.exe` (ConPTY), MSVC, 2026-11-19 : `ctest -R UI-Editor` passe (10 cas sur 10)
+et les tests C++ du projet passent (145 tests hors fenêtre). L’agent y est un `cmd.exe` qui lance PowerShell pour écrire
+des fins de ligne LF, puis `del`. Sont vérifiés en plus des cas de Linux : un fichier `.git` atteint par son nom court
+`GIT~1` (présent sur ce volume), par `.git.` ou `.git ` ; un chemin à lecteur (`C:/…`), à antislash, un flux de données
+(`main.cpp::$DATA`) : tous refusés. La fenêtre exige la session graphique de l’utilisateur ; la CI Windows exclut le
+label `ui` : le test se lance à la main.
+
+macOS : `UI-Editor` est câblé comme sur Windows (WKWebView, shell `sh`) mais n’a pas été exécuté ; il reste à qualifier.
+Les tests C++ y tournent en intégration continue.

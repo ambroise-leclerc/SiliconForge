@@ -9,6 +9,7 @@ jasmine.DEFAULT_TIMEOUT_INTERVAL = 30000;
 
 describe("The editor of the project sources in the window", () => {
   const sf = () => window.siliconForge;
+  const windows = navigator.userAgent.includes("Windows");
   const editor = () => sf().editor;
   const panel = () => document.getElementById("editor");
   const part = (selector) => panel().querySelector(selector);
@@ -196,7 +197,10 @@ describe("The editor of the project sources in the window", () => {
   });
 
   it("refuses a file outside the project, the Git folder, and files that are not text", async () => {
-    for (const path of ["../outside.txt", "/etc/passwd", ".git/config", "src/../../outside.txt", "nothing.txt"]) {
+    const refused = ["../outside.txt", "/etc/passwd", ".git/config", "src/../../outside.txt", "nothing.txt"];
+    // Windows names the same file in other ways: a drive, a backslash, a trailing dot or space, a data stream, a short name.
+    if (windows) refused.push("C:/Windows/win.ini", "src\\..\\..\\outside.txt", "\\Windows\\win.ini", ".git./config", ".git /config", "main.cpp::$DATA", "GIT~1/config");
+    for (const path of refused) {
       const error = await rejection(call("sf.files.read", path));
       expect(error.code).withContext(path).toBe("siliconforge.unknownFile");
       expect((await rejection(call("sf.files.write", path, "x", "0-0"))).code).withContext(path).toBe("siliconforge.unknownFile");
@@ -211,7 +215,10 @@ describe("The editor of the project sources in the window", () => {
     document.getElementById("terminal-toggle").click();
     await sf().terminal.ready;
     await sf().terminal.open("shell");
-    sf().terminal.terminal.input("printf 'int agent;\\n' > agent.cpp && printf '// by the agent\\n' >> main.cpp\r", true);
+    // The shell is sh on Linux and macOS, cmd.exe (ConPTY) on Windows, where PowerShell writes the LF line ends the files have.
+    sf().terminal.terminal.input(windows
+      ? "powershell -NoProfile -Command \"[IO.File]::WriteAllText('agent.cpp', 'int agent;' + [char]10); [IO.File]::AppendAllText('main.cpp', '// by the agent' + [char]10)\"\r"
+      : "printf 'int agent;\\n' > agent.cpp && printf '// by the agent\\n' >> main.cpp\r", true);
 
     await until(async () => { await editor().refresh(); return statusOf("agent.cpp") === "?"; }, "the new file in the list");
     expect(statusOf("main.cpp")).toBe("M");
@@ -244,7 +251,7 @@ describe("The editor of the project sources in the window", () => {
 
   it("shows a file deleted by the agent as a change, without text to edit", async () => {
     if (!editor().git) pending("git is not installed: the project directory is not a repository");
-    sf().terminal.terminal.input("rm notes.txt\r", true);
+    sf().terminal.terminal.input(windows ? "del notes.txt\r" : "rm notes.txt\r", true);
     await until(async () => { await editor().refresh(); return statusOf("notes.txt") === "D"; }, "the deletion in the list");
     await editor().open("notes.txt");
     expect(editor().state.deleted).toBe(true);

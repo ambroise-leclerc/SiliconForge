@@ -204,7 +204,14 @@ if(SILICONFORGE_BUILD_APP)
         webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND ${_ui_frontend}
             SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
         set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
-        set_property(TEST UI-Terminal UI-TerminalClients APPEND PROPERTY LABELS ui)
+        # The editor of the sources (#56): the same fixture as on Linux; the shell of the terminal is the agent.
+        set(_ui_editor_project ${CMAKE_CURRENT_BINARY_DIR}/ui-editor-project)
+        add_test(NAME UI-Editor-Project COMMAND ${CMAKE_COMMAND} -DPROJECT=${_ui_editor_project} -P ${CMAKE_CURRENT_SOURCE_DIR}/EditorProject.cmake)
+        set_tests_properties(UI-Editor-Project PROPERTIES FIXTURES_SETUP ui-editor-project)
+        webfront_add_jasmine_test(NAME UI-Editor TARGET siliconforge_ui_test FRONTEND ${_ui_frontend}
+            SPECS ui/editor.spec.js ARGS --port 0)
+        set_tests_properties(UI-Editor PROPERTIES WORKING_DIRECTORY ${_ui_editor_project} FIXTURES_REQUIRED ui-editor-project)
+        set_property(TEST UI-Terminal UI-Editor UI-Editor-Project UI-TerminalClients APPEND PROPERTY LABELS ui)
     else()
         message(STATUS "Native UI tests skipped: they need WebFront's WebKitGTK (Linux), WKWebView (macOS) or WebView2 (Windows) frontend")
     endif()
