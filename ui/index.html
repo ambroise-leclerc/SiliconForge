@@ -31,6 +31,7 @@
   <script src="vendor/prism/prism-ini.min.js" defer></script>
   <script src="vendor/prism/prism-rust.min.js" defer></script>
   <script src="bench.js" defer></script>
+  <script src="agent.js" defer></script>
   <script src="terminal.js" defer></script>
   <script src="editor.js" defer></script>
   <script src="siliconforge.js" defer></script>
@@ -176,6 +177,12 @@
         <button role="tab" id="editor-toggle" aria-controls="editor" aria-selected="false" tabindex="-1" data-side="editor" title="Read and edit the sources of the project directory, and the changes the agent made">Sources</button>
       </div>
       <div class="side-pane" id="side-bench" role="tabpanel" aria-labelledby="bench-tab">
+      <section class="panel agent" id="agent" aria-label="Agent activity" hidden>
+        <h2 class="panel-header">Agent <span class="muted">calls of the MCP tools</span>
+          <label class="check end" title="Off, the agent may read the emulation but not change it: its calls are refused with a message"><input type="checkbox" data-input="drives" checked> Let the agent drive</label></h2>
+        <p class="hint" data-readout="empty">No call yet. A client opened in the Terminal tab gets the <code>siliconforge</code> tools: each of its calls shows here.</p>
+        <ol class="agent-log" data-list="activity" aria-live="polite"></ol>
+      </section>
       <section class="panel bench" id="bench" aria-label="Bench">
         <h2 class="panel-header">Bench <span class="muted">scenarios and runs</span>
           <button class="small end" data-action="refresh" title="Look again for scenarios and runs in the project directory">Refresh</button></h2>

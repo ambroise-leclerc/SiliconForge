@@ -124,3 +124,37 @@ TEST_CASE("A client does not inherit the session of the terminal or the agent th
     // A GIT_ASKPASS the user set themselves is theirs to keep.
     CHECK(terminal::clientEnvironment({{"GIT_ASKPASS", "/opt/mine.sh"}}).contains("GIT_ASKPASS"));
 }
+
+TEST_CASE("Each client is told of the MCP server of the window in its own terms, the token by the environment", "[app][terminal][mcp]") {
+    const terminal::AgentServer server{"http://127.0.0.1:9002/mcp/", "0123456789abcdef0123456789abcdef"};
+    const auto noToken = [&](const std::vector<std::string>& arguments) {
+        return std::ranges::none_of(arguments, [&](const std::string& argument) { return argument.find(server.token) != std::string::npos; });
+    };
+    for (const auto& client : terminal::clients) {
+        const auto launch = terminal::launchWith(client.id, server);
+        CHECK(launch.environment.at("SILICONFORGE_MCP_URL") == server.url);
+        CHECK(launch.environment.at("SILICONFORGE_MCP_TOKEN") == server.token);
+        CHECK(noToken(launch.arguments));  // The arguments of a process are readable by every user of the machine.
+    }
+    const auto claude = terminal::launchWith("claude", server);
+    REQUIRE(claude.arguments.size() == 2);
+    CHECK(claude.arguments[0] == "--mcp-config");
+    const auto config = nlohmann::json::parse(claude.arguments[1]).at("mcpServers").at("siliconforge");
+    CHECK(config.at("type") == "http");
+    CHECK(config.at("url") == server.url);
+    CHECK(config.at("headers").at("Authorization") == "Bearer ${SILICONFORGE_MCP_TOKEN}");
+
+    const auto codex = terminal::launchWith("codex", server);
+    CHECK(codex.arguments == std::vector<std::string>{"-c", R"(mcp_servers.siliconforge.url="http://127.0.0.1:9002/mcp/")", "-c",
+                                                      R"(mcp_servers.siliconforge.bearer_token_env_var="SILICONFORGE_MCP_TOKEN")"});
+
+    const auto opencode = terminal::launchWith("opencode", server);
+    CHECK(opencode.arguments.empty());
+    const auto content = nlohmann::json::parse(opencode.environment.at("OPENCODE_CONFIG_CONTENT")).at("mcp").at("siliconforge");
+    CHECK(content.at("type") == "remote");
+    CHECK(content.at("headers").at("Authorization") == "Bearer {env:SILICONFORGE_MCP_TOKEN}");
+
+    const auto vibe = terminal::launchWith("vibe", server);  // Its servers come from its configuration file only.
+    CHECK(vibe.arguments.empty());
+    CHECK(vibe.environment.size() == 2);
+}

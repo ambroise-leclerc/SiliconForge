@@ -158,6 +158,20 @@ select {
 .side-tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-text); font-weight: 650; }
 .side-pane { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
 .side-pane[hidden] { display: none; }
+/* The calls the agent makes since the page opened, newest first; a count on the Bench tab while it is not shown. */
+.side-tabs button[data-unseen]::after { content: attr(data-unseen); margin-left: 6px; padding: 0 6px; border-radius: 9px; font-size: 11px; background: var(--accent-ink, var(--accent)); color: var(--panel); }
+.agent[hidden] { display: none; }
+.agent .check { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; font-size: 12.5px; }
+.agent[data-drives=false] { border-color: var(--accent-ink, var(--accent)); }
+.agent-log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
+.agent-log li { padding: 4px 0; border-top: 1px solid var(--panel-edge); }
+.agent-log li:first-child { border-top: 0; }
+.agent-call { display: flex; gap: 8px; align-items: baseline; }
+.agent-call time { color: var(--muted); font: 11px var(--mono); white-space: nowrap; }
+.agent-call code { font: 600 12px var(--mono); }
+.agent-arguments { color: var(--muted); font: 11.5px var(--mono); overflow-wrap: anywhere; }
+.agent-result { font: 11.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 3.6em; overflow: hidden; }
+.agent-log li[data-ok=false] .agent-result { color: var(--error); }
 .serial { flex: 1; display: flex; flex-direction: column; min-height: 230px; }
 .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .hint .warning { color: var(--accent-ink); }
