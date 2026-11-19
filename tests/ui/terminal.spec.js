@@ -85,6 +85,24 @@ describe("The agent terminal in the window", () => {
     expect(terminal().state.running).toBe(true);
   });
 
+  it("keeps the panel coherent when openings follow each other quickly", async () => {
+    const screens = () => panel().querySelectorAll("[data-view=screen] .xterm").length;
+    // The first opening asks to restart a session that still runs: the application refuses it. The second one replaces
+    // it before it settles, so its error must neither show nor change the status of the client now attached.
+    const refused = terminal().open("shell", true);
+    const attached = terminal().open("shell");
+    expect(await refused).toBeNull();
+    expect(await attached).toBe(terminal());
+    expect(panel().querySelector("[data-readout=error]").hidden).toBe(true);
+    expect(terminal().state).toEqual({client: "shell", running: true, exitCode: null});
+    expect(screens()).toBe(1);
+    // Three openings at once leave one terminal on the screen, and it is the one that takes the input.
+    await Promise.all([terminal().open("shell"), terminal().open("shell"), terminal().open("shell")]);
+    expect(screens()).toBe(1);
+    type("printf 'quick-%s\\n' 1\r");
+    await waitForScreen("quick-1");
+  });
+
   it("ends the client on request and leaves the bench usable", async () => {
     await terminal().hangUp();
     const end = Date.now() + 10000;

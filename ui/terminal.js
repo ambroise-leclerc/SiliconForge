@@ -11,7 +11,8 @@ window.SiliconForgeTerminal = (root, host) => {
   let list = {enabled: false, clients: []};
   let shown = null;       // {id, terminal, page}: what is attached now.
   let status = {client: null, running: false, exitCode: null};
-  let adapter = null;
+  let latest = 0;         // Ticket of the latest open().
+  let queue = Promise.resolve();  // The openings, one after the other.
 
   const api = {
     ready: null,
@@ -68,46 +69,77 @@ window.SiliconForgeTerminal = (root, host) => {
     render();
   }
 
+  /**
+   * Takes a terminal off the screen now and disposes it a little later: xterm.js sets its renderer up asynchronously,
+   * and a terminal disposed right after open() fails in a timer of its own.
+   */
+  function release(terminal) {
+    terminal.element?.remove();
+    setTimeout(() => terminal.dispose(), 250);
+  }
+
   function detach() {
     if (!shown) return;
     shown.page?.dispose();
-    shown.terminal.dispose();
+    release(shown.terminal);
     shown = null;
-    adapter = null;
   }
 
-  /** Attaches the session of a client, started on first use. `restart` starts a new one once the old one has exited. */
-  async function open(id, restart = false) {
-    fail(null);
+  /**
+   * Attaches the session of a client, started on first use. `restart` starts a new one once the old one has exited.
+   * Openings run one after the other, and only the latest one counts: mount() cannot be cancelled and drives the
+   * terminal and the element it was given, so an opening that a later call replaced is let finish, then discarded
+   * without touching the status, the errors or the screen of the client now shown.
+   */
+  function open(id, restart = false) {
     const client = list.clients.find((candidate) => candidate.id === id);
-    if (!client || !client.available) throw new Error(`No terminal client ${id}`);
+    if (!client || !client.available) return Promise.reject(new Error(`No terminal client ${id}`));
+    const ticket = ++latest;
+    const current = () => ticket === latest;
+    fail(null);
     show(true);
-    detach();
     status = {client: id, running: true, exitCode: null};
-    const terminal = new window.Terminal({cursorBlink: true, fontFamily: css("--mono"), fontSize: 13, theme: theme(), scrollback: 5000});
-    shown = {id, terminal, page: null};
     render();
-    try {
-      const {mount} = await import("./vendor/webfront-pty/pty.mjs");
-      const page = await mount($("[data-view=screen]"), {
-        terminal, fit: new window.FitAddon.FitAddon(), name: `sf.terminal.${id}`, restart,
-        onExit: (code) => { status = {client: id, running: false, exitCode: code}; render(); },
-        onError: (error) => fail(error),
-        onTruncated: () => fail({message: "Only the latest output is shown."}),
-      });
-      if (shown?.terminal !== terminal) { page.dispose(); return null; }
+    const run = async () => {
+      if (!current()) return null;  // Replaced before it started: nothing was created.
+      detach();
+      const terminal = new window.Terminal({cursorBlink: true, fontFamily: css("--mono"), fontSize: 13, theme: theme(), scrollback: 5000});
+      shown = {id, terminal, page: null};
+      let page = null;
+      try {
+        const {mount} = await import("./vendor/webfront-pty/pty.mjs");
+        page = await mount($("[data-view=screen]"), {
+          terminal, fit: new window.FitAddon.FitAddon(), name: `sf.terminal.${id}`, restart,
+          onExit: (code) => { if (!current()) return; status = {client: id, running: false, exitCode: code}; render(); },
+          onError: (error) => { if (current()) fail(error); },
+          onTruncated: () => { if (current()) fail({message: "Only the latest output is shown."}); },
+        });
+      } catch (error) {
+        shown = shown?.terminal === terminal ? null : shown;
+        release(terminal);
+        if (!current()) return null;
+        status = {client: id, running: false, exitCode: null};
+        fail(error);
+        render();
+        throw error;
+      }
+      if (!current()) {  // Replaced while it mounted: the session stays in the application, only the view goes.
+        page.dispose();
+        release(terminal);
+        if (shown?.terminal === terminal) shown = null;
+        return null;
+      }
       shown.page = page;
       terminal.focus();
       return api;
-    } catch (error) {
-      status = {client: id, running: false, exitCode: null};
-      fail(error);
-      render();
-      throw error;
-    }
+    };
+    const result = queue.then(run);
+    queue = result.catch(() => {});
+    return result;
   }
 
   async function hangUp() {
+    await queue;  // An opening in progress has no session to end yet.
     if (!shown?.page) return;
     await shown.page.hangUp();
   }
