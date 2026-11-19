@@ -215,6 +215,20 @@ if(SILICONFORGE_BUILD_APP)
                 ENVIRONMENT "FOUNDRY_PATCHES=${CMAKE_CURRENT_SOURCE_DIR}/foundry"
                 ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge-bench>")
             set_property(TEST UI-Foundry UI-Foundry-Project APPEND PROPERTY LABELS ui)
+            # The same exercise with a real client (tests/ui/foundry-client.spec.js): opt-in, since it uses the account
+            # of the user and an operator answers the questions of the client. Kept in Xvfb, off the desktop session.
+            option(SILICONFORGE_FOUNDRY_CLIENT "Register UI-FoundryClient: the exercise of docs/FOUNDRY.md with a real client" OFF)
+            if(SILICONFORGE_FOUNDRY_CLIENT)
+                set(_ui_foundry_client_project ${CMAKE_CURRENT_BINARY_DIR}/ui-foundry-client-project)
+                add_test(NAME UI-FoundryClient-Project COMMAND ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR}
+                    -DPROJECT=${_ui_foundry_client_project} -DRELAY=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/FoundryProject.cmake)
+                set_tests_properties(UI-FoundryClient-Project PROPERTIES FIXTURES_SETUP ui-foundry-client-project)
+                webfront_add_jasmine_test(NAME UI-FoundryClient TARGET siliconforge_ui_test FRONTEND WebKitGTK
+                    SPECS ui/foundry-client.spec.js ARGS --port 0 TIMEOUT 3600)
+                set_tests_properties(UI-FoundryClient PROPERTIES WORKING_DIRECTORY ${_ui_foundry_client_project}
+                    FIXTURES_REQUIRED ui-foundry-client-project ENVIRONMENT "GDK_BACKEND=x11"
+                    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge-bench>;WAYLAND_DISPLAY=unset:")
+            endif()
         endif()
         set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
     elseif((CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WKWEBVIEW")
