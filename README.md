@@ -148,6 +148,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Instruments : analyseur logique et oscilloscope](docs/INSTRUMENTS.md)
 - [Banc programmable : scénarios et `siliconforge-bench`](docs/BANC.md)
 - [Terminal agentique : Claude Code, Codex, OpenCode ou Mistral Vibe dans la fenêtre](docs/TERMINAL.md)
+- [Éditeur des sources : relire et modifier ce que l’agent a changé, avec les différences Git](docs/EDITOR.md)
 - [Qualification du cœur : méthode](docs/QUALIFICATION.md) et [matrice par puce](docs/qualification/README.md)
 - [Architecture et contribution](docs/ARCHITECTURE.md)
 - [WebFront 1.0 : passage, adoption et décisions](docs/WEBFRONT-1.0.md) (bilans précédents : [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))

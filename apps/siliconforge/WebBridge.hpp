@@ -3,6 +3,7 @@
 #include "Simulation.hpp"
 
 #include "Bench.hpp"
+#include "Project.hpp"
 #include "Terminal.hpp"
 #include "EmbeddedFirmware.hpp"
 
@@ -49,6 +50,7 @@ inline constexpr std::string_view invalidPlacement = "siliconforge.invalidPlacem
 inline constexpr std::string_view unknownScenario  = "siliconforge.unknownScenario";   ///< sf.bench.run: not in sf.bench.list().scenarios.
 inline constexpr std::string_view unknownRun       = "siliconforge.unknownRun";        ///< sf.bench.open: no evidence of that name in sf.bench.list().runs.
 inline constexpr std::string_view evidenceNotKept  = "siliconforge.evidenceNotKept";   ///< sf.bench.run: the run finished but its files could not be written.
+// sf.files.*: see project::code, which holds unknownFile, notText, tooLarge, fileChanged, notEditable and writeFailed.
 }  // namespace error_code
 
 /// A firmware shipped with the application together with the circuit it was written for: one click in the interface.
@@ -502,6 +504,22 @@ private:
         // themselves are the callbacks of WebFront's PTY page, registered here under sf.terminal.<client>.
         terminals = terminal::registerClients(app, std::filesystem::current_path()).dump();
         app.cppFunction("sf.terminal.clients", [this] { return terminals; });
+        // The sources of the project directory for the editor (ADR 0009, #56), as JSON text, see Project.hpp. They reject
+        // with a webfront::BridgeError whose code is one of project::code. sf.files.write refuses, with fileChanged, to
+        // replace a file that is no longer the version the page read.
+        const auto json  = [](const nlohmann::json& value) { return value.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace); };
+        const auto reply = [json](const std::expected<nlohmann::json, project::Failure>& result) {
+            if (!result)
+                throw webfront::BridgeError{result.error().code, result.error().message};
+            return json(*result);
+        };
+        app.cppFunction("sf.files.list", [this, json] { return json(sources.list()); });
+        app.cppFunction("sf.files.read", [this, reply](std::string path) { return reply(sources.read(path)); });
+        app.cppFunction("sf.files.version", [this, reply](std::string path) { return reply(sources.version(path)); });
+        app.cppFunction("sf.files.diff", [this, reply](std::string path) { return reply(sources.diff(path)); });
+        app.cppFunction("sf.files.write", [this, reply](std::string path, std::string content, std::string version) {
+            return reply(sources.write(path, content, version));
+        });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
         app.cppFunction("sf.step", [this] { simulation.step(); });
@@ -665,6 +683,7 @@ private:
     std::string                        circuitName;
     std::unique_ptr<circuit::Circuit>  circuit;      // The selected circuit when the present MCU is the one it names.
     std::string                        terminals;       // sf.terminal.clients
+    project::Project                   sources{std::filesystem::current_path()};  // The project directory of the editor (sf.files.*)
     std::string                        circuitView{"null"};
     unsigned                           circuitRevision{0};
     instruments::SignalRecorder        recorder;

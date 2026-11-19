@@ -13,8 +13,26 @@
   <script src="instruments.js" defer></script>
   <script src="vendor/xterm/xterm.js" defer></script>
   <script src="vendor/xterm/addon-fit.js" defer></script>
+  <script src="vendor/prism/prism.min.js" data-manual defer></script>
+  <script src="vendor/prism/prism-clike.min.js" defer></script>
+  <script src="vendor/prism/prism-c.min.js" defer></script>
+  <script src="vendor/prism/prism-cpp.min.js" defer></script>
+  <script src="vendor/prism/prism-python.min.js" defer></script>
+  <script src="vendor/prism/prism-json.min.js" defer></script>
+  <script src="vendor/prism/prism-bash.min.js" defer></script>
+  <script src="vendor/prism/prism-cmake.min.js" defer></script>
+  <script src="vendor/prism/prism-javascript.min.js" defer></script>
+  <script src="vendor/prism/prism-css.min.js" defer></script>
+  <script src="vendor/prism/prism-markup.min.js" defer></script>
+  <script src="vendor/prism/prism-markdown.min.js" defer></script>
+  <script src="vendor/prism/prism-yaml.min.js" defer></script>
+  <script src="vendor/prism/prism-makefile.min.js" defer></script>
+  <script src="vendor/prism/prism-toml.min.js" defer></script>
+  <script src="vendor/prism/prism-ini.min.js" defer></script>
+  <script src="vendor/prism/prism-rust.min.js" defer></script>
   <script src="bench.js" defer></script>
   <script src="terminal.js" defer></script>
+  <script src="editor.js" defer></script>
   <script src="siliconforge.js" defer></script>
 </head>
 <body>
@@ -64,6 +82,7 @@
     </label>
     <span class="separator" aria-hidden="true"></span>
     <button id="terminal-toggle" aria-pressed="false" aria-controls="terminal" title="Run your agent (Claude Code, Codex, OpenCode, Mistral Vibe) in the project directory">Agent terminal</button>
+    <button id="editor-toggle" aria-pressed="false" aria-controls="editor" title="Read and edit the sources of the project directory, and the changes the agent made">Sources</button>
     <span class="separator" aria-hidden="true"></span>
     <label class="button" title="Load an Intel HEX or ELF firmware">Load firmware…
       <input type="file" id="firmware-file" accept=".hex,.ihx,.elf" hidden>
@@ -212,18 +231,68 @@
       </section>
     </aside>
 
-    <section class="panel terminal" id="terminal" aria-label="Agent terminal" hidden>
-      <h2 class="panel-header">Agent terminal <span class="muted">project directory</span>
-        <select data-select="client" aria-label="Client" title="The client installed on this machine; it keeps its own sign-in"></select>
-        <button data-action="open" class="primary" title="Open a session, or start a new one after it exited">Open</button>
-        <button data-action="hangup" title="End the session: the client is closed, the bench is untouched">Close client</button>
-        <output class="terminal-status" data-readout="status"></output>
-        <button class="small end" data-action="close" title="Hide the terminal; the session keeps running">Hide</button>
-      </h2>
-      <p class="hint" data-readout="disabled" hidden>The terminal is only available when the interface listens on the loopback address (127.0.0.1 or ::1).</p>
-      <p class="error" role="alert" data-readout="error" hidden></p>
-      <div class="terminal-screen" data-view="screen"></div>
-    </section>
+    <div class="agent-row" id="agent-row">
+      <section class="panel terminal" id="terminal" aria-label="Agent terminal" hidden>
+        <h2 class="panel-header">Agent terminal <span class="muted">project directory</span>
+          <select data-select="client" aria-label="Client" title="The client installed on this machine; it keeps its own sign-in"></select>
+          <button data-action="open" class="primary" title="Open a session, or start a new one after it exited">Open</button>
+          <button data-action="hangup" title="End the session: the client is closed, the bench is untouched">Close client</button>
+          <output class="terminal-status" data-readout="status"></output>
+          <button class="small end" data-action="close" title="Hide the terminal; the session keeps running">Hide</button>
+        </h2>
+        <p class="hint" data-readout="disabled" hidden>The terminal is only available when the interface listens on the loopback address (127.0.0.1 or ::1).</p>
+        <p class="error" role="alert" data-readout="error" hidden></p>
+        <div class="terminal-screen" data-view="screen"></div>
+      </section>
+      <section class="panel editor" id="editor" aria-label="Sources" hidden>
+        <h2 class="panel-header">Sources <span class="muted" data-readout="project"></span>
+          <label class="check" title="Show only the files that differ from the last commit"><input type="checkbox" data-input="changed" checked> Changed only</label>
+          <button class="small" data-action="refresh" title="Look at the disk again">Refresh</button>
+          <button class="small end" data-action="close" title="Hide the editor; the open files keep their edits">Hide</button>
+        </h2>
+        <p class="error" role="alert" data-readout="error" hidden></p>
+        <div class="editor-body">
+          <div class="editor-files">
+            <input type="search" data-input="filter" placeholder="Filter files" aria-label="Filter files">
+            <p class="hint" data-readout="empty" hidden></p>
+            <ul class="file-list" data-view="files" aria-label="Files"></ul>
+          </div>
+          <div class="editor-main">
+            <div class="editor-bar">
+              <strong class="editor-file" data-readout="file">No file open</strong>
+              <span class="editor-state" data-readout="state"></span>
+              <span class="tabs" role="tablist" aria-label="View">
+                <button role="tab" class="small" data-mode="edit" aria-selected="true">Edit</button>
+                <button role="tab" class="small" data-mode="diff" aria-selected="false" title="The changes against the last commit">Changes</button>
+              </span>
+              <button class="small primary" data-action="save" title="Save (Ctrl+S)" disabled>Save</button>
+            </div>
+            <p class="notice" role="status" data-readout="notice" hidden></p>
+            <p class="notice" data-view="recovered" hidden>Your text was kept when you took the disk version.
+              <button class="small" data-action="restore">Restore my text</button>
+              <button class="small" data-action="discard">Discard it</button></p>
+            <div class="editor-code" data-view="code">
+              <pre class="editor-highlight" aria-hidden="true"><code data-view="highlight"></code></pre>
+              <textarea class="editor-text" data-view="text" spellcheck="false" wrap="off" aria-label="File content" disabled></textarea>
+            </div>
+            <pre class="diff" data-view="diff" aria-label="Changes against the last commit" hidden></pre>
+            <div class="conflict" role="alertdialog" aria-labelledby="conflict-title" data-view="conflict" hidden>
+              <h3 id="conflict-title">This file changed on disk since you opened it</h3>
+              <p class="hint" data-readout="gone" hidden>The file is gone from the disk, or is no longer text: there is no version to compare. Copy your text from the left, or cancel to keep it in the editor.</p>
+              <div class="conflict-versions">
+                <label>Your version (not saved)<textarea readonly data-view="mine" spellcheck="false" wrap="off"></textarea></label>
+                <label>On the disk now<textarea readonly data-view="disk" spellcheck="false" wrap="off"></textarea></label>
+              </div>
+              <div class="conflict-actions">
+                <button class="primary" data-action="keep-mine" title="Replace the file on the disk by your version">Overwrite with my version</button>
+                <button data-action="use-disk" title="Show the disk version in the editor; your text stays available to restore">Use the disk version</button>
+                <button data-action="cancel" title="Decide later: nothing is written and nothing is replaced">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   </main>
 </body>
 </html>

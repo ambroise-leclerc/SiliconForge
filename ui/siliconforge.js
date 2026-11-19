@@ -20,6 +20,7 @@
   let instruments = null;
   let bench = null;
   let terminal = null;
+  let editor = null;
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
   const waiters = new Set();
 
@@ -69,6 +70,8 @@
     get bench() { return bench; },
     /** The agent terminal: `clients`, `open(id)`, `hangUp()`, `state`; see ui/terminal.js. */
     get terminal() { return terminal; },
+    /** The editor of the project sources: `files`, `open(path)`, `save()`, `state`; see ui/editor.js. */
+    get editor() { return editor; },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -489,6 +492,8 @@
   bench = window.SiliconForgeBench($("bench"), {call, ready: webFront.ready});
   terminal = window.SiliconForgeTerminal($("terminal"), {call, ready: webFront.ready});
   $("terminal-toggle").addEventListener("click", () => terminal.show($("terminal").hidden));
+  editor = window.SiliconForgeEditor($("editor"), {call, ready: webFront.ready});
+  $("editor-toggle").addEventListener("click", () => editor.show($("editor").hidden));
   bindControls();
   webFront.ready.then(() => {
     $("status").textContent = "connected";

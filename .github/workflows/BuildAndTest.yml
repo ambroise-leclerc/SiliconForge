@@ -129,7 +129,7 @@ jobs:
 
   windows-msvc:
     # The whole build and CTest suite on MSVC with /W4 /WX (#50), Release like the other jobs. The WebView2 interface
-    # tests (label ui: the agent terminal only, docs/TERMINAL.md) need a desktop session and run by hand, and the firmware is not compiled (no avr-gcc): prebuilt hex files.
+    # tests (label ui: the agent terminal and the editor, docs/TERMINAL.md, docs/EDITOR.md) need a desktop session and run by hand, and the firmware is not compiled (no avr-gcc): prebuilt hex files.
     runs-on: windows-latest
     timeout-minutes: 45
     env:
