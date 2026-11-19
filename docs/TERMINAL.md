@@ -61,10 +61,25 @@ Linux 7.0.0, x86-64, WebKitGTK, 2026-11-19 :
 ¹ Au premier lancement, Vibe affiche une boîte « Update now / Continue with current version » qui n’affiche pas le
 texte tapé ; la sélection se fait aux flèches et à Entrée, qui n’ont pas été essayées.
 
+macOS 27.2.1, arm64, WKWebView, 2026-11-19 :
+
+| Client | Version | Dessine | Saisie | Redimensionnement | `Ctrl+C` | Fermeture, banc |
+| --- | --- | --- | --- | --- | --- | --- |
+| Claude Code | 2.1.328 | oui | oui | oui | quitte au second | oui |
+| Codex | 0.170.0 | oui | oui | oui | quitte au second | oui |
+| OpenCode | 1.18.30 | oui | non observée² | oui | quitte au second | oui |
+| Mistral Vibe | 1.3.2 | oui | oui | oui | quitte au second | oui |
+
+² OpenCode affichait une boîte « Update Available » qui absorbe le texte tapé, comme Vibe sous Linux¹.
+
+`UI-Terminal` (le shell dans la fenêtre WKWebView) passe : répertoire du projet, saisie, taille, `Ctrl+C`, reprise de
+la session, fermeture suivie d’un essai de banc, nouvelle session. Sous macOS seuls `UI-Terminal` et
+`UI-TerminalClients` sont raccordés à WKWebView ; la fenêtre exige la session graphique de l’utilisateur.
+
 | Plateforme | État |
 | --- | --- |
 | Linux | qualifié ci-dessus |
-| macOS | à qualifier : le PTY de WebFront est testé par WebFront, pas ce panneau ni les clients |
+| macOS | qualifié ci-dessus |
 | Windows (ConPTY) | à qualifier, idem |
 
 Pour qualifier une plateforme : construire avec le moteur natif, installer les clients, lancer `ctest -R UI-Terminal`

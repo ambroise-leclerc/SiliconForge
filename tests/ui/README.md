@@ -24,6 +24,8 @@ Pins are named after the datasheet (`PB5`) or the Arduino Uno board (`D13`).
 
 ## Running the suite
 
+On macOS, `UI-Terminal` and `UI-TerminalClients` run in a WKWebView window (#55); they need the desktop session of a logged-in user.
+
 On Linux, install `libwebkitgtk-6.0-dev`, `xvfb` and `xauth` before configuring. Build with the application and tests
 enabled, then run:
 
