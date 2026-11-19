@@ -167,11 +167,18 @@ if(SILICONFORGE_BUILD_APP)
         # Started as from the terminal of an IDE running an agent: the client must not inherit that session.
         set_tests_properties(UI-Terminal PROPERTIES WORKING_DIRECTORY ${_ui_bench_project}
             ENVIRONMENT "CLAUDE_CODE_SSE_PORT=51234;CLAUDECODE=1;TERM_PROGRAM=vscode;VSCODE_GIT_IPC_HANDLE=/tmp/none;CLAUDE_CODE_USE_BEDROCK=1")
+        # The editor of the sources (#56): a project directory of its own, remade before each run since the test edits it.
+        set(_ui_editor_project ${CMAKE_CURRENT_BINARY_DIR}/ui-editor-project)
+        add_test(NAME UI-Editor-Project COMMAND ${CMAKE_COMMAND} -DPROJECT=${_ui_editor_project} -P ${CMAKE_CURRENT_SOURCE_DIR}/EditorProject.cmake)
+        set_tests_properties(UI-Editor-Project PROPERTIES FIXTURES_SETUP ui-editor-project)
+        webfront_add_jasmine_test(NAME UI-Editor TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/editor.spec.js ARGS --port 0)
+        set_tests_properties(UI-Editor PROPERTIES WORKING_DIRECTORY ${_ui_editor_project} FIXTURES_REQUIRED ui-editor-project)
         # Opt-in qualification of the clients installed on the machine (docs/TERMINAL.md): no test of the suite needs one.
         webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
         set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench UI-Terminal UI-TerminalClients APPEND PROPERTY LABELS ui)
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench UI-Terminal UI-Editor UI-Editor-Project UI-TerminalClients APPEND PROPERTY LABELS ui)
     elseif((CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WKWEBVIEW")
            OR (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBVIEW2"))
         # macOS and Windows (#55): only the agent terminal is wired to the native frontend so far. The window needs the
