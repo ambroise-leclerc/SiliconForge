@@ -17,6 +17,9 @@ commandes, ses raccourcis et sa connexion au fournisseur : SiliconForge ne les v
   variables de fournisseur) et démarre dans le répertoire de travail de SiliconForge, c’est-à-dire le projet. Les
   variables qui désignent la session d’où l’application a été lancée en sont retirées : `TERM_PROGRAM*`, `VSCODE_*`,
   `CLAUDECODE` et les `CLAUDE_CODE_*` de session (`SSE_PORT`, `SESSION_ID`, `MESSAGING_*`...), `ENABLE_IDE_INTEGRATION`.
+  Pour OpenCode : `OPENCODE_EDITOR_SSE_PORT` (il lit aussi `CLAUDE_CODE_SSE_PORT` pour trouver l’éditeur), `ZED_TERM`
+  et ses marques `OPENCODE*`. Pour Vibe : `VIBE_SESSION`. Aucune variable de ce genre n’a été trouvée pour Codex ; les
+  réglages (`CODEX_HOME`, `MISTRAL_API_KEY`, `VIBE_HOME`, `OPENCODE_CONFIG`...) sont conservés.
   Lancé depuis le terminal de VSCodium où tournait Claude Code, le client embarqué se rattachait sinon à l’IDE de cette
   session et la lui prenait (« switched to another Claude Code session »).
 - **Une session par client.** Elle survit au rechargement de la page, au masquage du panneau (**Hide**) et au

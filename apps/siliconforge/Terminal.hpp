@@ -70,6 +70,10 @@ inline constexpr Client clients[] = {
         "CLAUDECODE", "CLAUDE_PID", "ENABLE_IDE_INTEGRATION", "CLAUDE_CODE_SSE_PORT", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_EXECPATH",
         "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_BRIDGE_SESSION_ID",
         "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
+        // OpenCode joins the editor named by CLAUDE_CODE_SSE_PORT or OPENCODE_EDITOR_SSE_PORT, and detects Zed by ZED_TERM
+        // or TERM_PROGRAM; it marks its own process and the ones it starts with OPENCODE and OPENCODE_PID. Vibe marks the
+        // shells it starts with VIBE_SESSION.
+        "OPENCODE", "OPENCODE_PID", "OPENCODE_CLIENT", "OPENCODE_EDITOR_SSE_PORT", "ZED_TERM", "VIBE_SESSION",
         "TERM_PROGRAM", "TERM_PROGRAM_VERSION", "TERMINAL_EMULATOR",
     };
     for (const auto candidate : exact)

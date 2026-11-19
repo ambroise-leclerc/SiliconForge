@@ -109,11 +109,18 @@ TEST_CASE("A client does not inherit the session of the terminal or the agent th
         {"CLAUDE_CODE_MESSAGING_SOCKET", "/tmp/s"}, {"CLAUDE_CODE_MESSAGING_TOKEN", "secret"}, {"ENABLE_IDE_INTEGRATION", "true"},
         {"TERM_PROGRAM", "vscode"}, {"TERM_PROGRAM_VERSION", "1.0"}, {"VSCODE_GIT_IPC_HANDLE", "/tmp/git"},
         {"VSCODE_GIT_ASKPASS_MAIN", "/opt/askpass.js"}, {"GIT_ASKPASS", "/opt/askpass.sh"},
+        // The same for the other clients: OpenCode's editor channel and process marks, Zed, Vibe's shell mark.
+        {"OPENCODE_EDITOR_SSE_PORT", "51235"}, {"OPENCODE", "1"}, {"OPENCODE_PID", "42"}, {"OPENCODE_CLIENT", "acp"},
+        {"ZED_TERM", "true"}, {"VIBE_SESSION", "1"},
+        // Their settings stay.
+        {"OPENCODE_CONFIG", "/home/user/opencode.json"}, {"MISTRAL_API_KEY", "key"}, {"VIBE_HOME", "/home/user/.vibe"}, {"CODEX_HOME", "/home/user/.codex"},
     };
     const auto client = terminal::clientEnvironment(inherited);
     CHECK(client == std::map<std::string, std::string>{{"PATH", "/usr/bin"}, {"HOME", "/home/user"}, {"LANG", "fr_FR.UTF-8"},
                                                        {"ANTHROPIC_BASE_URL", "https://proxy.example"},
-                                                       {"CLAUDE_CODE_USE_BEDROCK", "1"}, {"CLAUDE_CODE_OAUTH_TOKEN", "token"}});
+                                                       {"CLAUDE_CODE_USE_BEDROCK", "1"}, {"CLAUDE_CODE_OAUTH_TOKEN", "token"},
+                                                       {"OPENCODE_CONFIG", "/home/user/opencode.json"}, {"MISTRAL_API_KEY", "key"},
+                                                       {"VIBE_HOME", "/home/user/.vibe"}, {"CODEX_HOME", "/home/user/.codex"}});
     // A GIT_ASKPASS the user set themselves is theirs to keep.
     CHECK(terminal::clientEnvironment({{"GIT_ASKPASS", "/opt/mine.sh"}}).contains("GIT_ASKPASS"));
 }
