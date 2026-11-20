@@ -75,6 +75,15 @@ describe("The agent in the window", () => {
     expect(JSON.parse(measured.summary).value).toBeCloseTo(75, 1);
   });
 
+  it("checks every argument before it changes the emulation", async () => {
+    const cycles = sf().state.cycles;
+    const refused = await tool("load_firmware", {path: "firmware/prebuilt/pwm_setpoint.hex", run: "false"});
+    expect(refused.ok).toBe(false);
+    expect(refused.summary).toContain("run");
+    expect(sf().state.running).toBe(true);  // Loading would have paused it and gone back to cycle 0.
+    expect(sf().state.cycles).toBeGreaterThanOrEqual(cycles);
+  });
+
   it("refuses the changes while the person keeps the controls, and still answers the reads", async () => {
     tab("bench-tab").click();
     expect(tab("bench-tab").dataset.unseen).toBeUndefined();

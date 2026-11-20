@@ -556,14 +556,16 @@ private:
                    "directory) into the MCU shown in the window, from reset; then runs it unless run is false.",
                    schema({{"path", {{"type", "string"}}}, {"run", {{"type", "boolean"}, {"default", true}}}}, {"path"}), true,
                    [this, rethrow](const Json& arguments) {
+                       // Every argument is checked before the emulation changes.
                        const auto path  = mcp::text(arguments, "path");
+                       const auto run   = mcp::flag(arguments, "run", true);
                        const auto bytes = sources.readBytes(path, 8u << 20);
                        if (!bytes)
                            throw mcp::ToolError{bytes.error().message};
                        return rethrow([&] {
                            loadFirmware(std::filesystem::path{path}.filename().string(),
                                         std::span{reinterpret_cast<const std::uint8_t*>(bytes->data()), bytes->size()});
-                           if (arguments.value("run", true))
+                           if (run)
                                simulation.run();
                            return agentStatus();
                        });
@@ -615,7 +617,7 @@ private:
                    "(default 0); `next` is where the following read starts. Bytes that are not UTF-8 are replaced.",
                    schema({{"from", {{"type", "integer"}, {"minimum", 0}}}}), false,
                    [this](const Json& arguments) {
-                       const auto from   = arguments.value("from", std::size_t{0});
+                       const auto from   = mcp::count(arguments, "from", 0);
                        const auto output = simulation.access([](Mcu& mcu) { return mcu.serial(0) ? std::string{mcu.serial(0)->output()} : std::string{}; });
                        const auto start  = std::min(from, output.size());
                        const auto text   = output.substr(start, 64 * 1024);

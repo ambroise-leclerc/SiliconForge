@@ -197,3 +197,53 @@ TEST_CASE("A token is 128 random bits in hexadecimal, compared whole", "[app][mc
     CHECK_FALSE(mcp::sameToken(a, a.substr(1)));
     CHECK_FALSE(mcp::sameToken("", a));
 }
+
+TEST_CASE("A request whose members have the wrong types gets a JSON-RPC error, even inside a batch", "[app][mcp]") {
+    Fixture fixture;
+    auto&   tools = fixture.tools;
+    const auto version = tools.handle(json{{"jsonrpc", 2}, {"method", "ping"}, {"id", 1}});
+    CHECK(version->at("error").at("code") == mcp::rpc::invalidRequest);
+    CHECK(version->at("id") == 1);
+    CHECK(tools.handle(json{{"jsonrpc", "2.0"}, {"method", 7}, {"id", 2}})->at("error").at("code") == mcp::rpc::invalidRequest);
+    const auto id = tools.handle(json{{"jsonrpc", "2.0"}, {"method", "ping"}, {"id", json::object()}});
+    CHECK(id->at("error").at("code") == mcp::rpc::invalidRequest);
+    CHECK(id->at("id").is_null());
+    CHECK(tools.handle(request(3, "ping", json::array({1, 2})))->at("error").at("code") == mcp::rpc::invalidParams);
+    CHECK(tools.handle(request(4, "tools/call", {{"name", 5}}))->at("error").at("code") == mcp::rpc::invalidParams);
+    // A protocol version that is not text is no version this server knows: it answers with its own.
+    CHECK(tools.handle(request(5, "initialize", {{"protocolVersion", 2025}}))->at("result").at("protocolVersion") == mcp::latestVersion);
+
+    const auto batch = tools.handle(json::array({json{{"jsonrpc", 2}, {"method", "ping"}, {"id", 6}}, 42, request(7, "ping")}));
+    REQUIRE(batch);
+    REQUIRE(batch->size() == 3);  // Each element answered: the malformed ones do not stop the others.
+    CHECK(batch->at(0).at("error").at("code") == mcp::rpc::invalidRequest);
+    CHECK(batch->at(1).at("error").at("code") == mcp::rpc::invalidRequest);
+    CHECK(batch->at(2).at("result") == json::object());
+    CHECK(json::parse(*tools.handleText(R"({"jsonrpc":2,"method":"ping","id":8})")).at("id") == 8);
+}
+
+TEST_CASE("A result holding bytes that are not UTF-8 is returned, with the bytes replaced", "[app][mcp]") {
+    Fixture fixture;
+    auto&   tools = fixture.tools;
+    tools.add({"serial", "Serial", "Bytes of a firmware", {{"type", "object"}}, false,
+               [](const json&) { return json{{"text", std::string{"ok\xff" "\xc3"}}, {"next", 4}}; }});  // 0xff, then half of "é"
+    const auto result = call(tools, "serial");
+    REQUIRE(result.at("isError") == false);
+    const auto text = result.at("content").at(0).at("text").get<std::string>();
+    CHECK(text.find("\"next\": 4") != std::string::npos);
+    CHECK(text.find("\xef\xbf\xbd") != std::string::npos);  // U+FFFD
+    const auto answered = tools.handleText(R"({"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"serial"}})");
+    REQUIRE(answered);
+    CHECK(json::parse(*answered).at("result").at("structuredContent").at("next") == 4);
+}
+
+TEST_CASE("Optional arguments are checked as the required ones are", "[app][mcp]") {
+    const json arguments{{"run", "false"}, {"from", -1}, {"page", 3}, {"go", true}};
+    CHECK(mcp::flag(arguments, "go", false));
+    CHECK(mcp::flag(arguments, "absent", true));
+    CHECK_THROWS_AS(mcp::flag(arguments, "run", true), mcp::ToolError);
+    CHECK(mcp::count(arguments, "page", 0) == 3);
+    CHECK(mcp::count(arguments, "absent", 7) == 7);
+    CHECK_THROWS_AS(mcp::count(arguments, "from", 0), mcp::ToolError);
+    CHECK_THROWS_AS(mcp::count(arguments, "run", 0), mcp::ToolError);
+}

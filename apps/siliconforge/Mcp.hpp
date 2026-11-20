@@ -59,6 +59,7 @@ inline constexpr int parseError     = -32700;
 inline constexpr int invalidRequest = -32600;
 inline constexpr int methodNotFound = -32601;
 inline constexpr int invalidParams  = -32602;
+inline constexpr int internalError  = -32603;
 }  // namespace rpc
 
 /// The arguments of a tool, read with the message the agent needs to fix its call.
@@ -76,6 +77,19 @@ inline std::string text(const nlohmann::json& arguments, std::string_view name) 
 }
 inline double number(const nlohmann::json& arguments, std::string_view name) {
     return argument(arguments, name, nlohmann::json::value_t::number_float).get<double>();
+}
+/// An optional boolean argument, checked before the tool acts: a wrong type must not leave half of it done.
+inline bool flag(const nlohmann::json& arguments, std::string_view name, bool absent) {
+    return arguments.contains(name) ? argument(arguments, name, nlohmann::json::value_t::boolean).get<bool>() : absent;
+}
+/// An optional count (an integer of 0 or more).
+inline std::size_t count(const nlohmann::json& arguments, std::string_view name, std::size_t absent) {
+    const auto found = arguments.find(name);
+    if (found == arguments.end())
+        return absent;
+    if (!found->is_number_unsigned() && !(found->is_number_integer() && found->get<std::int64_t>() >= 0))
+        throw ToolError{std::format("The argument {} is an integer of 0 or more", name)};
+    return found->get<std::size_t>();
 }
 
 /// The tools and the protocol, independent of the transport.
@@ -132,39 +146,70 @@ private:
         return {{"jsonrpc", "2.0"}, {"id", id}, {"result", std::move(result)}};
     }
 
+    /// The id of a message, when it is one JSON-RPC allows (a string, a number or null): what an error answers to.
+    static nlohmann::json idOf(const nlohmann::json& message) {
+        if (!message.is_object())
+            return nullptr;
+        const auto found = message.find("id");
+        return found != message.end() && (found->is_string() || found->is_number() || found->is_null()) ? *found : nlohmann::json{};
+    }
+
+    /// Every element of a batch gets its answer: whatever an element holds, nothing it does escapes as an exception.
     std::optional<nlohmann::json> handleOne(const nlohmann::json& message) {
-        if (!message.is_object() || message.value("jsonrpc", "") != "2.0" || !message.contains("method") || !message.at("method").is_string())
-            return message.is_object() && (message.contains("result") || message.contains("error"))
-                       ? std::nullopt  // A response to a request of ours: there are none, nothing to answer.
-                       : std::optional{failure(message.is_object() ? message.value("id", nlohmann::json{}) : nlohmann::json{}, rpc::invalidRequest,
-                                               "Not a JSON-RPC 2.0 request")};
-        const auto method = message.at("method").get<std::string>();
-        if (!message.contains("id"))
+        try {
+            return dispatch(message);
+        } catch (const std::exception&) {
+            return failure(idOf(message), rpc::internalError, "The request could not be handled");
+        }
+    }
+
+    std::optional<nlohmann::json> dispatch(const nlohmann::json& message) {
+        const auto field = [&](std::string_view name) {
+            const auto found = message.find(name);
+            return found == message.end() ? nullptr : &*found;
+        };
+        if (!message.is_object())
+            return failure(nullptr, rpc::invalidRequest, "Not a JSON-RPC 2.0 request");
+        const auto* version = field("jsonrpc");
+        const auto* name    = field("method");
+        if (!version || !version->is_string() || *version != "2.0" || !name || !name->is_string()) {
+            if (!name && (field("result") || field("error")))
+                return std::nullopt;  // A response to a request of ours: there are none, nothing to answer.
+            return failure(idOf(message), rpc::invalidRequest, "Not a JSON-RPC 2.0 request");
+        }
+        const auto  method = name->get<std::string>();
+        const auto* id     = field("id");
+        if (!id)
             return std::nullopt;  // A notification (notifications/initialized, notifications/cancelled...): no answer.
-        const auto& id     = message.at("id");
-        const auto  params = message.value("params", nlohmann::json::object());
+        if (!id->is_string() && !id->is_number() && !id->is_null())
+            return failure(nullptr, rpc::invalidRequest, "The id of a request is a string or a number");
+        const auto* given  = field("params");
+        if (given && !given->is_object())
+            return failure(*id, rpc::invalidParams, "The params of " + method + " are an object");
+        const auto params = given ? *given : nlohmann::json::object();
         if (method == "initialize")
-            return success(id, initialize(params));
+            return success(*id, initialize(params));
         if (method == "ping")
-            return success(id, nlohmann::json::object());
+            return success(*id, nlohmann::json::object());
         if (method == "tools/list")
-            return success(id, {{"tools", list()}});
+            return success(*id, {{"tools", list()}});
         if (method == "tools/call") {
-            if (!params.is_object() || !params.contains("name") || !params.at("name").is_string())
-                return failure(id, rpc::invalidParams, "tools/call needs the name of a tool");
-            const auto arguments = params.value("arguments", nlohmann::json::object());
+            if (!params.contains("name") || !params.at("name").is_string())
+                return failure(*id, rpc::invalidParams, "tools/call needs the name of a tool");
+            const auto arguments = params.contains("arguments") ? params.at("arguments") : nlohmann::json::object();
             if (!arguments.is_object())
-                return failure(id, rpc::invalidParams, "The arguments of a tool are an object");
+                return failure(*id, rpc::invalidParams, "The arguments of a tool are an object");
             auto tool = find(params.at("name").get<std::string>());
             if (!tool)
-                return failure(id, rpc::invalidParams, "Unknown tool: " + params.at("name").get<std::string>());
-            return success(id, call(*tool, arguments));
+                return failure(*id, rpc::invalidParams, "Unknown tool: " + params.at("name").get<std::string>());
+            return success(*id, call(*tool, arguments));
         }
-        return failure(id, rpc::methodNotFound, "Unknown method: " + method);
+        return failure(*id, rpc::methodNotFound, "Unknown method: " + method);
     }
 
     nlohmann::json initialize(const nlohmann::json& params) const {
-        const auto asked  = params.is_object() ? params.value("protocolVersion", std::string{}) : std::string{};
+        const auto found  = params.find("protocolVersion");
+        const auto asked  = found != params.end() && found->is_string() ? found->get<std::string>() : std::string{};
         const auto agreed = std::ranges::find(versions, asked) != versions.end() ? asked : std::string{latestVersion};
         return {{"protocolVersion", agreed},
                 {"capabilities", {{"tools", {{"listChanged", false}}}}},
@@ -200,7 +245,9 @@ private:
             auto value      = tool.call(arguments);
             activity.result = value;
             activity.summary = shorten(value.is_string() ? value.get<std::string>() : dump(value));
-            result = {{"content", nlohmann::json::array({{{"type", "text"}, {"text", value.is_string() ? value.get<std::string>() : value.dump(2)}}})},
+            // The text of a result may hold bytes that are not UTF-8 (the serial output of a firmware): they are replaced.
+            const auto text = value.is_string() ? value.get<std::string>() : value.dump(2, ' ', false, nlohmann::json::error_handler_t::replace);
+            result = {{"content", nlohmann::json::array({{{"type", "text"}, {"text", text}}})},
                       {"isError", false}};
             if (value.is_object())
                 result["structuredContent"] = value;
