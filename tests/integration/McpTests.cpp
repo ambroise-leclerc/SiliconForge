@@ -77,7 +77,7 @@ SCENARIO("The server agrees on a protocol version and describes itself", "[app][
     }
     GIVEN("a client that asks for a version the server does not know") {
         const auto answer = tools.handle(request(2, "initialize", {{"protocolVersion", "1999-01-01"}}));
-        THEN("the server answers with its latest version") { CHECK(answer->at("result").at("protocolVersion") == mcp::latestVersion); }
+        THEN("the server answers with its latest version") { CHECK(answer->at("result").at("protocolVersion").get<std::string>() == mcp::latestVersion); }
     }
 }
 
@@ -167,7 +167,7 @@ SCENARIO("A request whose members have the wrong types gets a JSON-RPC error, ev
     GIVEN("a protocol version that is not text") {
         const auto answer = tools.handle(request(5, "initialize", {{"protocolVersion", 2025}}));
         THEN("it is no version the server knows: it answers with its own") {
-            CHECK(answer->at("result").at("protocolVersion") == mcp::latestVersion);
+            CHECK(answer->at("result").at("protocolVersion").get<std::string>() == mcp::latestVersion);
         }
     }
     GIVEN("a batch with two malformed elements and a request") {
