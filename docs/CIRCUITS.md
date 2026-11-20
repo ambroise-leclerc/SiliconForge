@@ -118,6 +118,8 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
   | `crystal` | `span` | 1 à 2 trous | Boîtier HC-49, pas de 4,88 mm |
   | `push-button` | `span` | 2 trous exactement | Bouton tactile 6 mm, rigide |
   | `wire` | `free` | 24 pas au plus (6 cm) | Fil de liaison, rails compris |
+  | `bench-supply` | `fixed` | bornes à 2 colonnes | Une voie d’alimentation de banc (#62) |
+  | `variable-load` | `span` | 2 à 12 trous | Résistance que l’essai change en cours de route (#62) |
 
 - **`model`** : le comportement électrique, comme une liste d'éléments reliant des bornes. Un
   composant simple a un élément ; un afficheur 7 segments en aura huit de type `led`, nommés.
@@ -230,3 +232,22 @@ Cible CMake : `SiliconForge::circuit`.
 3. Relancer CMake : les deux fichiers sont embarqués et la description validée par les tests (`ctest -R component`).
 4. Si le comportement n'est pas exprimable avec les éléments ci-dessus, il faut un nouvel élément dans
    `src/circuit/Circuit.cpp`.
+
+## Alimentation pilotable et charge variable
+
+Deux types modélisent les ressources « alimentation » et « charge simulée » de l’[ADR 0010](adr/0010-banc-programmable.md).
+
+`bench-supply` est une voie d’alimentation de banc. Ses états modifiables sont `voltage` (consigne, 0 à 30 V),
+`currentLimit` (limite, 1 mA à 3 A) et `enabled` ; elle relève `outputVoltage`, `outputCurrent` et `mode`
+(0 sortie coupée, 1 régulation de tension, 2 limitation de courant). Sortie coupée, ses bornes sont ouvertes. Activée,
+elle tient `voltage` entre `positive` et `negative` tant que la charge demande au plus `currentLimit` ; au-delà elle
+limite le courant et la tension chute à `courant × résistance`. La borne `negative` doit être reliée à une référence
+(le rail de masse ou une autre source) : sans référence la voie ne délivre rien et `mode` reste à 0.
+
+`variable-load` est une résistance dont l’état `resistance` (0,1 Ω à 100 MΩ) se change pendant un essai. Elle relève
+`voltage` et `current` à ses bornes. Un scénario règle ces états avec `set` et les attend avec `waitFor`
+(`{"component": "psu", "state": "mode", "above": 1.5}`), sans autre extension du format.
+
+Qualification : [`tests/unit/BenchSupplyTests.cpp`](../tests/unit/BenchSupplyTests.cpp) compare le modèle à la loi
+d’Ohm sur des valeurs de référence (5 V, 100 mA : 100 Ω donne 50 mA en régulation, 25 Ω donne 100 mA et 2,5 V en
+limitation, 50 Ω est la résistance critique).

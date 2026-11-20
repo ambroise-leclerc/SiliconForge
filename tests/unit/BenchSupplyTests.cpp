@@ -1,0 +1,156 @@
+// Programmable supply and variable resistive load (#62, ADR 0010): the voltage regulation to current limitation
+// transition is qualified on reference values that follow from Ohm's law, not from the model's own output.
+
+#include <siliconforge/circuit/Circuit.hpp>
+
+#include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+
+#include <memory>
+
+using namespace siliconforge;
+using Catch::Approx;
+using Json = nlohmann::json;
+
+namespace {
+/// A supply (a22 +, a24 -) feeding a variable load between b22 and b26; the supply returns to the ground rail.
+Json bench(bool grounded = true) {
+    Json description = {
+        {"formatVersion", 1},
+        {"name", "Supply and load"},
+        {"board", {{"type", "breadboard"}, {"columns", 30}}},
+        {"chip", {{"mcu", "atmega328p"}, {"column", 3}}},
+        {"components",
+         {{{"id", "psu"}, {"type", "bench-supply"}, {"at", {{"positive", "a22"}, {"negative", "a24"}}}},
+          {{"id", "load"}, {"type", "variable-load"}, {"at", {{"a", "b22"}, {"b", "b26"}}}}}},
+        {"wires", {{{"from", "c26"}, {"to", "B-26"}, {"color", "black"}}}}
+    };
+    if (grounded)
+        description["wires"].push_back({{"from", "b24"}, {"to", "T-24"}, {"color", "black"}});
+    return description;
+}
+
+std::unique_ptr<circuit::Circuit> build(Json description) {
+    auto created = circuit::Circuit::create(std::move(description));
+    if (!created)
+        FAIL(created.error().path << ": " << created.error().message);
+    return std::move(*created);
+}
+
+double reading(circuit::Circuit& circuit, std::string_view id, std::string_view name) {
+    return circuit.state(id, name).value();
+}
+
+void configure(circuit::Circuit& circuit, double volts, double limit, bool enabled) {
+    REQUIRE(circuit.set("psu", "voltage", volts));
+    REQUIRE(circuit.set("psu", "currentLimit", limit));
+    REQUIRE(circuit.set("psu", "enabled", enabled ? 1.0 : 0.0));
+}
+}  // namespace
+
+SCENARIO("a supply set to 5 V and 100 mA feeds a 100 ohm load", "[circuit][supply]") {
+    GIVEN("a channel that is set but not enabled") {
+        auto circuit = build(bench());
+        REQUIRE(circuit->set("load", "resistance", 100.0));
+        REQUIRE(circuit->set("psu", "voltage", 5.0));
+        REQUIRE(circuit->set("psu", "currentLimit", 0.1));
+
+        THEN("its output is open: nothing at the node, nothing delivered") {
+            CHECK(circuit->voltageAt("a22").value() == Approx(0.0).margin(1e-6));
+            CHECK(reading(*circuit, "psu", "outputCurrent") == 0.0);
+            CHECK(reading(*circuit, "psu", "mode") == 0.0);
+        }
+        WHEN("the channel is enabled") {
+            REQUIRE(circuit->set("psu", "enabled", 1.0));
+            THEN("the node holds the setpoint and the load draws V / R, in constant voltage") {
+                CHECK(circuit->voltageAt("a22").value() == Approx(5.0).margin(1e-6));
+                CHECK(reading(*circuit, "psu", "outputVoltage") == Approx(5.0).margin(1e-6));
+                CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.05).margin(1e-6));
+                CHECK(reading(*circuit, "psu", "mode") == 1.0);
+                CHECK(reading(*circuit, "load", "voltage") == Approx(5.0).margin(1e-6));
+                CHECK(reading(*circuit, "load", "current") == Approx(0.05).margin(1e-6));
+            }
+        }
+    }
+}
+
+SCENARIO("a change of load moves the supply between voltage regulation and current limitation", "[circuit][supply]") {
+    GIVEN("a channel at 5 V and 100 mA, enabled, on 100 ohms") {
+        auto circuit = build(bench());
+        REQUIRE(circuit->set("load", "resistance", 100.0));
+        configure(*circuit, 5.0, 0.1, true);
+        REQUIRE(reading(*circuit, "psu", "mode") == 1.0);
+
+        WHEN("the load falls to 25 ohms, which would draw 200 mA") {
+            REQUIRE(circuit->set("load", "resistance", 25.0));
+            THEN("the current is limited to 100 mA and the voltage falls to 100 mA x 25 ohms") {
+                CHECK(reading(*circuit, "psu", "mode") == 2.0);
+                CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-6));
+                CHECK(circuit->voltageAt("a22").value() == Approx(2.5).margin(1e-6));
+                CHECK(reading(*circuit, "load", "current") == Approx(0.1).margin(1e-6));
+            }
+            AND_WHEN("the load rises again to 100 ohms") {
+                REQUIRE(circuit->set("load", "resistance", 100.0));
+                THEN("the supply regulates the voltage again") {
+                    CHECK(reading(*circuit, "psu", "mode") == 1.0);
+                    CHECK(circuit->voltageAt("a22").value() == Approx(5.0).margin(1e-6));
+                    CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.05).margin(1e-6));
+                }
+            }
+        }
+        WHEN("the load is 50 ohms, exactly the critical resistance V / limit") {
+            REQUIRE(circuit->set("load", "resistance", 50.0));
+            THEN("the supply is still in constant voltage and delivers the limit") {
+                CHECK(reading(*circuit, "psu", "mode") == 1.0);
+                CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-6));
+                CHECK(circuit->voltageAt("a22").value() == Approx(5.0).margin(1e-6));
+            }
+        }
+        WHEN("the load is just below the critical resistance, 49 ohms") {
+            REQUIRE(circuit->set("load", "resistance", 49.0));
+            THEN("the supply is limiting") {
+                CHECK(reading(*circuit, "psu", "mode") == 2.0);
+                CHECK(circuit->voltageAt("a22").value() == Approx(4.9).margin(1e-6));
+            }
+        }
+        WHEN("the limit is lowered to 20 mA") {
+            REQUIRE(circuit->set("psu", "currentLimit", 0.02));
+            THEN("the 100 ohm load now limits it: 20 mA, 2 V") {
+                CHECK(reading(*circuit, "psu", "mode") == 2.0);
+                CHECK(circuit->voltageAt("a22").value() == Approx(2.0).margin(1e-6));
+                CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.02).margin(1e-6));
+            }
+        }
+        WHEN("the channel is disabled again") {
+            REQUIRE(circuit->set("psu", "enabled", 0.0));
+            THEN("the output reads zero") {
+                CHECK(circuit->voltageAt("a22").value() == Approx(0.0).margin(1e-6));
+                CHECK(reading(*circuit, "psu", "outputCurrent") == 0.0);
+                CHECK(reading(*circuit, "psu", "mode") == 0.0);
+            }
+        }
+    }
+}
+
+SCENARIO("a supply with no reference delivers nothing", "[circuit][supply]") {
+    GIVEN("a channel whose negative terminal is not tied to any source") {
+        auto circuit = build(bench(false));
+        configure(*circuit, 5.0, 0.1, true);
+        THEN("the mode stays off and no current flows") {
+            CHECK(reading(*circuit, "psu", "mode") == 0.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == 0.0);
+        }
+    }
+}
+
+SCENARIO("the settings of a supply stay within what a bench channel can do", "[circuit][supply]") {
+    GIVEN("a channel") {
+        auto circuit = build(bench());
+        THEN("a voltage or a limit beyond its range is refused") {
+            CHECK(circuit->set("psu", "voltage", 31.0).error() == circuit::SetError::OutOfRange);
+            CHECK(circuit->set("psu", "currentLimit", 0.0).error() == circuit::SetError::OutOfRange);
+            CHECK(circuit->set("psu", "outputCurrent", 0.5).error() == circuit::SetError::NotInteractive);
+            CHECK(circuit->set("load", "resistance", 0.0).error() == circuit::SetError::OutOfRange);
+        }
+    }
+}

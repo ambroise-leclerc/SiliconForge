@@ -1,0 +1,15 @@
+{
+  "formatVersion": 1,
+  "type": "variable-load",
+  "name": "Variable resistive load",
+  "description": "A resistor whose value a test changes while it runs, to follow the response of a source to a change of load.",
+  "terminals": [{"name": "a"}, {"name": "b"}],
+  "properties": {},
+  "footprint": {"kind": "span", "minimum": 2, "maximum": 12, "description": "Two leads, like a resistor."},
+  "model": {"elements": [{"type": "variable-resistor", "between": ["a", "b"]}]},
+  "state": {
+    "resistance": {"type": "number", "minimum": 0.1, "maximum": 100000000, "default": 100, "interactive": true, "description": "Resistance, in ohms."},
+    "voltage": {"type": "number", "default": 0, "description": "Voltage across the load, from a to b, in volts."},
+    "current": {"type": "number", "default": 0, "description": "Current from a to b, in amperes."}
+  }
+}
