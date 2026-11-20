@@ -59,10 +59,7 @@ double seconds(Cycles cycles, u64 clockHz) {
 }
 
 /// A logged change of a pin.
-struct Transition {
-    Cycles   at;
-    PinState state;
-};
+using Transition = PinChange;
 
 struct Step {
     enum class Kind { Wait, Set, WaitFor, Measure };
@@ -375,6 +372,15 @@ void measure(Measurement& result, const std::vector<Transition>& changes, PinSta
         result.value         = result.quantity == "frequency" ? frequency : 1 / frequency;
     }
 }
+
+}  // namespace
+
+void measurePin(Measurement& result, const std::vector<PinChange>& changes, PinState initial, u64 clockHz) {
+    result.unit = std::string{unitOf(result.quantity)};
+    measure(result, changes, initial, clockHz);
+}
+
+namespace {
 
 std::string vcd(Mcu& mcu, const std::vector<PinState>& initial, const std::vector<std::vector<Transition>>& history, Cycles end) {
     const detail::VcdClock clock{mcu.clockHz()};

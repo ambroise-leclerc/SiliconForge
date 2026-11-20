@@ -4,7 +4,11 @@ L’onglet **Terminal** de la colonne de droite ouvre, dans la fenêtre, le clie
 l’utilisateur (Claude Code, Codex, OpenCode ou Mistral Vibe) dans le répertoire du projet, ou le shell de
 l’utilisateur. La colonne a trois onglets : **Bench** (le banc, le moniteur série et le CPU), **Terminal** et
 **Sources** ([éditeur](EDITOR.md)). Choisir Terminal ou Sources élargit la colonne et rétrécit la carte et les
-instruments ; les flèches du clavier passent d’un onglet à l’autre, et la fenêtre retient le dernier choisi. La décision est décrite dans l’[ADR 0009](adr/0009-poste-agentique.md).
+instruments ; les flèches du clavier passent d’un onglet à l’autre, et la fenêtre retient le dernier choisi.
+
+Chaque client reçoit à son lancement le serveur MCP de la fenêtre : ses outils `siliconforge` agissent sur l’émulation
+affichée, et chaque appel s’affiche dans le journal de l’onglet Bench ([guide](AGENT-MCP.md),
+[ADR 0011](adr/0011-agent-mcp.md)). La décision est décrite dans l’[ADR 0009](adr/0009-poste-agentique.md).
 
 Le client tourne dans un pseudo-terminal natif fourni par WebFront (PTY sous Linux et macOS, ConPTY sous Windows,
 [WebFront #613](https://github.com/ambroise-leclerc/WebFront/issues/613)) et s’affiche avec xterm.js. Il garde ses

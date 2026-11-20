@@ -374,6 +374,15 @@ public:
         return nlohmann::json{{"path", std::string{name}}, {"content", *bytes}, {"version", versionOf(*bytes)}, {"lineEndings", lineEndings(*bytes)}};
     }
 
+    /// The bytes of a file of the project, text or not (a firmware: Intel HEX or ELF), with the path checks of read() and
+    /// at most `limit` bytes.
+    [[nodiscard]] std::expected<std::string, Failure> readBytes(std::string_view name, std::uintmax_t limit) const {
+        const auto target = resolve(name);
+        if (!target)
+            return std::unexpected{target.error()};
+        return load(*target, limit, false);
+    }
+
     /// `{version}` of the file now on disk, null when it is gone or no longer text: the page compares it with the one
     /// it read, and reloads or warns.
     [[nodiscard]] std::expected<nlohmann::json, Failure> version(std::string_view name) const {
@@ -571,20 +580,20 @@ private:
         return target;
     }
 
-    [[nodiscard]] static std::expected<std::string, Failure> load(const std::filesystem::path& path) {
+    [[nodiscard]] static std::expected<std::string, Failure> load(const std::filesystem::path& path, std::uintmax_t limit = maxFileBytes, bool text = true) {
         std::error_code error;
         if (!std::filesystem::is_regular_file(path, error))
             return std::unexpected{Failure{std::string{code::unknownFile}, "Not a file: " + detail::toUtf8(path.filename())}};
         const auto size = std::filesystem::file_size(path, error);
         if (error)
             return std::unexpected{Failure{std::string{code::unknownFile}, "Cannot read: " + detail::toUtf8(path.filename())}};
-        if (size > maxFileBytes)
-            return std::unexpected{Failure{std::string{code::tooLarge}, "Larger than 1 MiB: " + detail::toUtf8(path.filename())}};
+        if (size > limit)
+            return std::unexpected{Failure{std::string{code::tooLarge}, (limit % (1u << 20) == 0 ? std::format("Larger than {} MiB: ", limit >> 20) : std::format("Larger than {} bytes: ", limit)) + detail::toUtf8(path.filename())}};
         std::ifstream in{path, std::ios::binary};
         std::string   bytes(static_cast<std::size_t>(size), '\0');
         in.read(bytes.data(), static_cast<std::streamsize>(bytes.size()));
         bytes.resize(static_cast<std::size_t>(in.gcount()));
-        if (!isText(bytes))
+        if (text && !isText(bytes))
             return std::unexpected{Failure{std::string{code::notText}, "Not UTF-8 text: " + detail::toUtf8(path.filename())}};
         return bytes;
     }

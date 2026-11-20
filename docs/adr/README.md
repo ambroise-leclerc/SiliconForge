@@ -12,3 +12,4 @@
 | [0008](0008-agentic-foundry.md) | Orientation produit — Agentic Foundry pour l’embarqué |
 | [0009](0009-poste-agentique.md) | Terminal d’agent et revue des sources |
 | [0010](0010-banc-programmable.md) | Banc programmable et scénarios reproductibles |
+| [0011](0011-agent-mcp.md) | L’agent agit sur la fenêtre par MCP |

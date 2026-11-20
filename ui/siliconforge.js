@@ -22,6 +22,7 @@
   let terminal = null;
   let editor = null;
   let side = null;
+  let agent = null;
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
   const waiters = new Set();
 
@@ -75,6 +76,12 @@
     get editor() { return editor; },
     /** The tabs of the side column: `select("bench" | "terminal" | "editor")`, `selected`. */
     get side() { return side; },
+    /** The calls of the agent's MCP tools: `entries`, `drives`, `setDrives(bool)`; see ui/agent.js. */
+    get agent() { return agent; },
+    /** Called by the application for each call of a tool of the agent (JSON text). */
+    onAgent(json) {
+      agent?.onActivity(JSON.parse(json));
+    },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -508,6 +515,7 @@
           tab.tabIndex = on ? 0 : -1;
         }
         panes.bench.hidden = name !== "bench";
+        if (name === "bench") agent?.seen();
         // The panels of the terminal and the editor do their own work when they are shown or hidden.
         terminal?.display(name === "terminal");
         editor?.display(name === "editor");
@@ -542,6 +550,16 @@
   instruments = window.SiliconForgeInstruments($("instruments"), {call, get state() { return state; }, get circuit() { return circuit; }});
   bench = window.SiliconForgeBench($("bench"), {call, ready: webFront.ready});
   side = sideTabs();
+  agent = window.SiliconForgeAgent($("agent"), {
+    call, ready: webFront.ready,
+    visible: () => side.selected === "bench",
+    badge: (count) => {
+      if (count > 0) $("bench-tab").dataset.unseen = String(count);
+      else delete $("bench-tab").dataset.unseen;
+    },
+    // A run of the agent opens in the Bench panel, as a run of the person would.
+    onActivity: (entry) => { if (entry.run) bench.open(entry.run).catch(() => {}); },
+  });
   terminal = window.SiliconForgeTerminal($("terminal"), {call, ready: webFront.ready, select: (visible) => side.select(visible ? "terminal" : "bench")});
   editor = window.SiliconForgeEditor($("editor"), {call, ready: webFront.ready, select: (visible) => side.select(visible ? "editor" : "bench")});
   side.restore();
