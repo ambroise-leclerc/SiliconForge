@@ -2,7 +2,7 @@
 # builds it with the chain of the project, the bench loads the HEX and finds a deviation on the pin, the agent corrects
 # the firmware and the bench gives a passing verdict that a second run reproduces byte for byte.
 # The two changes of the agent are tests/foundry/*.patch; the project is made by FoundryProject.cmake.
-#   cmake -DBENCH=<siliconforge-bench> -DSOURCE=<repository> -DPROJECT=<scratch project> -DMAKE=<make> -P FoundryCliTests.cmake
+#   cmake -DBENCH=<siliconforge> -DSOURCE=<repository> -DPROJECT=<scratch project> -DMAKE=<make> -P FoundryCliTests.cmake
 foreach(variable IN ITEMS BENCH SOURCE PROJECT MAKE)
     if(NOT DEFINED ${variable})
         message(FATAL_ERROR "${variable} is not defined")
@@ -23,7 +23,7 @@ endfunction()
 # What the agent does after each change: build with the chain of the project (the HEX the scenario loads), then run.
 function(build_and_run expected)
     run(0 ${MAKE} -s -C firmware prebuilt)
-    run(${expected} ${BENCH} run scenarios/pwm-setpoint.json)
+    run(${expected} ${BENCH} bench run scenarios/pwm-setpoint.json)
     file(READ ${runs}/report.json report)
     set(report "${report}" PARENT_SCOPE)
     set(stdout "${stdout}" PARENT_SCOPE)
@@ -57,7 +57,7 @@ function(expect_built_firmware)
 endfunction()
 
 # Before any change: the firmware of the project does not meet the new setpoint (25 % instead of 0 %).
-run(1 ${BENCH} run scenarios/pwm-setpoint.json)
+run(1 ${BENCH} bench run scenarios/pwm-setpoint.json)
 file(READ ${runs}/report.json report)
 measurement(duty-released)
 if(NOT verdict STREQUAL "fail" OR value LESS 24.5 OR value GREATER 25.5)
@@ -104,7 +104,7 @@ if(NOT value EQUAL 0)
 endif()
 file(SHA256 ${runs}/report.json first_report)
 file(SHA256 ${runs}/trace.vcd first_trace)
-run(0 ${BENCH} run scenarios/pwm-setpoint.json)
+run(0 ${BENCH} bench run scenarios/pwm-setpoint.json)
 file(SHA256 ${runs}/report.json second_report)
 file(SHA256 ${runs}/trace.vcd second_trace)
 if(NOT first_report STREQUAL second_report OR NOT first_trace STREQUAL second_trace)

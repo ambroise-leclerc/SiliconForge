@@ -30,7 +30,7 @@ describe("The PWM correction loop in the window", () => {
   const type = (text) => terminal().terminal.input(text, true);
   /** What the agent does after each change: build with the chain of the project, run the bench, say its exit code. */
   const agent = (step, patch) => type(`git apply "$FOUNDRY_PATCHES/${patch}" && make -s -C firmware prebuilt && `
-    + `siliconforge-bench run scenarios/pwm-setpoint.json; printf '${step}-exit-%s\\n' $?\r`);
+    + `siliconforge bench run scenarios/pwm-setpoint.json; printf '${step}-exit-%s\\n' $?\r`);
   const measurement = (report, id) => report.measurements.find((entry) => entry.id === id);
   let started = 0;
 
@@ -48,6 +48,11 @@ describe("The PWM correction loop in the window", () => {
     agent("first", "1-setpoint-off.patch");
     await waitForScreen("first-exit-1");
     expect(screen()).toContain("FAIL duty-released dutyCycle on D6");
+    // Started in the terminal of the window, the command handed the run to the window (#80): the person sees the
+    // firmware the agent just tested running on the board.
+    // The terminal is narrow: the line wraps on the screen.
+    expect(screen().replaceAll("\n", "")).toContain("Window: firmware/prebuilt/pwm_setpoint.hex loaded and running");
+    await sf().waitFor(() => sf().state?.firmware === "pwm_setpoint.hex" && sf().state.running, 10000);
   });
 
   it("the person finds the change of the agent in the editor", async () => {

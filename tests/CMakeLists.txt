@@ -76,7 +76,7 @@ find_program(GIT_PROGRAM git)
 if(SILICONFORGE_FIRMWARE_FROM_SOURCE AND GIT_PROGRAM)
     set(SILICONFORGE_FOUNDRY 1)
     add_test(NAME FoundryCommandLine
-        COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge-bench> -DSOURCE=${PROJECT_SOURCE_DIR}
+        COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
                 -DPROJECT=${CMAKE_CURRENT_BINARY_DIR}/foundry-cli-project -DMAKE=${MAKE_PROGRAM}
                 -P ${CMAKE_CURRENT_SOURCE_DIR}/FoundryCliTests.cmake)
     set_tests_properties(FoundryCommandLine PROPERTIES TIMEOUT 180 LABELS fast)
@@ -215,7 +215,7 @@ if(SILICONFORGE_BUILD_APP)
                 SPECS ui/foundry.spec.js ARGS --port 0 TIMEOUT 300)
             set_tests_properties(UI-Foundry PROPERTIES WORKING_DIRECTORY ${_ui_foundry_project} FIXTURES_REQUIRED ui-foundry-project
                 ENVIRONMENT "FOUNDRY_PATCHES=${CMAKE_CURRENT_SOURCE_DIR}/foundry"
-                ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge-bench>")
+                ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge>")
             set_property(TEST UI-Foundry UI-Foundry-Project APPEND PROPERTY LABELS ui)
             # The same exercise with a real client (tests/ui/foundry-client.spec.js): opt-in, since it uses the account
             # of the user and an operator answers the questions of the client. Kept in Xvfb, off the desktop session.
@@ -229,7 +229,7 @@ if(SILICONFORGE_BUILD_APP)
                     SPECS ui/foundry-client.spec.js ARGS --port 0 TIMEOUT 3600)
                 set_tests_properties(UI-FoundryClient PROPERTIES WORKING_DIRECTORY ${_ui_foundry_client_project}
                     FIXTURES_REQUIRED ui-foundry-client-project ENVIRONMENT "GDK_BACKEND=x11"
-                    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge-bench>;WAYLAND_DISPLAY=unset:")
+                    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge>;WAYLAND_DISPLAY=unset:")
             endif()
         endif()
         # The agent acting on the window through MCP (#76), in a project of its own: its runs must not meet those of UI-Bench.

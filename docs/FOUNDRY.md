@@ -25,7 +25,7 @@ déconnecte OC0A pour la consigne 0 % et laisse D6 à l’état bas par PORTD.
 
 ```console
 $ git apply tests/foundry/1-setpoint-off.patch && make -s -C firmware prebuilt
-$ siliconforge-bench run scenarios/pwm-setpoint.json; echo $?
+$ siliconforge bench run scenarios/pwm-setpoint.json; echo $?
 PWM setpoint on D6: fail
   [failed]   1 measure  Released setpoint: off — duty-released = 0.390625 %
   ...
@@ -35,7 +35,7 @@ PWM setpoint on D6: fail
   FAIL duty-released-again dutyCycle on D6: 0.390625 % (expected 0 to 0.1 %)
 1
 $ git apply tests/foundry/2-disconnect-oc0a.patch && make -s -C firmware prebuilt
-$ siliconforge-bench run scenarios/pwm-setpoint.json; echo $?
+$ siliconforge bench run scenarios/pwm-setpoint.json; echo $?
 PWM setpoint on D6: pass
 0
 ```
@@ -71,10 +71,10 @@ sans `WAYLAND_DISPLAY` : il n’ouvre rien sur le bureau.
    ```bash
    cmake -DSOURCE=$PWD -DPROJECT=$HOME/foundry-exercise -P tests/FoundryProject.cmake
    ```
-2. Ouvrir la fenêtre dans ce projet, avec `siliconforge-bench` dans le `PATH` du client :
+2. Ouvrir la fenêtre dans ce projet, avec `siliconforge` dans le `PATH` du client :
    ```bash
    cd ~/foundry-exercise
-   PATH=~/devel/SiliconForge/build/apps/siliconforge-bench:$PATH ~/devel/SiliconForge/build/apps/siliconforge/siliconforge
+   PATH=~/devel/SiliconForge/build/apps/siliconforge:$PATH siliconforge
    ```
 3. Dans l’onglet **Terminal**, choisir le client et l’ouvrir. Il reçoit les outils MCP de la fenêtre
    ([AGENT-MCP.md](AGENT-MCP.md)) : il peut charger le HEX, appuyer sur D2 et mesurer D6 sous vos yeux, et chaque appel
@@ -83,9 +83,11 @@ sans `WAYLAND_DISPLAY` : il n’ouvre rien sur le bureau.
 4. Démarrer le chronomètre et donner la consigne :
    > Bouton D2 relâché, la PWM de D6 doit être à 0 % ; bouton enfoncé, rien ne change. Le scénario
    > scenarios/pwm-setpoint.json décrit déjà cette consigne. Modifie le firmware firmware/src/pwm_setpoint.c, compile avec
-   > `make -C firmware prebuilt` et vérifie avec `siliconforge-bench run scenarios/pwm-setpoint.json` jusqu’à un verdict
-   > pass. Ne modifie pas le scénario. Montre aussi le résultat dans la fenêtre avec les outils siliconforge : charge le
-   > HEX, mesure D6 bouton relâché puis bouton appuyé.
+   > `make -C firmware prebuilt` et vérifie avec `siliconforge bench run scenarios/pwm-setpoint.json` jusqu’à un verdict
+   > pass. Ne modifie pas le scénario.
+
+   Lancée dans le terminal de la fenêtre, `siliconforge bench run` confie chaque essai à la fenêtre ([BANC.md](BANC.md#la-commande)) :
+   il s’ouvre dans l’onglet **Bench**, et le firmware testé tourne sur la carte.
 5. Répondre aux questions du client, en comptant chaque réponse comme une intervention. Noter chaque verdict du banc
    affiché dans le terminal ou dans le journal **Agent** : un `fail` sur `duty-released`, ou une mesure de D6 au-dessus
    de 0,1 % bouton relâché, est l’écart sur la broche.

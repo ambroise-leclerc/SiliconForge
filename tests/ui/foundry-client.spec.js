@@ -29,7 +29,7 @@ describe("The exercise with a real client", () => {
   const client = "claude";
   const setpoint = "Bouton D2 relâché, la PWM de D6 doit être à 0 % ; bouton enfoncé, rien ne change. "
     + "Le scénario scenarios/pwm-setpoint.json décrit déjà cette consigne. Modifie le firmware firmware/src/pwm_setpoint.c, "
-    + "compile avec `make -C firmware prebuilt` et vérifie avec `siliconforge-bench run scenarios/pwm-setpoint.json` "
+    + "compile avec `make -C firmware prebuilt` et vérifie avec `siliconforge bench run scenarios/pwm-setpoint.json` "
     + "jusqu’à un verdict pass. Ne modifie pas le scénario.";
   // A question of the client: a menu (Enter to confirm, Esc to cancel), a numbered choice, or a yes/no.
   const asking = (text) => /Enter to confirm|Esc to cancel|❯\s*\d+\.|Do you want|trust this folder|\(y\/n\)/i.test(text);
