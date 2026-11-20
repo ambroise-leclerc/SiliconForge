@@ -85,7 +85,7 @@ struct Circuit::Model {
         std::vector<int>        terminals;  ///< Nodes, in the order of the type's terminals.
         std::string             pin;        ///< MCU pin the component is wired to, when there is one.
     };
-    enum class Kind { Wire, Resistor, Led, Switch, Potentiometer, Supply, Load };
+    enum class Kind { Wire, Resistor, Led, Switch, Potentiometer, Supply, Load, Meter };
     struct Element {
         Kind        kind;
         int         nodes[3]{-1, -1, -1};
@@ -328,7 +328,7 @@ struct Circuit::Model {
                 row[target] = static_cast<int>(unknowns++);
         };
         for (const auto& element : elements) {
-            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Supply)
+            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Supply || element.kind == Kind::Meter)
                 continue;
             touch(element.nodes[0]);
             touch(element.nodes[1]);
@@ -442,8 +442,8 @@ struct Circuit::Model {
         // so that an input left to its pull-up stays "released" for the MCU.
         Sets reach{netCount};
         for (const auto& element : elements) {
-            if (element.kind == Kind::Wire || element.kind == Kind::Switch)
-                continue;
+            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Meter)
+                continue;  // A voltmeter draws no current: it joins nothing.
             if (element.kind == Kind::Supply && !active[static_cast<std::size_t>(&element - elements.data())])
                 continue;  // An output that is off is an open circuit.
             reach.unite(static_cast<int>(net(element.nodes[0])), static_cast<int>(net(element.nodes[1])));
@@ -472,6 +472,8 @@ struct Circuit::Model {
                 result.value[i]    = std::min(1.0, current / element.nominalCurrent);
             } else if (element.kind == Kind::Potentiometer) {
                 result.value[i] = result.voltage[net(element.nodes[1])];
+            } else if (element.kind == Kind::Meter) {
+                result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
             } else if (element.kind == Kind::Load) {
                 result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
                 result.extra[i] = result.value[i] / entryOf(element, element.stateIndex)->value;
@@ -528,6 +530,8 @@ struct Circuit::Model {
                     states[static_cast<std::size_t>(element.extraIndex)].value = solution.extra[i];
             } else if (element.kind == Kind::Potentiometer && element.extraIndex >= 0) {
                 states[static_cast<std::size_t>(element.extraIndex)].value = solution.value[i];
+            } else if (element.kind == Kind::Meter) {
+                states[static_cast<std::size_t>(element.voltageIndex)].value = solution.value[i];
             } else if (element.kind == Kind::Load || element.kind == Kind::Supply) {
                 states[static_cast<std::size_t>(element.voltageIndex)].value = solution.value[i];
                 states[static_cast<std::size_t>(element.extraIndex)].value   = solution.extra[i];
@@ -645,6 +649,9 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
                 element.stateIndex   = stateIndex(prefix + "resistance");
                 element.voltageIndex = stateIndex(prefix + "voltage");
                 element.extraIndex   = stateIndex(prefix + "current");
+            } else if (kind == "meter") {
+                element.kind         = Model::Kind::Meter;
+                element.voltageIndex = stateIndex(prefix + "voltage");
             } else if (kind == "supply") {
                 element.kind         = Model::Kind::Supply;
                 element.stateIndex   = stateIndex(prefix + "voltage");

@@ -1,4 +1,5 @@
-// Variable resistive load: a resistor body whose label shows the resistance and the current drawn.
+// Variable resistive load: a resistor body between two blue Ω markers, with the resistance and the current drawn in
+// its title. The faceplate with the controls is in the Instruments panel (ui/devices.js).
 "use strict";
 
 SiliconForge.components.define("variable-load", {
@@ -11,12 +12,13 @@ SiliconForge.components.define("variable-load", {
     const body = ctx.el("g", {transform: `translate(${(a.x + b.x) / 2} ${(a.y + b.y) / 2}) rotate(${angle})`}, ctx.layer);
     ctx.el("rect", {x: -16, y: -6, width: 32, height: 12, rx: 3, class: "bb-resistor-body"}, body);
     ctx.el("rect", {x: -2, y: -6, width: 4, height: 12, fill: "#8a8a8a"}, body);
+    for (const point of [a, b])
+      ctx.el("circle", {cx: point.x, cy: point.y, r: 4.5, class: "bb-probe-ring load"}, ctx.layer);
     const title = ctx.el("title", {}, ctx.layer, `${component.id}: variable load`);
     const format = (ohms) => (ohms >= 1e6 ? `${ohms / 1e6} MΩ` : ohms >= 1e3 ? `${ohms / 1e3} kΩ` : `${ohms} Ω`);
     return {
       update(state) {
-        const current = state.current ?? 0;
-        title.textContent = `${component.id}: ${format(state.resistance ?? 0)}, ${(current * 1000).toFixed(1)} mA`;
+        title.textContent = `${component.id}: ${format(state.resistance ?? 0)}, ${((state.current ?? 0) * 1000).toFixed(1)} mA`;
       },
     };
   },

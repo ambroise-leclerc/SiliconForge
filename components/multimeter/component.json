@@ -1,0 +1,13 @@
+{
+  "formatVersion": 1,
+  "type": "multimeter",
+  "name": "Multimeter",
+  "description": "A DC voltmeter: it reads the voltage from its COM terminal to its V terminal and draws no current.",
+  "terminals": [{"name": "v"}, {"name": "com"}],
+  "properties": {},
+  "footprint": {"kind": "fixed", "offsets": {"v": [0, 0], "com": [2, 0]}},
+  "model": {"elements": [{"type": "meter", "between": ["v", "com"]}]},
+  "state": {
+    "voltage": {"type": "number", "default": 0, "description": "Voltage of V relative to COM, in volts."}
+  }
+}

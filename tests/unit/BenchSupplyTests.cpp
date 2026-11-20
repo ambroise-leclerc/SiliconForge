@@ -154,3 +154,24 @@ SCENARIO("the settings of a supply stay within what a bench channel can do", "[c
         }
     }
 }
+
+SCENARIO("a multimeter reads the voltage across the load without disturbing it", "[circuit][supply][multimeter]") {
+    GIVEN("the bench demonstration circuit, with its supply at 5 V and 100 mA") {
+        auto created = circuit::Circuit::create(circuit::builtinDescription("bench-demo"));
+        REQUIRE(created);
+        auto& circuit = **created;
+        REQUIRE(circuit.set("load", "resistance", 100.0));
+        configure(circuit, 5.0, 0.1, true);
+        THEN("the multimeter reads the setpoint and the supply delivers V / R") {
+            CHECK(reading(circuit, "dmm", "voltage") == Approx(5.0).margin(1e-6));
+            CHECK(reading(circuit, "psu", "outputCurrent") == Approx(0.05).margin(1e-6));
+        }
+        WHEN("the load drops until the supply limits its current") {
+            REQUIRE(circuit.set("load", "resistance", 25.0));
+            THEN("the multimeter follows the voltage that falls") {
+                CHECK(reading(circuit, "dmm", "voltage") == Approx(2.5).margin(1e-6));
+                CHECK(reading(circuit, "psu", "mode") == 2.0);
+            }
+        }
+    }
+}

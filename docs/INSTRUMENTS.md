@@ -54,3 +54,38 @@ la tension moyenne et crête à crête (oscilloscope).
 | `set({...})`, `view` | Modifier ou lire la vue : `mode`, `span`, `live`, `right`, `trigger`, `uart`, `cursors` |
 
 En C++, le banc de test garde ses propres mesures (`bench.period`, `bench.dutyCycle`, `bench.transitions`).
+
+## Les appareils du banc
+
+Le panneau du bas est un établi : une barre choisit l’appareil affiché. Un clic passe de l’un à l’autre ; Maj + clic
+ou l’interrupteur **Side by side** en montrent plusieurs à la fois (alimentation, charge et multimètre ensemble, ou
+l’un d’eux avec l’analyseur). L’analyseur logique et l’oscilloscope sont deux faces de la même capture et s’excluent.
+Le choix est conservé d’une session à l’autre.
+
+| Appareil | Face avant |
+| --- | --- |
+| Analyseur logique, oscilloscope | Les pistes décrites plus haut |
+| Supply (`bench-supply`) | Afficheurs tension et courant, voyants CV / CC, consigne, limite, bouton **Output** |
+| Load (`variable-load`) | Afficheurs V, A et W, résistance et valeurs prédéfinies |
+| Multimeter (`multimeter`) | Tension continue entre `V` et `COM`, sans courant prélevé |
+
+Où chaque appareil est branché se lit sur la plaque, avec les mêmes symboles et couleurs que les fiches de sa face
+avant, qui indiquent aussi le trou :
+
+| Symbole | Couleur | Borne |
+| --- | --- | --- |
+| **+** | rouge | sortie positive de l’alimentation |
+| **−** | noir | sortie négative |
+| **V** | jaune | entrée tension du multimètre |
+| masse (trois traits) | gris | `COM` du multimètre |
+| **Ω** | bleu | bornes de la charge |
+
+Un fil de la couleur de la borne relie chaque repère à l’étiquette de l’appareil (son nom et sa mesure en direct) ;
+`view.offset` du composant la déplace. Les voies de l’analyseur ou de l’oscilloscope sont repérées sur les pattes de
+la puce par un anneau de la couleur de leur trace, numéroté comme la piste.
+
+Le circuit `bench-demo` réunit la démonstration Arduino, l’alimentation, la charge et le multimètre :
+`siliconforge --circuit bench-demo firmware/prebuilt/demo.hex`.
+
+Pas encore : générateur basse fréquence, générateur de signaux et analyseur de signaux. Ils demandent une source
+périodique planifiée sur l’horloge du MCU (ADR 0010), que le modèle résistif actuel ne fournit pas.

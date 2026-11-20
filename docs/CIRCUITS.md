@@ -10,7 +10,7 @@ installation ne dépend pas du répertoire source. La décision est décrite dan
 l'[ADR 0005](adr/0005-composants-et-circuits.md).
 
 Le circuit est calculé en C++ par un modèle électrique (`circuit::Circuit`) : l'interface et le banc de test
-voient le même. Trois circuits sont fournis : `arduino-demo` (par défaut), `seven-segment` et `led-buttons`.
+voient le même. Quatre circuits sont fournis : `arduino-demo` (par défaut), `seven-segment`, `led-buttons` et `bench-demo` (alimentation, charge et multimètre).
 
 ```sh
 siliconforge --circuit seven-segment firmware/prebuilt/counter.hex   # un circuit embarqué, par son nom
@@ -120,6 +120,7 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
   | `wire` | `free` | 24 pas au plus (6 cm) | Fil de liaison, rails compris |
   | `bench-supply` | `fixed` | bornes à 2 colonnes | Une voie d’alimentation de banc (#62) |
   | `variable-load` | `span` | 2 à 12 trous | Résistance que l’essai change en cours de route (#62) |
+  | `multimeter` | `fixed` | bornes à 2 colonnes | Voltmètre continu, sans courant prélevé |
 
 - **`model`** : le comportement électrique, comme une liste d'éléments reliant des bornes. Un
   composant simple a un élément ; un afficheur 7 segments en aura huit de type `led`, nommés.
@@ -247,6 +248,9 @@ limite le courant et la tension chute à `courant × résistance`. La borne `neg
 `variable-load` est une résistance dont l’état `resistance` (0,1 Ω à 100 MΩ) se change pendant un essai. Elle relève
 `voltage` et `current` à ses bornes. Un scénario règle ces états avec `set` et les attend avec `waitFor`
 (`{"component": "psu", "state": "mode", "above": 1.5}`), sans autre extension du format.
+
+`multimeter` lit `voltage` entre `v` et `com` ; un voltmètre ne prélève aucun courant et ne relie rien. Les faces avant de ces
+trois composants sont dans le panneau Instruments ([INSTRUMENTS.md](INSTRUMENTS.md#les-appareils-du-banc)).
 
 Qualification : [`tests/unit/BenchSupplyTests.cpp`](../tests/unit/BenchSupplyTests.cpp) compare le modèle à la loi
 d’Ohm sur des valeurs de référence (5 V, 100 mA : 100 Ω donne 50 mA en régulation, 25 Ω donne 100 mA et 2,5 V en

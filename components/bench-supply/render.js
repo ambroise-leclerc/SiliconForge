@@ -1,27 +1,21 @@
-// One channel of a bench supply: a small instrument box with the voltage and the current it delivers, CV or CC.
+// One channel of a bench supply, as the breadboard shows it: a red marker with + on the positive hole, a black one with
+// − on the negative hole, leads to a tag. The faceplate with the controls is in the Instruments panel (ui/devices.js).
 "use strict";
 
 SiliconForge.components.define("bench-supply", {
   create(ctx, component) {
     const plus = ctx.at.positive;
     const minus = ctx.at.negative;
-    const centre = {x: (plus.x + minus.x) / 2, y: Math.min(plus.y, minus.y) - 34};
+    const offset = component.view.offset ?? [0, -44];
+    const tag = {x: (plus.x + minus.x) / 2 + offset[0], y: (plus.y + minus.y) / 2 + offset[1]};
     ctx.layer.classList.add("bb-supply");
-    ctx.el("line", {x1: plus.x, y1: plus.y, x2: plus.x, y2: centre.y + 14, class: "bb-lead", stroke: "#d8312b"}, ctx.layer);
-    ctx.el("line", {x1: minus.x, y1: minus.y, x2: minus.x, y2: centre.y + 14, class: "bb-lead", stroke: "#1b1b1b"}, ctx.layer);
-    ctx.el("rect", {x: centre.x - 38, y: centre.y - 16, width: 76, height: 30, rx: 4, class: "bb-pot-body"}, ctx.layer);
-    const volts = ctx.el("text", {x: centre.x, y: centre.y - 3, class: "bb-value", "text-anchor": "middle"}, ctx.layer, "off");
-    const amps = ctx.el("text", {x: centre.x, y: centre.y + 9, class: "bb-value", "text-anchor": "middle"}, ctx.layer, "");
-    ctx.el("title", {}, ctx.layer, `${component.id}: programmable supply`);
+    ctx.probe(plus, tag, {kind: "plus", symbol: "+", title: `${component.id} +: positive output of the programmable supply`});
+    ctx.probe(minus, tag, {kind: "minus", symbol: "−", title: `${component.id} −: negative output of the programmable supply`});
+    const readout = ctx.instrumentTag(tag, component.id.toUpperCase()).reading;
+    readout.textContent = "off";
     return {
       update(state) {
-        if (!state.enabled) {
-          volts.textContent = "off";
-          amps.textContent = "";
-          return;
-        }
-        volts.textContent = `${(state.outputVoltage ?? 0).toFixed(2)} V ${state.mode === 2 ? "CC" : "CV"}`;
-        amps.textContent = `${((state.outputCurrent ?? 0) * 1000).toFixed(1)} mA`;
+        readout.textContent = state.enabled ? `${(state.outputVoltage ?? 0).toFixed(2)} V ${state.mode === 2 ? "CC" : "CV"}` : "off";
       },
     };
   },

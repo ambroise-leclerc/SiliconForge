@@ -22,6 +22,7 @@
   --scope-cursor: #ffffff;
   --shadow: 0 1px 2px rgb(0 0 0 / .4);
   --syn-keyword: #ff7b72; --syn-string: #a5d6ff; --syn-number: #79c0ff; --syn-comment: #8d99a8; --syn-function: #d2a8ff; --syn-type: #ffa657;
+  --probe-plus: #e5484d; --probe-minus: #2b2f36; --probe-volt: #f5d90a; --probe-com: #6b7280; --probe-load: #2fb5e0;
   --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
   color-scheme: dark;
 }
@@ -447,3 +448,80 @@ select {
 .token.bold, .token.title { font-weight: 700; }
 .token.italic { font-style: italic; }
 .token.operator, .token.punctuation { color: var(--text); }
+
+/* Bench devices ----------------------------------------------------------------------------------------------------- */
+.device-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding-bottom: 8px; }
+.device-bar button { height: 26px; padding: 0 10px; font-size: 12.5px; }
+.device-bar button[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+.device-bar button[data-count="0"] { opacity: .6; }
+.device-bar .end { margin-left: auto; }
+.devices { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; overflow: auto; }
+.device { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; }
+.device[hidden] { display: none; }
+.device.analyser { flex: 2 1 460px; min-height: 260px; }
+.device .plates { display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; }
+.device .empty { margin: 6px 2px; }
+
+.faceplate {
+  flex: 1 1 250px; max-width: 360px; display: flex; flex-direction: column; gap: 10px; padding: 10px 12px;
+  border: 1px solid var(--panel-edge); border-radius: 8px; background: linear-gradient(180deg, var(--panel-raised), var(--panel));
+  box-shadow: var(--shadow);
+}
+.faceplate header { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.faceplate header b { font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; }
+.faceplate .displays { display: flex; gap: 8px; align-items: stretch; }
+.lcd {
+  flex: 1; min-width: 0; padding: 4px 8px; border-radius: 5px; background: var(--scope-bg); border: 1px solid var(--panel-edge);
+  display: flex; flex-direction: column; align-items: flex-end;
+}
+.lcd small { align-self: flex-start; color: var(--scope-text); font-size: 10.5px; }
+.lcd output { font: 600 17px/1.15 var(--mono); color: var(--high); white-space: nowrap; }
+.lcd.big output { font-size: 30px; }
+.modes { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
+.mode-led { font: 700 10.5px var(--mono); padding: 1px 6px; border-radius: 3px; background: var(--low); color: var(--muted); text-align: center; }
+.faceplate[data-mode="cv"] .mode-led.cv { background: var(--ok); color: #04130a; }
+.faceplate[data-mode="cc"] .mode-led.cc { background: var(--error); color: #1f0504; }
+.faceplate .knobs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.knob { display: inline-flex; align-items: center; gap: 6px; }
+.knob input { width: 90px; font-family: var(--mono); text-align: right; cursor: text; }
+.knob small { color: var(--muted); }
+.output { height: 26px; padding: 0 14px; font-weight: 600; }
+.output[aria-pressed="true"] { background: var(--ok); color: #04130a; border-color: var(--ok); }
+.presets { display: flex; flex-wrap: wrap; gap: 4px; }
+.faceplate footer { display: flex; flex-wrap: wrap; gap: 8px 16px; border-top: 1px solid var(--panel-edge); padding-top: 8px; }
+
+/* A jack carries the symbol and the colour of the marker drawn on its hole of the breadboard. */
+.jack { display: inline-flex; align-items: center; gap: 7px; }
+.jack-dot {
+  width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; font: 700 12px var(--mono);
+  color: #fff; border: 2px solid color-mix(in srgb, currentColor 30%, #000); background: var(--probe-plus);
+}
+.jack.plus .jack-dot { background: var(--probe-plus); }
+.jack.minus .jack-dot { background: var(--probe-minus); }
+.jack.volt .jack-dot { background: var(--probe-volt); color: #1a1500; }
+.jack.com .jack-dot { background: var(--probe-com); }
+.jack.load .jack-dot { background: var(--probe-load); color: #04202b; }
+.jack-symbol { display: block; width: 14px; height: 14px; }
+svg.jack-symbol path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.jack-label { display: flex; flex-direction: column; font: 600 12px/1.15 var(--mono); }
+.jack-label small { font-weight: 400; color: var(--muted); }
+
+/* On the breadboard: the markers, the leads and the tags of the instruments. */
+.bb-probe-lead { fill: none; stroke-width: 2; stroke-linecap: round; opacity: .85; }
+.bb-probe.plus .bb-probe-lead { stroke: var(--probe-plus); }
+.bb-probe.minus .bb-probe-lead { stroke: var(--probe-minus); }
+.bb-probe.volt .bb-probe-lead { stroke: var(--probe-volt); }
+.bb-probe.com .bb-probe-lead { stroke: var(--probe-com); }
+.bb-probe-dot { stroke: #fff; stroke-width: 1.2; }
+.bb-probe.plus .bb-probe-dot { fill: var(--probe-plus); }
+.bb-probe.minus .bb-probe-dot { fill: var(--probe-minus); }
+.bb-probe.volt .bb-probe-dot { fill: var(--probe-volt); }
+.bb-probe.com .bb-probe-dot { fill: var(--probe-com); }
+.bb-probe-text { font: 700 10px var(--mono); fill: #fff; pointer-events: none; }
+.bb-probe.volt .bb-probe-text { fill: #1a1500; }
+.bb-probe-symbol { fill: none; stroke: #fff; stroke-width: 1.2; stroke-linecap: round; pointer-events: none; }
+.bb-probe-ring { fill: none; stroke: var(--probe-load); stroke-width: 2; }
+.bb-tag-box { fill: var(--panel-raised); stroke: var(--panel-edge); stroke-width: 1.2; }
+.bb-tag-text { font: 700 11px var(--mono); fill: var(--text); }
+.bb-tag-reading { font: 600 10.5px var(--mono); fill: var(--accent-ink); }
+.bb-channel-text { font: 700 10px var(--mono); }

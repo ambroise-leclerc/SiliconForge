@@ -633,6 +633,8 @@ window.SiliconForgeInstruments = (root, host) => {
     /** The recorded changes of a pin: {t: seconds[], v: volts[], s: states[]}. */
     samples: (name) => capture.channels.get(pinIndex(name)) ?? {t: [], v: [], s: []},
     measure, decodeUart, vcd, shown,
+    /** The pins the instrument displays and the colour of their traces, in lane order: what the breadboard marks. */
+    channels: () => shown().map((index, row) => ({pin: host.state?.pins[index]?.name ?? pinName(index), colour: palette[row % palette.length]})),
     get now() { return capture.now; },
     get view() { return view; },
     set(changes) { Object.assign(view, changes); listed = ""; listPins(); syncControls(); draw(); },
