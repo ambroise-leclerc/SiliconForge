@@ -24,6 +24,7 @@ le matériel, et conserve la trace où l’impulsion se voit. La correction ([`2
 déconnecte OC0A pour la consigne 0 % et laisse D6 à l’état bas par PORTD.
 
 ```console
+# Depuis le projet préparé ci-dessous, avec siliconforge dans le PATH :
 $ git apply tests/foundry/1-setpoint-off.patch && make -s -C firmware prebuilt
 $ siliconforge bench run scenarios/pwm-setpoint.json; echo $?
 PWM setpoint on D6: fail
@@ -67,7 +68,8 @@ sans `WAYLAND_DISPLAY` : il n’ouvre rien sur le bureau.
 
 ### À la main, avec un client
 
-1. Préparer un projet neuf (le refaire avant chaque essai) :
+1. Préparer un projet neuf (le refaire avant chaque essai). Le script refuse de remplacer un répertoire existant sans
+   le marqueur `.foundry-exercise` ; un projet portant ce marqueur est supprimé avec son contenu avant d'être recréé :
    ```bash
    cmake -DSOURCE=$PWD -DPROJECT=$HOME/foundry-exercise -P tests/FoundryProject.cmake
    ```
@@ -121,9 +123,11 @@ des [instruments](INSTRUMENTS.md). Pour chaque version du firmware, elle :
 10. compare les trois mesures à la consigne.
 
 L’exercice compte deux versions du firmware, auxquelles s’ajoute le diagnostic de l’impulsion dans la capture (zoom sur
-une période). Il faut donc **21 interventions**. Les curseurs et le bouton sont placés à la main : refaire la mesure
-signifie refaire les étapes 3 à 10. Elle n’est pas reproductible à l’octet près ; elle ne l’est qu’à la précision du
-placement.
+une période), soit 21 interventions. Pour vérifier la reproductibilité, il faut refaire les étapes 3 à 10 sur la version
+finale et comparer les deux séries de mesures : cela porte la référence à **30 interventions**. Les curseurs et le
+bouton sont placés à la main ; les deux séries sont considérées reproductibles si elles restent conformes à la consigne
+et concordent à la précision du placement des curseurs. Cette reproductibilité ne garantit pas l'identité à l’octet près
+des rapports et des traces du banc.
 
 ### Avec la Foundry
 
