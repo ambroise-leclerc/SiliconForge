@@ -355,3 +355,11 @@ SCENARIO("A token is 128 random bits in hexadecimal, compared whole", "[app][mcp
         }
     }
 }
+
+TEST_CASE("Serial chunks preserve UTF-8 characters at the boundary", "[app][mcp]") {
+    const std::string output = std::string(65535, 'x') + "\xe2\x82\xac" + "!";
+    const auto first = mcp::serialChunkSize(output, 0, 65536);
+    CHECK(first == 65535);
+    CHECK(output.substr(first, mcp::serialChunkSize(output, first, 65536)) == "\xe2\x82\xac!");
+    CHECK(mcp::serialChunkSize("abc", 0, 2) == 2);
+}

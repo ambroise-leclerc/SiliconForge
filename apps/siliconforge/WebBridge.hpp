@@ -415,7 +415,7 @@ private:
             agentServer      = terminal::AgentServer{std::format("http://{}:{}/mcp/", host, app.port()), token};
             registerAgentTools();
             agent.allowsChanges = [this] { return agentDrives.load(); };
-            agent.onActivity    = [this](const mcp::Activity& activity) { pushAgent(activity); };
+            agent.onActivity    = [this](const mcp::Activity& event) { pushAgent(event); };
             agentRoute.emplace(app.addRoute("/mcp/", [this, token](const webfront::http::RouteRequest& request) {
                 return mcp::answer(agent, token, request);
             }, webfront::http::RouteOptions{.secretPath = false, .harden = {}, .postBodyLimit = 1u << 20}));
@@ -423,10 +423,10 @@ private:
     }
 
     /// Each call of a tool, to every page: the journal of the window.
-    void pushAgent(const mcp::Activity& activity) {
-        auto entry = nlohmann::json{{"tool", activity.tool}, {"arguments", activity.arguments}, {"ok", activity.ok}, {"summary", activity.summary}};
-        if (activity.ok && activity.tool == "bench_run" && activity.result.is_object() && activity.result.contains("run"))
-            entry["run"] = activity.result.at("run");  // The page opens the evidence of the run.
+    void pushAgent(const mcp::Activity& event) {
+        auto entry = nlohmann::json{{"tool", event.tool}, {"arguments", event.arguments}, {"ok", event.ok}, {"summary", event.summary}};
+        if (event.ok && event.tool == "bench_run" && event.result.is_object() && event.result.contains("run"))
+            entry["run"] = event.result.at("run");  // The page opens the evidence of the run.
         const auto text = entry.dump(-1, ' ', true, nlohmann::json::error_handler_t::replace);
         std::vector<UI> targets;
         {
@@ -551,7 +551,9 @@ private:
 
     void registerAgentTools() {
         using Json = nlohmann::json;
-        const auto schema = [](Json properties = Json::object(), Json required = Json::array()) {
+        const auto schema = [](Json properties = {}, Json required = {}) {
+            if (properties.is_null()) properties = Json::object();
+            if (required.is_null()) required = Json::array();
             return Json{{"type", "object"}, {"properties", std::move(properties)}, {"required", std::move(required)}, {"additionalProperties", false}};
         };
         const auto rethrow = [](auto&& action) -> Json {
@@ -632,7 +634,7 @@ private:
                        const auto from   = mcp::count(arguments, "from", 0);
                        const auto output = simulation.access([](Mcu& mcu) { return mcu.serial(0) ? std::string{mcu.serial(0)->output()} : std::string{}; });
                        const auto start  = std::min(from, output.size());
-                       const auto text   = output.substr(start, 64 * 1024);
+                       const auto text   = output.substr(start, mcp::serialChunkSize(output, start, 64 * 1024));
                        return Json{{"text", text},  // Dumped with replacement of what is not UTF-8.
                                    {"next", start + text.size()},
                                    {"total", output.size()}};

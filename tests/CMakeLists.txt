@@ -193,7 +193,7 @@ if(SILICONFORGE_BUILD_APP)
         # The agent acting on the window through MCP (#76), in a project of its own: its runs must not meet those of UI-Bench.
         set(_ui_agent_project ${CMAKE_CURRENT_BINARY_DIR}/ui-agent-project)
         siliconforge_ui_bench_project(${_ui_agent_project})
-        webfront_add_jasmine_test(NAME UI-Agent TARGET siliconforge_ui_test FRONTEND WebKitGTK
+        webfront_add_jasmine_test(NAME UI-Agent TARGET siliconforge_ui_test FRONTEND WebKitGTK TIMEOUT 180
             SPECS ui/agent.spec.js ARGS --port 0)
         set_tests_properties(UI-Agent PROPERTIES WORKING_DIRECTORY ${_ui_agent_project} LABELS ui)
         set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)

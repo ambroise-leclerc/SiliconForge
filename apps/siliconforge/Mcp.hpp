@@ -170,9 +170,9 @@ private:
         };
         if (!message.is_object())
             return failure(nullptr, rpc::invalidRequest, "Not a JSON-RPC 2.0 request");
-        const auto* version = field("jsonrpc");
+        const auto* rpcVersion = field("jsonrpc");
         const auto* name    = field("method");
-        if (!version || !version->is_string() || *version != "2.0" || !name || !name->is_string()) {
+        if (!rpcVersion || !rpcVersion->is_string() || *rpcVersion != "2.0" || !name || !name->is_string()) {
             if (!name && (field("result") || field("error")))
                 return std::nullopt;  // A response to a request of ours: there are none, nothing to answer.
             return failure(idOf(message), rpc::invalidRequest, "Not a JSON-RPC 2.0 request");
@@ -277,6 +277,23 @@ private:
     std::mutex        mutex;
     std::vector<Tool> tools;
 };
+
+/// Keep a complete UTF-8 character together when a bounded read cuts through it.
+inline std::size_t serialChunkSize(std::string_view output, std::size_t start, std::size_t limit) {
+    auto end = start + std::min(limit, output.size() - start);
+    if (end == output.size()) return end - start;
+    auto lead = end;
+    while (lead > start && (static_cast<unsigned char>(output[lead]) & 0xc0) == 0x80) --lead;
+    const auto byte = static_cast<unsigned char>(output[lead]);
+    const std::size_t width = byte >= 0xc2 && byte <= 0xdf ? 2 : byte >= 0xe0 && byte <= 0xef ? 3 : byte >= 0xf0 && byte <= 0xf4 ? 4 : 1;
+    if (lead < end && lead + width > end && lead + width <= output.size()) {
+        bool continuation = true;
+        for (auto i = lead + 1; i < lead + width; ++i)
+            continuation &= (static_cast<unsigned char>(output[i]) & 0xc0) == 0x80;
+        if (continuation) end = lead;
+    }
+    return end - start;
+}
 
 /// A token of 128 random bits, in hexadecimal: what a client presents as `Authorization: Bearer <token>`.
 [[nodiscard]] inline std::string newToken() {
