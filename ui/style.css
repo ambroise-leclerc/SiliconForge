@@ -389,8 +389,9 @@ select {
 .editor { display: flex; flex-direction: column; flex: 1; min-height: 360px; overflow: hidden; }
 .editor[hidden] { display: none; }
 .editor .check { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; font-size: 12.5px; }
-.editor-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(150px, 30%) minmax(0, 1fr); gap: 10px; }
-.editor-files { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+/* The files above the text, which takes the whole width of the column; the list scrolls past a few lines. */
+.editor-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
+.editor-files { display: flex; flex-direction: column; gap: 6px; min-height: 0; max-height: 150px; }
 .editor-files input { width: 100%; box-sizing: border-box; }
 .file-list { list-style: none; margin: 0; padding: 0; flex: 1; overflow: auto; font: 12px var(--mono); }
 .file-list button.file { display: flex; align-items: baseline; gap: 6px; width: 100%; height: auto; padding: 2px 4px; border: 0; border-radius: 4px; background: transparent; text-align: left; font: inherit; }
@@ -424,7 +425,6 @@ select {
 .conflict-versions { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .conflict-versions label { display: flex; flex-direction: column; gap: 3px; min-height: 0; font-size: 12px; font-weight: 650; }
 .conflict-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-@media (max-width: 700px) { .editor-body { grid-template-columns: minmax(0, 1fr); } }
 
 /* The text is a textarea over its own highlighted copy: same box, same font, scrolled together. */
 .editor-code { position: relative; flex: 1; min-height: 0; }
