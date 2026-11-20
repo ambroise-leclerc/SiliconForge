@@ -1,8 +1,8 @@
-// The bench in the native window (#60): a scenario of the project runs with the engine of siliconforge-bench, its
+// The bench in the native window (#60): a scenario of the project runs with the engine of siliconforge bench, its
 // evidence opens with the setpoint, the measurement, the verdict and the trace, and a second run is compared with the
 // first. The test runs in a project directory made by tests/CMakeLists.txt: scenarios/pwm-setpoint.json, and
 // scenarios/off-target.json, the same scenario with a measurement that cannot hold. The runs it makes stay in that
-// directory, where siliconforge-bench would keep them.
+// directory, where siliconforge bench would keep them.
 jasmine.getEnv().configure({random: false});
 jasmine.DEFAULT_TIMEOUT_INTERVAL = 60000;
 

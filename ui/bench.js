@@ -1,5 +1,5 @@
 // Bench: runs the scenarios of the project (ADR 0010) and examines their evidence in the window. The engine is the one
-// of siliconforge-bench, and a run keeps its report.json and trace.vcd where the command line does: a run of the agent
+// of siliconforge bench, and a run keeps its report.json and trace.vcd where the command line does: a run of the agent
 // opens here, and a run started here can be compared with it, since the same inputs give the same report.
 "use strict";
 

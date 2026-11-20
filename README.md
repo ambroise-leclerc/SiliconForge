@@ -117,11 +117,11 @@ Vous pouvez exécuter un firmware sans affichage, accélérer le temps simulé e
 ```
 
 Un [scénario de banc](docs/BANC.md) décrit un essai dans un fichier JSON versionné avec le projet : circuit,
-firmware, stimuli, attentes bornées et mesures attendues. `siliconforge-bench` l’exécute, conserve le rapport et la
+firmware, stimuli, attentes bornées et mesures attendues. `siliconforge bench` l’exécute, conserve le rapport et la
 trace, et distingue par son code de sortie la réussite (0), l’échec d’une assertion (1) et un banc incompatible (2) :
 
 ```bash
-./build/apps/siliconforge-bench/siliconforge-bench run scenarios/pwm-setpoint.json
+./build/apps/siliconforge/siliconforge bench run scenarios/pwm-setpoint.json
 ```
 
 Le [banc de test C++](include/siliconforge/testing/Bench.hpp) permet d’envoyer des données, de modifier des entrées
@@ -146,7 +146,7 @@ tout un répertoire. L’interface accepte aussi ces fichiers via **Load MCU…*
 - [Descriptions des microcontrôleurs et limites du modèle](docs/MCU-DESCRIPTIONS.md)
 - [Format des composants et des circuits](docs/CIRCUITS.md)
 - [Instruments : analyseur logique et oscilloscope](docs/INSTRUMENTS.md)
-- [Banc programmable : scénarios et `siliconforge-bench`](docs/BANC.md)
+- [Banc programmable : scénarios et `siliconforge bench`](docs/BANC.md)
 - [Terminal agentique : Claude Code, Codex, OpenCode ou Mistral Vibe dans la fenêtre](docs/TERMINAL.md)
 - [Éditeur des sources : relire et modifier ce que l’agent a changé, avec les différences Git](docs/EDITOR.md)
 - [La boucle de correction PWM : de la consigne à la mesure reproductible, avec et sans la Foundry](docs/FOUNDRY.md)

@@ -13,7 +13,14 @@ describe("The agent in the window", () => {
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const screen = () => {
     const buffer = sf().terminal.terminal.buffer.active;
-    return Array.from({length: buffer.length}, (_, row) => buffer.getLine(row).translateToString(true)).join("\n");
+    let text = "";
+    for (let row = 0; row < buffer.length; ++row) {
+      const line = buffer.getLine(row);
+      if (row && !line.isWrapped) text += "\n";
+      // Preserve a space at the right edge when the next row continues this logical line.
+      text += line.translateToString(!buffer.getLine(row + 1)?.isWrapped);
+    }
+    return text;
   };
   const until = async (predicate, what, ms = 20000) => {
     const end = Date.now() + ms;
@@ -129,6 +136,36 @@ describe("The agent in the window", () => {
     tab("terminal-toggle").click();
     type("curl -s -o /dev/null -w 'status-%{http_code}\\n' -X POST \"$SILICONFORGE_MCP_URL\" -H 'Authorization: Bearer wrong' -d '{}'\r");
     await until(() => screen().includes("status-401"), "a refusal");
+  });
+
+  it("hands a run of the command line to the window, which shows it and runs what it tested (#80)", async () => {
+    tab("terminal-toggle").click();
+    // Exercise soft-wrapped output too: the CI window can be narrower than a developer's.
+    sf().terminal.terminal.resize(50, sf().terminal.terminal.rows);
+    const cycles = sf().state.cycles;
+    type("siliconforge bench run scenarios/pwm-setpoint.json; printf 'bench-exit-%s\\n' $?\r");
+    await until(() => screen().includes("bench-exit-0"), "the end of the command");
+    expect(screen()).toContain("PWM setpoint on D6: pass");
+    expect(screen()).toContain("Window: firmware/prebuilt/pwm_setpoint.hex loaded and running");
+    const entry = agent().entries.at(-1);
+    expect(entry.tool).toBe("bench_run");
+    expect(entry.arguments).toEqual({scenario: "pwm-setpoint.json", load: true, evidence: true});
+    await until(() => sf().bench.result?.run === "pwm-setpoint", "the run in the Bench panel");
+    // Loaded again from reset, and running.
+    await sf().waitFor(() => sf().state.running && sf().state.cycles < cycles && sf().state.firmware === "pwm_setpoint.hex", 10000);
+  });
+
+  it("keeps the requested name when a scenario is a symbolic link", async () => {
+    type("ln -sf pwm-setpoint.json scenarios/alias.json; siliconforge bench run scenarios/alias.json; " +
+         "test -s .siliconforge/runs/alias/report.json && printf 'alias-evidence-ok\\n'; rm scenarios/alias.json\r");
+    await until(() => screen().includes("alias-evidence-ok"), "evidence named after the requested scenario");
+  });
+
+  it("keeps delegated evidence in the command's current directory too", async () => {
+    type("mkdir -p subdir; cd subdir; siliconforge bench run --json ../scenarios/pwm-setpoint.json > result.json; " +
+         "test -s .siliconforge/runs/pwm-setpoint/report.json && test -s .siliconforge/runs/pwm-setpoint/trace.vcd && " +
+         "cmp result.json .siliconforge/runs/pwm-setpoint/report.json && printf 'delegated-%s\\n' evidence-ok; cd ..\r");
+    await until(() => screen().includes("delegated-evidence-ok"), "delegated evidence in the current directory");
   });
 
   afterAll(async () => {

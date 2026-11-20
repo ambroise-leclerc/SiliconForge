@@ -22,6 +22,10 @@ add_library(SiliconForge::app ALIAS SiliconForge_app)
 target_include_directories(SiliconForge_app INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 target_link_libraries(SiliconForge_app INTERFACE SiliconForge::mcu SiliconForge::circuit SiliconForge::scenario WebFront::WebFront)
 target_compile_definitions(SiliconForge_app INTERFACE SILICONFORGE_UI_DIR="${PROJECT_SOURCE_DIR}/ui")
+if(WIN32)
+    # `siliconforge bench` reaches the window of its terminal over the loopback interface (LocalHttp.hpp).
+    target_link_libraries(SiliconForge_app INTERFACE ws2_32)
+endif()
 
 add_executable(siliconforge main.cpp)
 target_link_libraries(siliconforge PRIVATE SiliconForge::app SiliconForge_options)

@@ -1285,19 +1285,24 @@ void discard(const std::filesystem::path& path) {
 }  // namespace
 
 std::expected<std::string, std::string> keepEvidence(const Report& report, const std::filesystem::path& directory) {
+    const auto hasTrace = !report.trace.empty();
+    auto text = toJson(report, hasTrace ? "trace.vcd" : "").dump(2, ' ', false, Json::error_handler_t::replace) + "\n";
+    return keepEvidence(Evidence{std::move(text), hasTrace ? std::optional<std::string>{report.trace} : std::nullopt}, directory);
+}
+
+std::expected<std::string, std::string> keepEvidence(const Evidence& evidence, const std::filesystem::path& directory) {
     std::error_code error;
     std::filesystem::create_directories(directory, error);
     if (error)
         return std::unexpected(std::format("Cannot create {}: {}", directory.generic_string(), error.message()));
     const auto reportPath = directory / "report.json";
     const auto tracePath  = directory / "trace.vcd";
-    const auto hasTrace   = !report.trace.empty();
-    // The report is valid UTF-8; replacing what would not be keeps the evidence even if a string slipped through.
-    auto text = toJson(report, hasTrace ? "trace.vcd" : "").dump(2, ' ', false, Json::error_handler_t::replace) + "\n";
+    const auto hasTrace   = evidence.trace.has_value();
+    const auto& text = evidence.report;
     // Both files are written whole before either replaces its predecessor, so a failure to write leaves the earlier
     // evidence as it was. The report names the SHA-256 of its trace, and readers check it: the pair is consistent
     // whenever they match, and the few moments between the two renames show as a mismatch, never as a mixed state.
-    if (!stageFile(reportPath, text) || (hasTrace && !stageFile(tracePath, report.trace))) {
+    if (!stageFile(reportPath, text) || (hasTrace && !stageFile(tracePath, *evidence.trace))) {
         discard(reportPath);
         discard(tracePath);
         return std::unexpected(std::format("Cannot write the evidence of the run in {}", directory.generic_string()));

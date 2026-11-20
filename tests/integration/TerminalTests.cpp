@@ -127,12 +127,13 @@ TEST_CASE("A client does not inherit the session of the terminal or the agent th
 
 SCENARIO("Each client is told of the MCP server of the window in its own terms, the token by the environment", "[app][terminal][mcp]") {
     GIVEN("the server of the window") {
-        const terminal::AgentServer server{"http://127.0.0.1:9002/mcp/", "0123456789abcdef0123456789abcdef"};
-        THEN("every session gets the URL and the token as variables, and no argument holds the token") {
+        const terminal::AgentServer server{"http://127.0.0.1:9002/mcp/", "0123456789abcdef0123456789abcdef", "/home/someone/project"};
+        THEN("every session gets the URL, the token and the project as variables, and no argument holds the token") {
             for (const auto& client : terminal::clients) {
                 const auto launch = terminal::launchWith(client.id, server);
                 CHECK(launch.environment.at("SILICONFORGE_MCP_URL") == server.url);
                 CHECK(launch.environment.at("SILICONFORGE_MCP_TOKEN") == server.token);
+                CHECK(launch.environment.at("SILICONFORGE_PROJECT") == server.project);  // siliconforge bench hands its runs to the window
                 // The arguments of a process are readable by every user of the machine.
                 CHECK(std::ranges::none_of(launch.arguments, [&](const std::string& argument) { return argument.find(server.token) != std::string::npos; }));
             }
@@ -168,7 +169,7 @@ SCENARIO("Each client is told of the MCP server of the window in its own terms, 
             const auto vibe = terminal::launchWith("vibe", server);
             THEN("it gets the variables only: its servers come from its configuration file") {
                 CHECK(vibe.arguments.empty());
-                CHECK(vibe.environment.size() == 2);
+                CHECK(vibe.environment.size() == 3);
             }
         }
     }
