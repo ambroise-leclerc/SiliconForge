@@ -94,6 +94,28 @@ describe("The agent terminal in the window", () => {
     expect(terminal().state.running).toBe(true);
   });
 
+  it("stacks the side column under the workspace in a narrow window, whatever the tab", async () => {
+    // A page of the given width with the stylesheet of the window: the media queries follow the width of the frame.
+    const columns = async (width, wide) => {
+      const frame = document.createElement("iframe");
+      frame.style.cssText = `position: absolute; left: -10000px; width: ${width}px; height: 600px; border: 0`;
+      frame.srcdoc = `<link rel="stylesheet" href="${new URL("style.css", location.href)}">`
+        + `<main class="workspace${wide ? " wide" : ""}"><section class="board"></section><aside class="side"></aside></main>`;
+      const loaded = new Promise((resolve) => frame.addEventListener("load", resolve, {once: true}));
+      document.body.append(frame);
+      await loaded;
+      const workspace = frame.contentDocument.querySelector(".workspace");
+      await sleep(400);  // Past the transition of the columns.
+      const tracks = frame.contentWindow.getComputedStyle(workspace).gridTemplateColumns.trim().split(/\s+/).length;
+      frame.remove();
+      return tracks;
+    };
+    expect(await columns(800, false)).toBe(1);
+    expect(await columns(800, true)).toBe(1);   // The terminal or the sources do not bring the second column back.
+    expect(await columns(1400, false)).toBe(2);
+    expect(await columns(1400, true)).toBe(2);
+  });
+
   it("does not hand the client the session of the IDE or the agent the application was started from", async () => {
     // The test is started with those variables set. Reaching the IDE of another session made the embedded client take
     // it from the first one; the settings of the user stay.
