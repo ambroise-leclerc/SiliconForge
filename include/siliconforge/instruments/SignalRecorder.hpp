@@ -48,11 +48,12 @@ public:
     }
 
     /// Calls visit(sample) for at most `limit` samples starting at number `from` (or at first() when the ring already
-    /// overwrote it) and returns the number of the sample after the last one visited.
+    /// overwrote it) and returns the number of the sample after the last one visited. Any limit is valid, the largest
+    /// included: it is compared with what is held, never added to a sample number.
     template <typename Visit>
     u64 read(u64 from, std::size_t limit, Visit&& visit) const {
         auto       position = std::clamp(from, first(), written);
-        const auto end      = std::min<u64>(written, position + limit);
+        const auto end      = position + std::min<u64>(limit, written - position);
         for (; position < end; ++position)
             visit(ring[position & (ring.size() - 1)]);
         return position;

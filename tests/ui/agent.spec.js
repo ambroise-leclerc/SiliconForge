@@ -84,6 +84,19 @@ describe("The agent in the window", () => {
     expect(sf().state.cycles).toBeGreaterThanOrEqual(cycles);
   });
 
+  it("refuses a measure whose capture restarted while it waited", async () => {
+    const before = agent().entries.length;
+    const body = (name, args) => JSON.stringify({jsonrpc: "2.0", id: 1, method: "tools/call", params: {name, arguments: args}});
+    const post = (name, args) => `curl -s -X POST "$SILICONFORGE_MCP_URL" -H "Authorization: Bearer $SILICONFORGE_MCP_TOKEN" `
+      + `-H 'Content-Type: application/json' -d '${body(name, args)}' > /dev/null`;
+    // A measure over two simulated seconds, and a reset half a second after it started.
+    type(`(${post("measure", {pin: "D6", quantity: "dutyCycle", window: 2})} &) ; sleep 0.5 ; ${post("reset", {})}\r`);
+    await until(() => agent().entries.length >= before + 2 && agent().entries.slice(before).some((entry) => entry.tool === "measure"), "the measure and the reset");
+    const measure = agent().entries.slice(before).find((entry) => entry.tool === "measure");
+    expect(measure.ok).toBe(false);
+    expect(measure.summary).toContain("capture restarted");
+  });
+
   it("refuses the changes while the person keeps the controls, and still answers the reads", async () => {
     tab("bench-tab").click();
     expect(tab("bench-tab").dataset.unseen).toBeUndefined();

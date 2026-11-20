@@ -475,23 +475,35 @@ private:
             throw mcp::ToolError{"quantity is dutyCycle, frequency or period"};
         if (!(window > 0) || window > 10)
             throw mcp::ToolError{"window is a duration in seconds, above 0 and at most 10"};
-        const auto [clockHz, start, running] = simulation.access([&](Mcu& mcu) {
+        // The capture of this epoch is the one measured: a reset, a firmware or an MCU loaded meanwhile restarts it, and the
+        // measure is then refused rather than taken on a window after the restart, or with the clock of another MCU.
+        const auto [clockHz, start, running, epoch] = simulation.access([&](Mcu& mcu) {
             if (!mcu.pin(pinName))
                 throw mcp::ToolError{std::format("{} has no pin {}", mcu.name(), pinName)};
-            return std::tuple{mcu.clockHz(), mcu.cycles(), simulation.isRunning()};
+            return std::tuple{mcu.clockHz(), mcu.cycles(), simulation.isRunning(), recorder.epoch()};
         });
+        const auto restarted = [&] {
+            return mcp::ToolError{"The capture restarted during the measure (a reset, a firmware or an MCU loaded): measure again"};
+        };
         const auto span = static_cast<Cycles>(std::llround(window * static_cast<double>(clockHz)));
         if (span == 0)
             throw mcp::ToolError{"The window is shorter than one clock cycle"};
         if (running) {  // The emulation may run slower than real time: wait for the simulated window, within a minute.
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds{60};
-            while (simulation.access([](Mcu& mcu) { return mcu.cycles(); }) < start + span) {
+            for (;;) {
+                const auto [now, same] = simulation.access([&](Mcu& mcu) { return std::pair{mcu.cycles(), recorder.epoch() == epoch}; });
+                if (!same)
+                    throw restarted();
+                if (now >= start + span)
+                    break;
                 if (std::chrono::steady_clock::now() > deadline || !simulation.isRunning())
                     throw mcp::ToolError{"The emulation stopped, or ran too slowly, before the window had passed"};
                 std::this_thread::sleep_for(std::chrono::milliseconds{5});
             }
         }
         return simulation.access([&](Mcu& mcu) {
+            if (recorder.epoch() != epoch || mcu.clockHz() != clockHz)
+                throw restarted();
             const auto pins  = mcu.pins();
             const auto* pin  = mcu.pin(pinName);
             std::size_t index = 0;
@@ -506,7 +518,7 @@ private:
             std::vector<scenario::PinChange> changes;
             std::optional<PinState>          initial;
             bool                             known = false;  // The level just before the window is held by the capture.
-            recorder.read(recorder.first(), std::numeric_limits<std::size_t>::max(), [&](const instruments::Sample& sample) {
+            recorder.read(recorder.first(), recorder.capacity(), [&](const instruments::Sample& sample) {
                 if (sample.channel != index)
                     return;
                 if (sample.at < measured.from) {
