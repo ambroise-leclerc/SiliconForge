@@ -28,3 +28,11 @@ Le premier incrément utilisera une entrée commutée et la capture PWM existant
 Automatiser des clics rendrait les essais dépendants du rafraîchissement de l’interface. Un moteur analogique général dépasserait les hypothèses du modèle résistif actuel. La limitation de courant et la réponse à une charge devront être qualifiées avant d’annoncer ces capacités.
 
 Un futur adaptateur physique décrira les connexions préinstallées, le programmateur et les voies disponibles. Tout recâblage exigera un opérateur ou une matrice de commutation déclarée. L’adaptateur devra réserver les ressources, vérifier les limites du montage avant activation et ramener les sorties à leur état de repos après interruption. Les mesures physiques porteront une tolérance et leur propre base de temps. La qualification initiale concerne le simulateur.
+
+## Mise à jour du 2026-11-20 (#80)
+
+La commande sans fenêtre est devenue `siliconforge bench`, dans l’exécutable de l’application, au lieu d’un
+exécutable séparé : `siliconforge` tourne déjà sans fenêtre, et la CI le construit partout. Le moteur, les preuves et
+les codes de sortie ne changent pas. Lancée dans le terminal de la fenêtre, la commande confie l’essai à la fenêtre
+ouverte ([ADR 0011](0011-agent-mcp.md)), qui l’affiche et charge le circuit et le firmware testés dans l’émulation
+visible : l’essai à la main de #61 avait montré qu’un firmware vérifié en ligne de commande restait invisible.

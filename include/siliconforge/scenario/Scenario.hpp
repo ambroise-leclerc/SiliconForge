@@ -13,7 +13,7 @@
 #include <vector>
 
 /// Bench scenarios (ADR 0010): a versioned file references a circuit and a firmware, fixes the initial state, then
-/// orders stimuli, bounded waits and measurements. The command line (`siliconforge-bench`) and the window run them
+/// orders stimuli, bounded waits and measurements. The command line (`siliconforge bench`) and the window run them
 /// through this engine, so both produce the same report from the same inputs.
 namespace siliconforge::scenario {
 
@@ -172,6 +172,9 @@ struct Evidence {
     std::string                report;  ///< Text of report.json.
     std::optional<std::string> trace;   ///< Text of trace.vcd, when the run kept one.
 };
+
+/// Keeps an already serialized report and its trace with the same publication rules as keepEvidence(Report).
+[[nodiscard]] std::expected<std::string, std::string> keepEvidence(const Evidence& evidence, const std::filesystem::path& directory);
 
 /// Reads only the report kept in `directory`, validated as the report of a bench run: what a listing needs, without
 /// the trace, which can be large.

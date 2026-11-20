@@ -1,4 +1,4 @@
-// The bench of the window (ADR 0010, #60): the engine of siliconforge-bench on the scenarios and runs of the project,
+// The bench of the window (ADR 0010, #60): the engine of siliconforge bench on the scenarios and runs of the project,
 // reading and writing the evidence the command line keeps.
 
 #include "../../apps/siliconforge/Bench.hpp"

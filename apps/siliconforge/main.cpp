@@ -1,6 +1,7 @@
 // siliconforge: runs a firmware on an emulated MCU, with a web interface (WebFront) or headless.
 
 #include "Simulation.hpp"
+#include "BenchCommand.hpp"
 #include "WebBridge.hpp"
 
 #include <siliconforge/circuit/Circuit.hpp>
@@ -46,6 +47,7 @@ struct Options {
 
 void printUsage() {
     std::println(R"(Usage: siliconforge [options] [firmware.hex|firmware.elf]
+       siliconforge bench run|check ...   Bench scenarios without a window: siliconforge bench --help
 
 Runs a firmware on an emulated microcontroller and shows its interface in a window{}. The interface is also served
 on http://<address>:<port>/.
@@ -230,6 +232,9 @@ int serve(App& web, app::Simulation& simulation, const Options& options, const s
 }  // namespace
 
 int main(int argc, char** argv) {
+    // `siliconforge bench ...`: the bench without a window (ADR 0010, #80), before anything of the interface starts.
+    if (argc >= 2 && std::string_view{argv[1]} == "bench")
+        return app::benchcommand::main(argc - 2, argv + 2);
     auto options = parseOptions(argc, argv);
     if (!options) {
         printUsage();

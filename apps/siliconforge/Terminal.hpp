@@ -43,6 +43,7 @@ inline constexpr Client clients[] = {
 struct AgentServer {
     std::string url;    ///< http://127.0.0.1:<port>/mcp/
     std::string token;  ///< Presented as `Authorization: Bearer <token>`.
+    std::string project;  ///< The project directory of the window: `siliconforge bench run` hands it the runs of its scenarios.
 };
 
 /// What a session is started with to reach the MCP server: arguments after the program, and variables.
@@ -51,12 +52,14 @@ struct Launch {
     std::map<std::string, std::string> environment;
 };
 
-/// Every session gets `SILICONFORGE_MCP_URL` and `SILICONFORGE_MCP_TOKEN`; the clients that take a server when they start
+/// Every session gets `SILICONFORGE_MCP_URL`, `SILICONFORGE_MCP_TOKEN` and `SILICONFORGE_PROJECT`; the clients that take a server when they start
 /// get it in their own terms, the token through the environment (readable by its owner only, where the arguments of a
 /// process are readable by every user of the machine). Mistral Vibe reads its servers from its configuration file only.
 [[nodiscard]] inline Launch launchWith(std::string_view id, const AgentServer& server) {
     Launch launch;
     launch.environment = {{"SILICONFORGE_MCP_URL", server.url}, {"SILICONFORGE_MCP_TOKEN", server.token}};
+    if (!server.project.empty())
+        launch.environment["SILICONFORGE_PROJECT"] = server.project;
     const auto quoted  = nlohmann::json(server.url).dump();
     if (id == "claude")
         launch.arguments = {"--mcp-config", R"({"mcpServers":{"siliconforge":{"type":"http","url":)" + quoted +
@@ -151,7 +154,7 @@ struct Launch {
     return std::nullopt;
 }
 
-/// The shell of the user, for the commands of the bench (`siliconforge-bench`) and for what no client does.
+/// The shell of the user, for the commands of the bench (`siliconforge bench`) and for what no client does.
 [[nodiscard]] inline std::string shellProgram(const std::map<std::string, std::string>& environment) {
 #if defined(_WIN32)
     const auto found = environment.find("COMSPEC");

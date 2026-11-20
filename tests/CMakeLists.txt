@@ -63,8 +63,9 @@ add_test(NAME Atdf2JsonCommandLine
             -P ${CMAKE_CURRENT_SOURCE_DIR}/Atdf2JsonCliTests.cmake)
 set_tests_properties(Atdf2JsonCommandLine PROPERTIES TIMEOUT 30 LABELS fast)
 
+# The bench is available with or without the window.
 add_test(NAME BenchCommandLine
-    COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge-bench> -DSOURCE=${PROJECT_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
             -DFIRMWARE=${SILICONFORGE_FIRMWARE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/BenchCommandLine
             -P ${CMAKE_CURRENT_SOURCE_DIR}/BenchCliTests.cmake)
 set_tests_properties(BenchCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
@@ -195,7 +196,8 @@ if(SILICONFORGE_BUILD_APP)
         siliconforge_ui_bench_project(${_ui_agent_project})
         webfront_add_jasmine_test(NAME UI-Agent TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/agent.spec.js ARGS --port 0)
-        set_tests_properties(UI-Agent PROPERTIES WORKING_DIRECTORY ${_ui_agent_project} LABELS ui)
+        set_tests_properties(UI-Agent PROPERTIES WORKING_DIRECTORY ${_ui_agent_project} LABELS ui
+            ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge>")
         set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
     elseif((CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WKWEBVIEW")
            OR (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBVIEW2"))

@@ -101,7 +101,7 @@ add_library(SiliconForge::circuit ALIAS SiliconForge_circuit)
 target_link_libraries(SiliconForge_circuit PUBLIC SiliconForge::core nlohmann_json::nlohmann_json PRIVATE SiliconForge_options nlohmann_json_schema_validator)
 target_include_directories(SiliconForge_circuit PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated" "${CMAKE_CURRENT_SOURCE_DIR}")
 
-# Bench scenarios (ADR 0010): the engine shared by siliconforge-bench and the window.
+# Bench scenarios (ADR 0010): the engine shared by siliconforge bench and the window.
 siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/schemas/scenario.schema.json" SILICONFORGE_SCENARIO_SCHEMA_BYTES)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/schemas/scenario.schema.json")
 configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedScenario.hpp.in"

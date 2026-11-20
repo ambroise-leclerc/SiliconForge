@@ -112,11 +112,11 @@ You can run firmware headlessly, accelerate simulated time and collect its seria
 ```
 
 A [bench scenario](docs/BANC.md) describes a test in a JSON file versioned with the project: circuit, firmware,
-stimuli, bounded waits and expected measurements. `siliconforge-bench` runs it, keeps the report and the trace, and
+stimuli, bounded waits and expected measurements. `siliconforge bench` runs it, keeps the report and the trace, and
 tells success (0), a missed assertion (1) and an incompatible bench (2) apart by its exit code:
 
 ```bash
-./build/apps/siliconforge-bench/siliconforge-bench run scenarios/pwm-setpoint.json
+./build/apps/siliconforge/siliconforge bench run scenarios/pwm-setpoint.json
 ```
 
 The [C++ test bench](include/siliconforge/testing/Bench.hpp) lets you send data, change inputs and check replies
@@ -134,7 +134,7 @@ ctest --test-dir build --output-on-failure
 - [Microcontroller descriptions and model limitations](docs/MCU-DESCRIPTIONS.md)
 - [Component and circuit format](docs/CIRCUITS.md) (in French)
 - [Instruments: logic analyser and oscilloscope](docs/INSTRUMENTS.md) (in French)
-- [Programmable bench: scenarios and `siliconforge-bench`](docs/BANC.md) (in French)
+- [Programmable bench: scenarios and `siliconforge bench`](docs/BANC.md) (in French)
 - [Agent terminal: Claude Code, Codex, OpenCode or Mistral Vibe in the window](docs/TERMINAL.md) (in French)
 - [Source editor: read and edit what the agent changed, with the Git differences](docs/EDITOR.md) (in French)
 - [The agent in the window: MCP tools that load, act and measure in front of the person](docs/AGENT-MCP.md) (in French)
