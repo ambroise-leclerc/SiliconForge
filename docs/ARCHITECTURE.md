@@ -4,8 +4,7 @@ SiliconForge is organised in layers that only depend on the layers below them.
 
 ```
  ┌──────────────────────────────────────────────────────────────┐
- │ apps/siliconforge   CLI, Simulation thread, WebBridge         │──── WebFront ──── ui/ (browser)
- │ apps/siliconforge-bench   Scenarios without a window          │
+ │ apps/siliconforge   CLI (bench too), Simulation, WebBridge    │──── WebFront ──── ui/ (browser)
  ├──────────────────────────────────────────────────────────────┤
  │ scenario/           Bench scenarios, reports, traces          │  SiliconForge::scenario
  ├──────────────────────────────────────────────────────────────┤
@@ -93,8 +92,9 @@ measurements. `Scenario::prepare` loads and checks everything before a single in
 `Problem` with its cause (version, schema, wiring, resource, capacity, schedule), file and JSON Pointer. `run()` plugs
 a fresh MCU in a fresh circuit each time, applies the stimuli at their cycle, measures on the logged pin changes and
 returns a `Report` (verdict, SHA-256 of the inputs, engine version, measurements with units, steps, serial output,
-VCD trace) without wall-clock data, so the same inputs give the same report. `apps/siliconforge-bench` is the command
-an agent runs; it needs neither WebFront nor a display.
+VCD trace) without wall-clock data, so the same inputs give the same report. `siliconforge bench` is the command an
+agent runs (apps/siliconforge/BenchCommand.hpp): without a display, or, in the terminal of a window, handing the run to
+that window, which shows it and loads what it tested (#80).
 
 ## Application and interface
 

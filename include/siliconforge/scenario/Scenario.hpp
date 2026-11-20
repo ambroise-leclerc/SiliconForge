@@ -13,7 +13,7 @@
 #include <vector>
 
 /// Bench scenarios (ADR 0010): a versioned file references a circuit and a firmware, fixes the initial state, then
-/// orders stimuli, bounded waits and measurements. The command line (`siliconforge-bench`) and the window run them
+/// orders stimuli, bounded waits and measurements. The command line (`siliconforge bench`) and the window run them
 /// through this engine, so both produce the same report from the same inputs.
 namespace siliconforge::scenario {
 

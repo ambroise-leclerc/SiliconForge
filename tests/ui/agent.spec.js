@@ -131,6 +131,21 @@ describe("The agent in the window", () => {
     await until(() => screen().includes("status-401"), "a refusal");
   });
 
+  it("hands a run of the command line to the window, which shows it and runs what it tested (#80)", async () => {
+    tab("terminal-toggle").click();
+    const cycles = sf().state.cycles;
+    type("siliconforge bench run scenarios/pwm-setpoint.json; printf 'bench-exit-%s\\n' $?\r");
+    await until(() => screen().includes("bench-exit-0"), "the end of the command");
+    expect(screen()).toContain("PWM setpoint on D6: pass");
+    expect(screen()).toContain("Window: firmware/prebuilt/pwm_setpoint.hex loaded and running");
+    const entry = agent().entries.at(-1);
+    expect(entry.tool).toBe("bench_run");
+    expect(entry.arguments).toEqual({scenario: "pwm-setpoint.json", load: true});
+    await until(() => sf().bench.result?.run === "pwm-setpoint", "the run in the Bench panel");
+    // Loaded again from reset, and running.
+    await sf().waitFor(() => sf().state.running && sf().state.cycles < cycles && sf().state.firmware === "pwm_setpoint.hex", 10000);
+  });
+
   afterAll(async () => {
     await sf().terminal.hangUp();
   });

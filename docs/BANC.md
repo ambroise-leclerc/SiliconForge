@@ -1,7 +1,7 @@
-# Banc programmable : scénarios et `siliconforge-bench`
+# Banc programmable : scénarios et `siliconforge bench`
 
 Un scénario décrit un essai de banc dans un fichier versionné avec le projet : le circuit et le firmware, l’état
-initial, puis les stimuli, les attentes bornées et les mesures avec leurs valeurs attendues. `siliconforge-bench`
+initial, puis les stimuli, les attentes bornées et les mesures avec leurs valeurs attendues. `siliconforge bench`
 l’exécute sans fenêtre et conserve les preuves de l’essai. La décision est décrite dans
 l’[ADR 0010](adr/0010-banc-programmable.md) ; ce document couvre le premier incrément, sur l’ATmega328P simulé.
 
@@ -29,7 +29,7 @@ choisie par le bouton D2 (25 % relâché, 75 % enfoncé) et la LED D13 acquitte 
 ```
 
 ```console
-$ ./build/apps/siliconforge-bench/siliconforge-bench run scenarios/pwm-setpoint.json
+$ ./build/apps/siliconforge/siliconforge bench run scenarios/pwm-setpoint.json
 PWM setpoint on D6: pass
   [done]     0 wait     Let the firmware configure Timer0
   [done]     1 measure  Released setpoint — duty-released = 25 %
@@ -108,7 +108,7 @@ ne couvrent donc aucune durée. La valeur est alors absente, l’explication fig
 
 ## Ce qui est refusé avant l’essai
 
-`siliconforge-bench check` et `run` vérifient tout le scénario avant d’exécuter la moindre instruction. Chaque refus
+`siliconforge bench check` et `run` vérifient tout le scénario avant d’exécuter la moindre instruction. Chaque refus
 nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 
 | Cause | Exemples |
@@ -124,9 +124,24 @@ nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 ## La commande
 
 ```text
-siliconforge-bench run [--out <répertoire>] [--json] <scénario.json>
-siliconforge-bench check <scénario.json>
+siliconforge bench run [--out <répertoire>] [--json] <scénario.json>
+siliconforge bench check <scénario.json>
 ```
+
+Le banc est une commande de l’application `siliconforge` (#80) : le même exécutable ouvre la fenêtre et fait tourner
+les scénarios sans fenêtre, en CI comme pour un agent.
+
+**Dans le terminal de la fenêtre**, `run` confie à la fenêtre ouverte un scénario de son projet (`scenarios/*.json`,
+sans `--out`). La commande lui passe l’essai par son serveur MCP ([AGENT-MCP.md](AGENT-MCP.md)), avec les variables
+`SILICONFORGE_MCP_URL`, `SILICONFORGE_MCP_TOKEN` et `SILICONFORGE_PROJECT` que reçoit chaque session. La fenêtre fait
+tourner l’essai sur son fil du banc et l’ouvre dans le panneau **Bench**. Elle charge ensuite le circuit et le
+firmware du scénario dans l’émulation affichée et les lance : ce que l’agent vient de vérifier est ce que la personne
+voit. Ce chargement n’a pas lieu si la personne garde la main (« Let the agent drive ») ou si le scénario n’a pas pu
+tourner. La commande affiche le même résumé et rend le même code de sortie qu’un essai local, suivis d’une ligne
+`Window: …` qui dit ce qui a été chargé. Les preuves sont celles du projet de la fenêtre, à l’endroit habituel.
+
+Ailleurs (CI, autre terminal), avec `--out`, pour un fichier hors de `scenarios/` du projet, ou si la fenêtre ne
+répond plus, l’essai tourne sans fenêtre ; dans ce dernier cas, la commande le signale sur la sortie d’erreur.
 
 | Code de sortie | Signification |
 | --- | --- |
@@ -180,7 +195,7 @@ const auto json   = scenario::toJson(result, "trace.vcd");
 ## Dans la fenêtre
 
 Le panneau **Bench** de la fenêtre utilise le même moteur et écrit les mêmes preuves, au même endroit, que
-`siliconforge-bench` : la fenêtre et la commande partagent `scenario::keepEvidence` et
+`siliconforge bench` : la fenêtre et la commande partagent `scenario::keepEvidence` et
 `scenario::defaultEvidenceDirectory` ([`Scenario.hpp`](../include/siliconforge/scenario/Scenario.hpp)). Elle travaille
 sur le répertoire courant du projet :
 

@@ -1,5 +1,5 @@
-# siliconforge-bench (#59): the documented exit codes, and the evidence kept even when an assertion fails.
-# cmake -DBENCH=<siliconforge-bench> -DSOURCE=<repository> -DFIRMWARE=<firmware directory> -DWORK=<scratch> -P BenchCliTests.cmake
+# siliconforge bench (#59, #80): the documented exit codes, and the evidence kept even when an assertion fails.
+# cmake -DBENCH=<siliconforge> -DSOURCE=<repository> -DFIRMWARE=<firmware directory> -DWORK=<scratch> -P BenchCliTests.cmake
 foreach(variable IN ITEMS BENCH SOURCE FIRMWARE WORK)
     if(NOT DEFINED ${variable})
         message(FATAL_ERROR "${variable} is not defined")
@@ -12,10 +12,12 @@ set(example "${SOURCE}/scenarios/pwm-setpoint.json")
 
 # Runs the command; fails unless it exits with `expected`. Leaves its streams in `stdout` and `stderr`.
 function(run expected)
-    execute_process(COMMAND "${BENCH}" ${ARGN} TIMEOUT 30 WORKING_DIRECTORY "${WORK}"
+    # Out of the window this test may be started from: a run here is what is tested (see the case of a window below).
+    execute_process(COMMAND "${CMAKE_COMMAND}" -E env --unset=SILICONFORGE_MCP_URL --unset=SILICONFORGE_MCP_TOKEN --unset=SILICONFORGE_PROJECT
+                            ${window} "${BENCH}" bench ${ARGN} TIMEOUT 30 WORKING_DIRECTORY "${WORK}"
         RESULT_VARIABLE result OUTPUT_VARIABLE out ERROR_VARIABLE err)
     if(NOT result STREQUAL "${expected}")
-        message(FATAL_ERROR "siliconforge-bench ${ARGN}: exit ${result}, expected ${expected}\n${out}\n${err}")
+        message(FATAL_ERROR "siliconforge bench ${ARGN}: exit ${result}, expected ${expected}\n${out}\n${err}")
     endif()
     set(stdout "${out}" PARENT_SCOPE)
     set(stderr "${err}" PARENT_SCOPE)
@@ -75,10 +77,20 @@ if(NOT EXISTS "${WORK}/.siliconforge/runs/pwm-setpoint/trace.vcd")
     message(FATAL_ERROR "No trace beside the report")
 endif()
 run(0 run --json --out "${WORK}/json" "${example}")
+
 string(JSON verdict GET "${stdout}" verdict)
 if(NOT verdict STREQUAL "pass")
     message(FATAL_ERROR "--json printed verdict ${verdict}")
 endif()
+
+# Started in the terminal of a window that no longer answers: the run is kept here, as without a window.
+set(window "SILICONFORGE_MCP_URL=http://127.0.0.1:1/mcp/" "SILICONFORGE_MCP_TOKEN=0123456789abcdef" "SILICONFORGE_PROJECT=${SOURCE}")
+file(REMOVE_RECURSE "${WORK}/.siliconforge/runs/pwm-setpoint")
+run(0 run "${example}")
+expect_contains("${stderr}" "The window does not answer" "a run whose window is gone")
+expect_contains("${stdout}" "PWM setpoint on D6: pass" "a run whose window is gone")
+expect_report("${WORK}/.siliconforge/runs/pwm-setpoint" pass)
+set(window "")
 
 # Fail: a firmware that never acknowledges; the measurements made so far and the trace are kept.
 variant(timeout pwm.hex)

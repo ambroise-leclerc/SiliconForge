@@ -18,7 +18,7 @@ commandes, ses raccourcis et sa connexion au fournisseur : SiliconForge ne les v
 
 - **Quels programmes.** L’application nomme les programmes ; la page n’envoie jamais de ligne de commande. Un client
   est proposé s’il est trouvé dans le `PATH` de l’application, sinon il apparaît grisé (« not installed »). Le shell
-  est `$SHELL` (`COMSPEC` sous Windows) ; il sert aux commandes du banc comme `siliconforge-bench`.
+  est `$SHELL` (`COMSPEC` sous Windows) ; il sert aux commandes du banc comme `siliconforge bench`.
 - **Environnement.** Le client reçoit l’environnement de l’application (`HOME`, `PATH`, sa configuration, ses
   variables de fournisseur) et démarre dans le répertoire de travail de SiliconForge, c’est-à-dire le projet. Les
   variables qui désignent la session d’où l’application a été lancée en sont retirées : `TERM_PROGRAM*`, `VSCODE_*`,

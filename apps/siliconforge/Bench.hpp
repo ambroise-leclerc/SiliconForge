@@ -12,7 +12,7 @@
 #include <system_error>
 #include <vector>
 
-/// The bench of the window (ADR 0010, #60): the same engine and the same evidence as `siliconforge-bench`, on the
+/// The bench of the window (ADR 0010, #60): the same engine and the same evidence as `siliconforge bench`, on the
 /// scenarios and runs of the project directory. The page names a scenario or a run from the lists below and never
 /// gives a path, so that an interface served to other machines cannot read or write elsewhere.
 namespace siliconforge::app::bench {

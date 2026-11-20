@@ -29,7 +29,7 @@ l’[ADR 0011](adr/0011-agent-mcp.md).
 | `read_pins` | | Niveau (`low`, `high`, `floating`), direction et tension de chaque broche |
 | `measure` | `pin`, `quantity`, `window` (s, 0,001 par défaut, 10 au plus) | Rapport cyclique (%), fréquence (Hz) ou période (s), calculés sur les fronts de la capture, datés au cycle près, avec les règles du [banc](BANC.md#mesures). En marche, la fenêtre commence à l’appel et la réponse arrive quand elle est écoulée ; en pause, c’est la dernière fenêtre de la capture |
 | `bench_list` | | Scénarios de `scenarios/` et essais de `.siliconforge/runs/` |
-| `bench_run` | `scenario` | Lance un scénario avec son propre MCU, comme `siliconforge-bench`, sur le fil du panneau Bench ; renvoie le verdict et les mesures |
+| `bench_run` | `scenario`, `load` (faux par défaut) | Lance un scénario avec son propre MCU, comme `siliconforge bench run`, sur le fil du panneau Bench ; renvoie le verdict et les mesures. Avec `load`, charge ensuite le circuit et le firmware du scénario dans l’émulation de la fenêtre et les lance (`loaded`), sauf si la personne garde la main (`notLoaded` dit pourquoi). `siliconforge bench run`, lancé dans le terminal de la fenêtre, passe par cet outil avec `load` |
 | `bench_open` | `run` | Le rapport d’un essai |
 
 Une erreur de l’agent (argument manquant, composant inconnu, chemin hors du projet, fenêtre trop longue) lui revient
