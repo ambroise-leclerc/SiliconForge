@@ -1,8 +1,10 @@
 # Terminal agentique
 
-Le bouton **Agent terminal** de la barre d’outils ouvre, dans la fenêtre, le client agentique installé par
-l’utilisateur — Claude Code, Codex, OpenCode ou Mistral Vibe — dans le répertoire du projet, ou le shell de
-l’utilisateur. La décision est décrite dans l’[ADR 0009](adr/0009-poste-agentique.md).
+L’onglet **Terminal** de la colonne de droite ouvre, dans la fenêtre, le client agentique installé par
+l’utilisateur (Claude Code, Codex, OpenCode ou Mistral Vibe) dans le répertoire du projet, ou le shell de
+l’utilisateur. La colonne a trois onglets : **Bench** (le banc, le moniteur série et le CPU), **Terminal** et
+**Sources** ([éditeur](EDITOR.md)). Choisir Terminal ou Sources élargit la colonne et rétrécit la carte et les
+instruments ; les flèches du clavier passent d’un onglet à l’autre, et la fenêtre retient le dernier choisi. La décision est décrite dans l’[ADR 0009](adr/0009-poste-agentique.md).
 
 Le client tourne dans un pseudo-terminal natif fourni par WebFront (PTY sous Linux et macOS, ConPTY sous Windows,
 [WebFront #613](https://github.com/ambroise-leclerc/WebFront/issues/613)) et s’affiche avec xterm.js. Il garde ses
@@ -22,7 +24,7 @@ commandes, ses raccourcis et sa connexion au fournisseur : SiliconForge ne les v
   réglages (`CODEX_HOME`, `MISTRAL_API_KEY`, `VIBE_HOME`, `OPENCODE_CONFIG`...) sont conservés.
   Lancé depuis le terminal de VSCodium où tournait Claude Code, le client embarqué se rattachait sinon à l’IDE de cette
   session et la lui prenait (« switched to another Claude Code session »).
-- **Une session par client.** Elle survit au rechargement de la page, au masquage du panneau (**Hide**) et au
+- **Une session par client.** Elle survit au rechargement de la page, au retour à l’onglet **Bench** (**Hide**) et au
   changement de client. **Open** rattache la session qui tourne et rejoue sa sortie récente.
 - **Fermeture.** **Close client** termine le client et ses processus au premier plan. Le banc, la simulation et les
   scénarios restent utilisables ; **Restart** ouvre une nouvelle session après la sortie du client.

@@ -69,6 +69,53 @@ describe("The agent terminal in the window", () => {
     await waitForScreen("pwm-setpoint.json");
   });
 
+  it("widens the side column for the terminal, and keeps the session while the bench tab is shown", async () => {
+    const workspace = document.querySelector(".workspace");
+    const board = document.querySelector(".board");
+    const tab = (id) => document.getElementById(id);
+    expect(workspace.classList.contains("wide")).toBe(true);
+    expect(tab("terminal-toggle").getAttribute("aria-selected")).toBe("true");
+    await sleep(400);  // The column widens with a short transition.
+    const narrowed = board.getBoundingClientRect().width;
+
+    tab("bench-tab").click();
+    expect(panel().hidden).toBe(true);
+    expect(tab("side-bench").hidden).toBe(false);
+    expect(workspace.classList.contains("wide")).toBe(false);
+    await sleep(400);
+    expect(board.getBoundingClientRect().width).toBeGreaterThan(narrowed);
+    say("behind", 3);  // Typed while the bench is shown: the session goes on.
+
+    // The arrows move between the tabs: Bench, then Terminal.
+    tab("bench-tab").dispatchEvent(new KeyboardEvent("keydown", {key: "ArrowRight", bubbles: true}));
+    expect(sf().side.selected).toBe("terminal");
+    expect(panel().hidden).toBe(false);
+    await waitForScreen("behind-3");
+    expect(terminal().state.running).toBe(true);
+  });
+
+  it("stacks the side column under the workspace in a narrow window, whatever the tab", async () => {
+    // A page of the given width with the stylesheet of the window: the media queries follow the width of the frame.
+    const columns = async (width, wide) => {
+      const frame = document.createElement("iframe");
+      frame.style.cssText = `position: absolute; left: -10000px; width: ${width}px; height: 600px; border: 0`;
+      frame.srcdoc = `<link rel="stylesheet" href="${new URL("style.css", location.href)}">`
+        + `<main class="workspace${wide ? " wide" : ""}"><section class="board"></section><aside class="side"></aside></main>`;
+      const loaded = new Promise((resolve) => frame.addEventListener("load", resolve, {once: true}));
+      document.body.append(frame);
+      await loaded;
+      const workspace = frame.contentDocument.querySelector(".workspace");
+      await sleep(400);  // Past the transition of the columns.
+      const tracks = frame.contentWindow.getComputedStyle(workspace).gridTemplateColumns.trim().split(/\s+/).length;
+      frame.remove();
+      return tracks;
+    };
+    expect(await columns(800, false)).toBe(1);
+    expect(await columns(800, true)).toBe(1);   // The terminal or the sources do not bring the second column back.
+    expect(await columns(1400, false)).toBe(2);
+    expect(await columns(1400, true)).toBe(2);
+  });
+
   it("does not hand the client the session of the IDE or the agent the application was started from", async () => {
     // The test is started with those variables set. Reaching the IDE of another session made the embedded client take
     // it from the first one; the settings of the user stay.
@@ -86,7 +133,8 @@ describe("The agent terminal in the window", () => {
     const size = () => sizeText(terminal().terminal.rows, terminal().terminal.cols);
     showSize();
     await waitForScreen(size(), 30000);
-    panel().style.height = "220px";
+    // The terminal fills the side column: a narrower column is a smaller terminal.
+    document.querySelector(".workspace").style.setProperty("--side-wide", "35%");
     const before = size();
     const end = Date.now() + 10000;
     while (size() === before && Date.now() < end) await sleep(50);

@@ -220,6 +220,8 @@ describe("The editor of the project sources in the window", () => {
     sf().terminal.terminal.input(windows
       ? "powershell -NoProfile -Command \"[IO.File]::WriteAllText('agent.cpp', 'int agent;' + [char]10); [IO.File]::AppendAllText('main.cpp', '// by the agent' + [char]10)\"\r"
       : "printf 'int agent;\\n' > agent.cpp && printf '// by the agent\\n' >> main.cpp\r", true);
+    // Back to the sources, as the person does to review the change; the session goes on in its tab.
+    document.getElementById("editor-toggle").click();
 
     await until(async () => { await editor().refresh(); return statusOf("agent.cpp") === "?"; }, "the new file in the list");
     expect(statusOf("main.cpp")).toBe("M");
