@@ -138,10 +138,13 @@ tourner l’essai sur son fil du banc et l’ouvre dans le panneau **Bench**. El
 firmware du scénario dans l’émulation affichée et les lance : ce que l’agent vient de vérifier est ce que la personne
 voit. Ce chargement n’a pas lieu si la personne garde la main (« Let the agent drive ») ou si le scénario n’a pas pu
 tourner. La commande affiche le même résumé et rend le même code de sortie qu’un essai local, suivis d’une ligne
-`Window: …` qui dit ce qui a été chargé. Les preuves sont celles du projet de la fenêtre, à l’endroit habituel.
+`Window: …` qui dit ce qui a été chargé. La fenêtre conserve ses preuves dans le projet. Si la commande est lancée
+depuis un autre répertoire, elle y conserve également les preuves, au même chemin relatif qu'une exécution locale.
 
 Ailleurs (CI, autre terminal), avec `--out`, pour un fichier hors de `scenarios/` du projet, ou si la fenêtre ne
-répond plus, l’essai tourne sans fenêtre ; dans ce dernier cas, la commande le signale sur la sortie d’erreur.
+répond plus, l’essai tourne sans fenêtre ; dans ce dernier cas, la commande le signale sur la sortie d’erreur. Une
+connexion est abandonnée après 10 secondes et une réponse inactive après 60 secondes ; un essai déjà accepté par la
+fenêtre peut alors continuer en parallèle de l'essai local.
 
 | Code de sortie | Signification |
 | --- | --- |

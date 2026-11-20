@@ -173,6 +173,9 @@ struct Evidence {
     std::optional<std::string> trace;   ///< Text of trace.vcd, when the run kept one.
 };
 
+/// Keeps an already serialized report and its trace with the same publication rules as keepEvidence(Report).
+[[nodiscard]] std::expected<std::string, std::string> keepEvidence(const Evidence& evidence, const std::filesystem::path& directory);
+
 /// Reads only the report kept in `directory`, validated as the report of a bench run: what a listing needs, without
 /// the trace, which can be large.
 [[nodiscard]] std::expected<std::string, std::string> readReport(const std::filesystem::path& directory);

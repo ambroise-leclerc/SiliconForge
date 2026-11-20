@@ -185,7 +185,7 @@ inline std::optional<int> runInWindow(const Options& options, const Window& targ
     const nlohmann::json call{{"jsonrpc", "2.0"},
                               {"id", 1},
                               {"method", "tools/call"},
-                              {"params", {{"name", "bench_run"}, {"arguments", {{"scenario", target.scenario}, {"load", true}}}}}};
+                              {"params", {{"name", "bench_run"}, {"arguments", {{"scenario", target.scenario}, {"load", true}, {"evidence", true}}}}}};
     const auto answer = localhttp::post(target.url, target.token, call.dump());
     if (!answer || answer->status != 200) {
         std::println(stderr, "The window does not answer ({}): the scenario runs here.", answer ? std::format("HTTP {}", answer->status) : answer.error());
@@ -202,13 +202,19 @@ inline std::optional<int> runInWindow(const Options& options, const Window& targ
         return usageError;
     }
     const auto& content   = result.at("structuredContent");
-    const auto  directory = std::filesystem::relative(target.project / ".siliconforge" / "runs" / content.at("run").get<std::string>());
-    const auto  text      = scenario::readReport(directory);
-    if (!text) {
-        std::println(stderr, "{}", text.error());
-        return usageError;
+    const auto directory = scenario::defaultEvidenceDirectory(*options.scenario);
+    const auto text = content.at("report").dump(2, ' ', false, nlohmann::json::error_handler_t::replace) + "\n";
+    // The window already kept these files in its project. Copy them only if this command has a different cwd.
+    std::error_code error;
+    if (!std::filesystem::equivalent(std::filesystem::current_path(), target.project, error) || error) {
+        const auto& trace = content.at("trace");
+        const auto kept = scenario::keepEvidence(scenario::Evidence{text, trace.is_string() ? std::optional<std::string>{trace.get<std::string>()} : std::nullopt}, directory);
+        if (!kept) {
+            std::println(stderr, "{}", kept.error());
+            return usageError;
+        }
     }
-    const auto code = report(options, *text, directory);
+    const auto code = report(options, text, directory);
     if (!options.json) {
         if (const auto& loaded = content.value("loaded", nlohmann::json{}); loaded.is_object())
             std::println("Window: {} loaded and running, run {} opened in the Bench panel", loaded.value("firmware", std::string{}), content.at("run").get<std::string>());

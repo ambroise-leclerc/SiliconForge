@@ -12,9 +12,13 @@
 #endif
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#ifdef small
+#undef small
+#endif
 #pragma comment(lib, "ws2_32.lib")
 #else
 #include <netdb.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -95,8 +99,50 @@ struct Answer {
         socket = ::socket(address->ai_family, address->ai_socktype, address->ai_protocol);
         if (socket == invalid)
             continue;
-        if (::connect(socket, address->ai_addr, static_cast<int>(address->ai_addrlen)) == 0)
+        // Bound connection establishment as well as the subsequent reads. A stale window must not hang the CLI.
+#if defined(_WIN32)
+        u_long nonblocking = 1;
+        ioctlsocket(socket, FIONBIO, &nonblocking);
+#else
+        const auto flags = fcntl(socket, F_GETFL, 0);
+        fcntl(socket, F_SETFL, flags | O_NONBLOCK);
+#endif
+        auto connected = ::connect(socket, address->ai_addr, static_cast<int>(address->ai_addrlen)) == 0;
+        if (!connected) {
+            fd_set writable;
+            FD_ZERO(&writable);
+            FD_SET(socket, &writable);
+            timeval timeout{10, 0};
+            if (select(static_cast<int>(socket + 1), nullptr, &writable, nullptr, &timeout) > 0) {
+                int socketError = 0;
+#if defined(_WIN32)
+                int length = sizeof(socketError);
+                connected = getsockopt(socket, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&socketError), &length) == 0 && socketError == 0;
+#else
+                socklen_t length = sizeof(socketError);
+                connected = getsockopt(socket, SOL_SOCKET, SO_ERROR, &socketError, &length) == 0 && socketError == 0;
+#endif
+            }
+        }
+        if (connected) {
+#if defined(_WIN32)
+            nonblocking = 0;
+            ioctlsocket(socket, FIONBIO, &nonblocking);
+            const DWORD timeout = 60000;
+            setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
+            setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, reinterpret_cast<const char*>(&timeout), sizeof(timeout));
+#else
+            fcntl(socket, F_SETFL, flags);
+            const timeval timeout{60, 0};
+            setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+            setsockopt(socket, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+#ifdef SO_NOSIGPIPE
+            const int noSigpipe = 1;
+            setsockopt(socket, SOL_SOCKET, SO_NOSIGPIPE, &noSigpipe, sizeof(noSigpipe));
+#endif
+#endif
             break;
+        }
         closeSocket(socket);
         socket = invalid;
     }
@@ -109,7 +155,12 @@ struct Answer {
                           "\r\nContent-Type: application/json\r\nAccept: application/json\r\nAuthorization: Bearer " + std::string{token} +
                           "\r\nContent-Length: " + std::to_string(body.size()) + "\r\nConnection: close\r\n\r\n" + std::string{body};
     for (std::size_t sent = 0; sent < request.size();) {
-        const auto count = ::send(socket, request.data() + sent, static_cast<int>(request.size() - sent), 0);
+#ifdef MSG_NOSIGNAL
+        constexpr int sendFlags = MSG_NOSIGNAL;
+#else
+        constexpr int sendFlags = 0;
+#endif
+        const auto count = ::send(socket, request.data() + sent, static_cast<int>(request.size() - sent), sendFlags);
         if (count <= 0) {
             closeSocket(socket);
             return std::unexpected(std::string{"The window closed the connection"});

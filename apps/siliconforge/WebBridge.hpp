@@ -709,7 +709,8 @@ private:
                    "does, keeps the evidence and returns the verdict and the measurements; the window opens the run. With load, the "
                    "circuit and the firmware of the scenario are then loaded and run in the emulation of the window, unless the person "
                    "keeps the controls.",
-                   schema({{"scenario", {{"type", "string"}}}, {"load", {{"type", "boolean"}, {"default", false}}}}, {"scenario"}), false,
+                   schema({{"scenario", {{"type", "string"}}}, {"load", {{"type", "boolean"}, {"default", false}}},
+                           {"evidence", {{"type", "boolean"}, {"default", false}}}}, {"scenario"}), false,
                    [this](const Json& arguments) {
                        namespace ex    = webfront::networking::ex;
                        const auto file = mcp::text(arguments, "scenario");
@@ -725,6 +726,10 @@ private:
                                           {"measurements", report.value("measurements", Json::array())},
                                           {"problem", report.value("problem", Json(nullptr))},
                                           {"identicalToPrevious", result->value("identical", false)}};
+                       if (mcp::flag(arguments, "evidence", false)) {
+                           answer["report"] = report;
+                           answer["trace"] = result->at("trace");
+                       }
                        if (load) {
                            if (const auto refused = showScenario(file, report))
                                answer["notLoaded"] = *refused;
