@@ -574,11 +574,11 @@ private:
         const auto firmware     = sources.readBytes(firmwarePath, 8u << 20);
         if (!circuitText || !firmware)
             return "the circuit or the firmware of " + file + " cannot be read from the project: nothing was loaded";
-        auto description = circuit::parseDescription(circuitText->at("content").get<std::string>());
-        if (!description)
+        auto circuitDescription = circuit::parseDescription(circuitText->at("content").get<std::string>());
+        if (!circuitDescription)
             return "the circuit of " + file + " is not valid here: nothing was loaded";
         try {
-            useCircuit(std::move(*description), std::filesystem::path{circuitPath}.stem().string());
+            useCircuit(std::move(*circuitDescription), std::filesystem::path{circuitPath}.stem().string());
             loadFirmware(std::filesystem::path{firmwarePath}.filename().string(),
                          std::span{reinterpret_cast<const std::uint8_t*>(firmware->data()), firmware->size()});
         } catch (const std::exception& error) {
