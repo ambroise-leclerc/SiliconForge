@@ -70,6 +70,20 @@ add_test(NAME BenchCommandLine
             -P ${CMAKE_CURRENT_SOURCE_DIR}/BenchCliTests.cmake)
 set_tests_properties(BenchCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
 
+# The PWM correction loop of docs/FOUNDRY.md (#61): the agent builds its change with the chain of the project, which
+# needs avr-gcc, and reviews it with Git.
+find_program(GIT_PROGRAM git)
+if(SILICONFORGE_FIRMWARE_FROM_SOURCE AND GIT_PROGRAM)
+    set(SILICONFORGE_FOUNDRY 1)
+    add_test(NAME FoundryCommandLine
+        COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
+                -DPROJECT=${CMAKE_CURRENT_BINARY_DIR}/foundry-cli-project -DMAKE=${MAKE_PROGRAM}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/FoundryCliTests.cmake)
+    set_tests_properties(FoundryCommandLine PROPERTIES TIMEOUT 180 LABELS fast)
+else()
+    message(STATUS "FoundryCommandLine and UI-Foundry skipped: they need avr-gcc, make and git")
+endif()
+
 # Explicit opt-in target for profiling; not part of CTest or the default build.
 add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
 target_link_libraries(siliconforge_mcu_bench PRIVATE SiliconForge::mcu SiliconForge_options)
@@ -191,6 +205,33 @@ if(SILICONFORGE_BUILD_APP)
             SPECS ui/bench.spec.js ARGS --port 0)
         set_tests_properties(UI-Bench PROPERTIES WORKING_DIRECTORY ${_ui_bench_project})
         siliconforge_add_agent_ui_tests(WebKitGTK ${_ui_bench_project})
+        # The PWM correction loop of docs/FOUNDRY.md (#61), in a project remade before each run since the agent changes it.
+        if(SILICONFORGE_FOUNDRY)
+            set(_ui_foundry_project ${CMAKE_CURRENT_BINARY_DIR}/ui-foundry-project)
+            add_test(NAME UI-Foundry-Project COMMAND ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR} -DPROJECT=${_ui_foundry_project}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/FoundryProject.cmake)
+            set_tests_properties(UI-Foundry-Project PROPERTIES FIXTURES_SETUP ui-foundry-project)
+            webfront_add_jasmine_test(NAME UI-Foundry TARGET siliconforge_ui_test FRONTEND WebKitGTK
+                SPECS ui/foundry.spec.js ARGS --port 0 TIMEOUT 300)
+            set_tests_properties(UI-Foundry PROPERTIES WORKING_DIRECTORY ${_ui_foundry_project} FIXTURES_REQUIRED ui-foundry-project
+                ENVIRONMENT "FOUNDRY_PATCHES=${CMAKE_CURRENT_SOURCE_DIR}/foundry"
+                ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge>")
+            set_property(TEST UI-Foundry UI-Foundry-Project APPEND PROPERTY LABELS ui)
+            # The same exercise with a real client (tests/ui/foundry-client.spec.js): opt-in, since it uses the account
+            # of the user and an operator answers the questions of the client. Kept in Xvfb, off the desktop session.
+            option(SILICONFORGE_FOUNDRY_CLIENT "Register UI-FoundryClient: the exercise of docs/FOUNDRY.md with a real client" OFF)
+            if(SILICONFORGE_FOUNDRY_CLIENT)
+                set(_ui_foundry_client_project ${CMAKE_CURRENT_BINARY_DIR}/ui-foundry-client-project)
+                add_test(NAME UI-FoundryClient-Project COMMAND ${CMAKE_COMMAND} -DSOURCE=${PROJECT_SOURCE_DIR}
+                    -DPROJECT=${_ui_foundry_client_project} -DRELAY=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/FoundryProject.cmake)
+                set_tests_properties(UI-FoundryClient-Project PROPERTIES FIXTURES_SETUP ui-foundry-client-project)
+                webfront_add_jasmine_test(NAME UI-FoundryClient TARGET siliconforge_ui_test FRONTEND WebKitGTK
+                    SPECS ui/foundry-client.spec.js ARGS --port 0 TIMEOUT 3600)
+                set_tests_properties(UI-FoundryClient PROPERTIES WORKING_DIRECTORY ${_ui_foundry_client_project}
+                    FIXTURES_REQUIRED ui-foundry-client-project ENVIRONMENT "GDK_BACKEND=x11"
+                    ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge>;WAYLAND_DISPLAY=unset:")
+            endif()
+        endif()
         # The agent acting on the window through MCP (#76), in a project of its own: its runs must not meet those of UI-Bench.
         set(_ui_agent_project ${CMAKE_CURRENT_BINARY_DIR}/ui-agent-project)
         siliconforge_ui_bench_project(${_ui_agent_project})

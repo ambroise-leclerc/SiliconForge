@@ -1,0 +1,35 @@
+diff --git a/firmware/src/pwm_setpoint.c b/firmware/src/pwm_setpoint.c
+index d20280a..8528351 100644
+--- a/firmware/src/pwm_setpoint.c
++++ b/firmware/src/pwm_setpoint.c
+@@ -17,16 +17,27 @@ static uint8_t compareFor(uint8_t percent) {
+     return counts == 0 ? 0 : (uint8_t)(counts - 1u);
+ }
+ 
++// At OCR0A = 0, Fast PWM still drives the pin high for one timer count per period: 0 % disconnects OC0A instead and
++// leaves D6 low through PORTD.
++static void setDuty(uint8_t percent) {
++    if (percent == 0) {
++        TCCR0A &= ~_BV(COM0A1);
++        PORTD &= ~_BV(PORTD6);
++    } else {
++        OCR0A = compareFor(percent);
++        TCCR0A |= _BV(COM0A1);
++    }
++}
++
+ int main(void) {
+     DDRD |= _BV(DDD6);
+     DDRB |= _BV(DDB5);    // D13
+     PORTD |= _BV(PORTD2); // The button connects D2 to ground: pull-up
+-    OCR0A  = compareFor(SETPOINT_RELEASED_PERCENT);
+-    TCCR0A = _BV(COM0A1) | _BV(WGM01) | _BV(WGM00);
++    TCCR0A = _BV(WGM01) | _BV(WGM00);
+     TCCR0B = _BV(CS00);
+     for (;;) {
+         const uint8_t pressed = !(PIND & _BV(PIND2));
+-        OCR0A                 = compareFor(pressed ? SETPOINT_PRESSED_PERCENT : SETPOINT_RELEASED_PERCENT);
++        setDuty(pressed ? SETPOINT_PRESSED_PERCENT : SETPOINT_RELEASED_PERCENT);
+         if (pressed)
+             PORTB |= _BV(PORTB5);
+         else

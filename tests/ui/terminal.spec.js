@@ -71,19 +71,13 @@ describe("The agent terminal in the window", () => {
 
   it("widens the side column for the terminal, and keeps the session while the bench tab is shown", async () => {
     const workspace = document.querySelector(".workspace");
-    const board = document.querySelector(".board");
     const tab = (id) => document.getElementById(id);
     expect(workspace.classList.contains("wide")).toBe(true);
     expect(tab("terminal-toggle").getAttribute("aria-selected")).toBe("true");
-    await sleep(400);  // The column widens with a short transition.
-    const narrowed = board.getBoundingClientRect().width;
-
     tab("bench-tab").click();
     expect(panel().hidden).toBe(true);
     expect(tab("side-bench").hidden).toBe(false);
     expect(workspace.classList.contains("wide")).toBe(false);
-    await sleep(400);
-    expect(board.getBoundingClientRect().width).toBeGreaterThan(narrowed);
     say("behind", 3);  // Typed while the bench is shown: the session goes on.
 
     // The arrows move between the tabs: Bench, then Terminal.
@@ -100,20 +94,23 @@ describe("The agent terminal in the window", () => {
       const frame = document.createElement("iframe");
       frame.style.cssText = `position: absolute; left: -10000px; width: ${width}px; height: 600px; border: 0`;
       frame.srcdoc = `<link rel="stylesheet" href="${new URL("style.css", location.href)}">`
+        + `<style>.workspace { transition: none !important; }</style>`
         + `<main class="workspace${wide ? " wide" : ""}"><section class="board"></section><aside class="side"></aside></main>`;
       const loaded = new Promise((resolve) => frame.addEventListener("load", resolve, {once: true}));
       document.body.append(frame);
       await loaded;
       const workspace = frame.contentDocument.querySelector(".workspace");
-      await sleep(400);  // Past the transition of the columns.
-      const tracks = frame.contentWindow.getComputedStyle(workspace).gridTemplateColumns.trim().split(/\s+/).length;
+      const columns = frame.contentWindow.getComputedStyle(workspace).gridTemplateColumns.trim().split(/\s+/).map(parseFloat);
       frame.remove();
-      return tracks;
+      return columns;
     };
-    expect(await columns(800, false)).toBe(1);
-    expect(await columns(800, true)).toBe(1);   // The terminal or the sources do not bring the second column back.
-    expect(await columns(1400, false)).toBe(2);
-    expect(await columns(1400, true)).toBe(2);
+    expect((await columns(800, false)).length).toBe(1);
+    expect((await columns(800, true)).length).toBe(1);   // The terminal or the sources do not bring the second column back.
+    const normal = await columns(1400, false);
+    const wide = await columns(1400, true);
+    expect(normal.length).toBe(2);
+    expect(wide.length).toBe(2);
+    expect(wide[1]).toBeGreaterThan(normal[1]);
   });
 
   it("does not hand the client the session of the IDE or the agent the application was started from", async () => {
