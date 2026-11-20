@@ -63,6 +63,13 @@ add_test(NAME Atdf2JsonCommandLine
             -P ${CMAKE_CURRENT_SOURCE_DIR}/Atdf2JsonCliTests.cmake)
 set_tests_properties(Atdf2JsonCommandLine PROPERTIES TIMEOUT 30 LABELS fast)
 
+# The bench is available with or without the window.
+add_test(NAME BenchCommandLine
+    COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
+            -DFIRMWARE=${SILICONFORGE_FIRMWARE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/BenchCommandLine
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/BenchCliTests.cmake)
+set_tests_properties(BenchCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
+
 # Explicit opt-in target for profiling; not part of CTest or the default build.
 add_executable(siliconforge_mcu_bench EXCLUDE_FROM_ALL bench/McuBench.cpp)
 target_link_libraries(siliconforge_mcu_bench PRIVATE SiliconForge::mcu SiliconForge_options)
@@ -85,13 +92,6 @@ if(SILICONFORGE_BUILD_APP)
     add_test(NAME CliHelpRejectsInvalidOptions
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -P ${CMAKE_CURRENT_SOURCE_DIR}/CliHelpTests.cmake)
     set_tests_properties(CliHelpRejectsInvalidOptions PROPERTIES TIMEOUT 15 LABELS fast)
-    # `siliconforge bench` (#59, #80): the documented exit codes, the evidence kept even when an assertion fails, and the
-    # run kept here when the window of the terminal does not answer.
-    add_test(NAME BenchCommandLine
-        COMMAND ${CMAKE_COMMAND} -DBENCH=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
-                -DFIRMWARE=${SILICONFORGE_FIRMWARE_DIR} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/BenchCommandLine
-                -P ${CMAKE_CURRENT_SOURCE_DIR}/BenchCliTests.cmake)
-    set_tests_properties(BenchCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
     add_test(NAME McuCommandLine
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
                 -DWORK=${CMAKE_CURRENT_BINARY_DIR}/McuCommandLine -P ${CMAKE_CURRENT_SOURCE_DIR}/McuCliTests.cmake)

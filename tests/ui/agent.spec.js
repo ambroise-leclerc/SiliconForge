@@ -155,6 +155,12 @@ describe("The agent in the window", () => {
     await sf().waitFor(() => sf().state.running && sf().state.cycles < cycles && sf().state.firmware === "pwm_setpoint.hex", 10000);
   });
 
+  it("keeps the requested name when a scenario is a symbolic link", async () => {
+    type("ln -sf pwm-setpoint.json scenarios/alias.json; siliconforge bench run scenarios/alias.json; " +
+         "test -s .siliconforge/runs/alias/report.json && printf 'alias-evidence-ok\\n'; rm scenarios/alias.json\r");
+    await until(() => screen().includes("alias-evidence-ok"), "evidence named after the requested scenario");
+  });
+
   it("keeps delegated evidence in the command's current directory too", async () => {
     type("mkdir -p subdir; cd subdir; siliconforge bench run --json ../scenarios/pwm-setpoint.json > result.json; " +
          "test -s .siliconforge/runs/pwm-setpoint/report.json && test -s .siliconforge/runs/pwm-setpoint/trace.vcd && " +

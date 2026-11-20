@@ -175,7 +175,7 @@ inline std::optional<Window> window(const Options& options) {
     std::error_code error;
     const auto      file      = std::filesystem::weakly_canonical(*options.scenario, error);
     const auto      scenarios = std::filesystem::weakly_canonical(std::filesystem::path{project} / "scenarios", error);
-    if (error || file.parent_path() != scenarios || file.extension() != ".json")
+    if (error || file.parent_path() != scenarios || file.extension() != ".json" || file.filename() != options.scenario->filename())
         return std::nullopt;
     return Window{*parsed, token, std::filesystem::path{project}, file.filename().string()};
 }

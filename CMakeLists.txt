@@ -53,6 +53,13 @@ if(SILICONFORGE_BUILD_APP)
         GITHUB_REPOSITORY ambroise-leclerc/WebFront
         GIT_TAG acfc68152f094021d5a7a6e6ec10bddda2818981) # WebFront 1.1.1: POST routes (#619)
     add_subdirectory(apps/siliconforge)
+elseif(PROJECT_IS_TOP_LEVEL OR SILICONFORGE_BUILD_TESTS)
+    # Keep the bench available without WebFront or a window.
+    add_executable(siliconforge apps/siliconforge/BenchOnlyMain.cpp)
+    target_link_libraries(siliconforge PRIVATE SiliconForge::scenario SiliconForge_options)
+    if(WIN32)
+        target_link_libraries(siliconforge PRIVATE ws2_32)
+    endif()
 endif()
 
 if(SILICONFORGE_BUILD_TESTS)

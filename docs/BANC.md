@@ -129,7 +129,8 @@ siliconforge bench check <scénario.json>
 ```
 
 Le banc est une commande de l’application `siliconforge` (#80) : le même exécutable ouvre la fenêtre et fait tourner
-les scénarios sans fenêtre, en CI comme pour un agent.
+les scénarios sans fenêtre, en CI comme pour un agent. Une compilation avec `-DSILICONFORGE_BUILD_APP=OFF` fournit aussi
+`build/siliconforge bench`, sans dépendre de WebFront.
 
 **Dans le terminal de la fenêtre**, `run` confie à la fenêtre ouverte un scénario de son projet (`scenarios/*.json`,
 sans `--out`). La commande lui passe l’essai par son serveur MCP ([AGENT-MCP.md](AGENT-MCP.md)), avec les variables
@@ -141,7 +142,7 @@ tourner. La commande affiche le même résumé et rend le même code de sortie q
 `Window: …` qui dit ce qui a été chargé. La fenêtre conserve ses preuves dans le projet. Si la commande est lancée
 depuis un autre répertoire, elle y conserve également les preuves, au même chemin relatif qu'une exécution locale.
 
-Ailleurs (CI, autre terminal), avec `--out`, pour un fichier hors de `scenarios/` du projet, ou si la fenêtre ne
+Ailleurs (CI, autre terminal), avec `--out`, pour un fichier hors de `scenarios/` du projet, pour un lien qui change le nom du scénario, ou si la fenêtre ne
 répond plus, l’essai tourne sans fenêtre ; dans ce dernier cas, la commande le signale sur la sortie d’erreur. Une
 connexion est abandonnée après 10 secondes et une réponse inactive après 60 secondes ; un essai déjà accepté par la
 fenêtre peut alors continuer en parallèle de l'essai local.
