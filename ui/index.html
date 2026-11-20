@@ -31,6 +31,7 @@
   <script src="vendor/prism/prism-ini.min.js" defer></script>
   <script src="vendor/prism/prism-rust.min.js" defer></script>
   <script src="bench.js" defer></script>
+  <script src="agent.js" defer></script>
   <script src="terminal.js" defer></script>
   <script src="editor.js" defer></script>
   <script src="siliconforge.js" defer></script>
@@ -80,9 +81,6 @@
     <label class="field">Example
       <select id="example-select" aria-label="Example" title="A ready-made firmware with its circuit"></select>
     </label>
-    <span class="separator" aria-hidden="true"></span>
-    <button id="terminal-toggle" aria-pressed="false" aria-controls="terminal" title="Run your agent (Claude Code, Codex, OpenCode, Mistral Vibe) in the project directory">Agent terminal</button>
-    <button id="editor-toggle" aria-pressed="false" aria-controls="editor" title="Read and edit the sources of the project directory, and the changes the agent made">Sources</button>
     <span class="separator" aria-hidden="true"></span>
     <label class="button" title="Load an Intel HEX or ELF firmware">Load firmware…
       <input type="file" id="firmware-file" accept=".hex,.ihx,.elf" hidden>
@@ -172,7 +170,19 @@
       </p>
     </section>
 
-    <aside class="side">
+    <aside class="side" id="side">
+      <div class="tabs side-tabs" role="tablist" aria-label="Side panels">
+        <button role="tab" id="bench-tab" aria-controls="side-bench" aria-selected="true" data-side="bench" title="The bench, the serial monitor and the CPU">Bench</button>
+        <button role="tab" id="terminal-toggle" aria-controls="terminal" aria-selected="false" tabindex="-1" data-side="terminal" title="Run your agent (Claude Code, Codex, OpenCode, Mistral Vibe) in the project directory">Terminal</button>
+        <button role="tab" id="editor-toggle" aria-controls="editor" aria-selected="false" tabindex="-1" data-side="editor" title="Read and edit the sources of the project directory, and the changes the agent made">Sources</button>
+      </div>
+      <div class="side-pane" id="side-bench" role="tabpanel" aria-labelledby="bench-tab">
+      <section class="panel agent" id="agent" aria-label="Agent activity" hidden>
+        <h2 class="panel-header">Agent <span class="muted">calls of the MCP tools</span>
+          <label class="check end" title="Off, the agent may read the emulation but not change it: its calls are refused with a message"><input type="checkbox" data-input="drives" checked> Let the agent drive</label></h2>
+        <p class="hint" data-readout="empty">No call yet. A client opened in the Terminal tab gets the <code>siliconforge</code> tools: each of its calls shows here.</p>
+        <ol class="agent-log" data-list="activity" aria-live="polite"></ol>
+      </section>
       <section class="panel bench" id="bench" aria-label="Bench">
         <h2 class="panel-header">Bench <span class="muted">scenarios and runs</span>
           <button class="small end" data-action="refresh" title="Look again for scenarios and runs in the project directory">Refresh</button></h2>
@@ -229,26 +239,25 @@
         <div class="flags" id="flags"></div>
         <div class="registers" id="registers"></div>
       </section>
-    </aside>
+      </div>
 
-    <div class="agent-row" id="agent-row">
-      <section class="panel terminal" id="terminal" aria-label="Agent terminal" hidden>
+      <section class="panel terminal" id="terminal" role="tabpanel" aria-labelledby="terminal-toggle" hidden>
         <h2 class="panel-header">Agent terminal <span class="muted">project directory</span>
           <select data-select="client" aria-label="Client" title="The client installed on this machine; it keeps its own sign-in"></select>
           <button data-action="open" class="primary" title="Open a session, or start a new one after it exited">Open</button>
           <button data-action="hangup" title="End the session: the client is closed, the bench is untouched">Close client</button>
           <output class="terminal-status" data-readout="status"></output>
-          <button class="small end" data-action="close" title="Hide the terminal; the session keeps running">Hide</button>
+          <button class="small end" data-action="close" title="Back to the bench; the session keeps running">Hide</button>
         </h2>
         <p class="hint" data-readout="disabled" hidden>The terminal is only available when the interface listens on the loopback address (127.0.0.1 or ::1).</p>
         <p class="error" role="alert" data-readout="error" hidden></p>
         <div class="terminal-screen" data-view="screen"></div>
       </section>
-      <section class="panel editor" id="editor" aria-label="Sources" hidden>
+      <section class="panel editor" id="editor" role="tabpanel" aria-labelledby="editor-toggle" hidden>
         <h2 class="panel-header">Sources <span class="muted" data-readout="project"></span>
           <label class="check" title="Show only the files that differ from the last commit"><input type="checkbox" data-input="changed" checked> Changed only</label>
           <button class="small" data-action="refresh" title="Look at the disk again">Refresh</button>
-          <button class="small end" data-action="close" title="Hide the editor; the open files keep their edits">Hide</button>
+          <button class="small end" data-action="close" title="Back to the bench; the open files keep their edits">Hide</button>
         </h2>
         <p class="error" role="alert" data-readout="error" hidden></p>
         <div class="editor-body">
@@ -292,7 +301,7 @@
           </div>
         </div>
       </section>
-    </div>
+    </aside>
   </main>
 </body>
 </html>

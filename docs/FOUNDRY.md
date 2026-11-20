@@ -76,18 +76,22 @@ sans `WAYLAND_DISPLAY` : il n’ouvre rien sur le bureau.
    cd ~/foundry-exercise
    PATH=~/devel/SiliconForge/build/apps/siliconforge-bench:$PATH ~/devel/SiliconForge/build/apps/siliconforge/siliconforge
    ```
-3. Dans le panneau **Terminal**, choisir le client et l’ouvrir. Pour que chaque autorisation passe par la personne, le
+3. Dans l’onglet **Terminal**, choisir le client et l’ouvrir. Il reçoit les outils MCP de la fenêtre
+   ([AGENT-MCP.md](AGENT-MCP.md)) : il peut charger le HEX, appuyer sur D2 et mesurer D6 sous vos yeux, et chaque appel
+   s’affiche dans le journal **Agent** de l’onglet **Bench**. Pour que chaque autorisation passe par la personne, le
    client doit demander avant d’agir : pour Claude Code, mode par défaut et non *auto mode* (Maj+Tab change de mode).
 4. Démarrer le chronomètre et donner la consigne :
    > Bouton D2 relâché, la PWM de D6 doit être à 0 % ; bouton enfoncé, rien ne change. Le scénario
    > scenarios/pwm-setpoint.json décrit déjà cette consigne. Modifie le firmware firmware/src/pwm_setpoint.c, compile avec
    > `make -C firmware prebuilt` et vérifie avec `siliconforge-bench run scenarios/pwm-setpoint.json` jusqu’à un verdict
-   > pass. Ne modifie pas le scénario.
+   > pass. Ne modifie pas le scénario. Montre aussi le résultat dans la fenêtre avec les outils siliconforge : charge le
+   > HEX, mesure D6 bouton relâché puis bouton appuyé.
 5. Répondre aux questions du client, en comptant chaque réponse comme une intervention. Noter chaque verdict du banc
-   affiché dans le terminal : un `fail` sur `duty-released` est l’écart sur la broche.
-6. Une fois le verdict `pass` obtenu, ouvrir **Sources** et relire le diff de `firmware/src/pwm_setpoint.c`. Ouvrir
-   ensuite l’essai `pwm-setpoint` dans **Bench**, puis le relancer avec **Run**. Arrêter le chronomètre quand le panneau
-   indique *Same report*.
+   affiché dans le terminal ou dans le journal **Agent** : un `fail` sur `duty-released`, ou une mesure de D6 au-dessus
+   de 0,1 % bouton relâché, est l’écart sur la broche.
+6. Une fois le verdict `pass` obtenu, ouvrir l’onglet **Sources** et relire le diff de `firmware/src/pwm_setpoint.c`.
+   Ouvrir ensuite l’essai `pwm-setpoint` dans l’onglet **Bench**, puis le relancer avec **Run**. Arrêter le chronomètre
+   quand le panneau indique *Same report*.
 7. Reporter dans le tableau ci-dessous : le client et sa version, le modèle, le mode d’autorisation, le délai, les
    interventions (consigne comprise), les relectures et les verdicts successifs.
 

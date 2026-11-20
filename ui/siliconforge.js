@@ -21,6 +21,8 @@
   let bench = null;
   let terminal = null;
   let editor = null;
+  let side = null;
+  let agent = null;
   const forced = new Map();  // Pin name -> level forced from this page (0, 1)
   const waiters = new Set();
 
@@ -72,6 +74,14 @@
     get terminal() { return terminal; },
     /** The editor of the project sources: `files`, `open(path)`, `save()`, `state`; see ui/editor.js. */
     get editor() { return editor; },
+    /** The tabs of the side column: `select("bench" | "terminal" | "editor")`, `selected`. */
+    get side() { return side; },
+    /** The calls of the agent's MCP tools: `entries`, `drives`, `setDrives(bool)`; see ui/agent.js. */
+    get agent() { return agent; },
+    /** Called by the application for each call of a tool of the agent (JSON text). */
+    onAgent(json) {
+      agent?.onActivity(JSON.parse(json));
+    },
     run: () => call("sf.run"),
     pause: () => call("sf.pause"),
     step: () => call("sf.step"),
@@ -478,11 +488,60 @@
     });
     $("serial-clear").addEventListener("click", () => ($("serial-output").textContent = ""));
     document.addEventListener("keydown", (event) => {
-      if (event.target.closest("input, select, textarea")) return;
+      if (event.target.closest("input, select, textarea, [role=tab]")) return;
       if (event.key === " ") { event.preventDefault(); $("run").click(); }
       else if (event.key === "s") api.step();
       else if (event.key === "r") api.reset();
     });
+  }
+
+  /**
+   * The side column holds three tabs: the bench (bench, serial monitor and CPU), the agent terminal and the sources.
+   * The terminal and the sources widen the column, and the board and the instruments narrow. The tab chosen last is
+   * remembered by this browser.
+   */
+  function sideTabs() {
+    const tabs = [...document.querySelectorAll("#side [role=tab]")];
+    const panes = {bench: $("side-bench"), terminal: $("terminal"), editor: $("editor")};
+    let selected = "bench";
+    const controller = {
+      get selected() { return selected; },
+      select(name) {
+        if (!(name in panes)) throw new Error(`No side tab ${name}`);
+        selected = name;
+        for (const tab of tabs) {
+          const on = tab.dataset.side === name;
+          tab.setAttribute("aria-selected", String(on));
+          tab.tabIndex = on ? 0 : -1;
+        }
+        panes.bench.hidden = name !== "bench";
+        if (name === "bench") agent?.seen();
+        // The panels of the terminal and the editor do their own work when they are shown or hidden.
+        terminal?.display(name === "terminal");
+        editor?.display(name === "editor");
+        document.querySelector(".workspace").classList.toggle("wide", name !== "bench");
+        try { localStorage.setItem("siliconforge.side", name); } catch { /* Storage may be unavailable */ }
+      },
+      restore() {
+        let name = "bench";
+        try { name = localStorage.getItem("siliconforge.side") || name; } catch { /* Storage may be unavailable */ }
+        controller.select(name in panes ? name : "bench");
+      },
+    };
+    for (const tab of tabs) {
+      tab.addEventListener("click", () => controller.select(tab.dataset.side));
+      // The arrows, Home and End move between the tabs (ARIA tabs pattern, automatic activation).
+      tab.addEventListener("keydown", (event) => {
+        const index = tabs.indexOf(tab);
+        const next = {ArrowRight: index + 1, ArrowLeft: index - 1, Home: 0, End: tabs.length - 1}[event.key];
+        if (next === undefined) return;
+        event.preventDefault();
+        const target = tabs[(next + tabs.length) % tabs.length];
+        controller.select(target.dataset.side);
+        target.focus();
+      });
+    }
+    return controller;
   }
 
   let theme = window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
@@ -490,10 +549,20 @@
   applyTheme(theme);
   instruments = window.SiliconForgeInstruments($("instruments"), {call, get state() { return state; }, get circuit() { return circuit; }});
   bench = window.SiliconForgeBench($("bench"), {call, ready: webFront.ready});
-  terminal = window.SiliconForgeTerminal($("terminal"), {call, ready: webFront.ready});
-  $("terminal-toggle").addEventListener("click", () => terminal.show($("terminal").hidden));
-  editor = window.SiliconForgeEditor($("editor"), {call, ready: webFront.ready});
-  $("editor-toggle").addEventListener("click", () => editor.show($("editor").hidden));
+  side = sideTabs();
+  agent = window.SiliconForgeAgent($("agent"), {
+    call, ready: webFront.ready,
+    visible: () => side.selected === "bench",
+    badge: (count) => {
+      if (count > 0) $("bench-tab").dataset.unseen = String(count);
+      else delete $("bench-tab").dataset.unseen;
+    },
+    // A run of the agent opens in the Bench panel, as a run of the person would.
+    onActivity: (entry) => { if (entry.run) bench.open(entry.run).catch(() => {}); },
+  });
+  terminal = window.SiliconForgeTerminal($("terminal"), {call, ready: webFront.ready, select: (visible) => side.select(visible ? "terminal" : "bench")});
+  editor = window.SiliconForgeEditor($("editor"), {call, ready: webFront.ready, select: (visible) => side.select(visible ? "editor" : "bench")});
+  side.restore();
   bindControls();
   webFront.ready.then(() => {
     $("status").textContent = "connected";

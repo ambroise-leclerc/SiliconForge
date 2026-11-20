@@ -109,7 +109,8 @@ if(SILICONFORGE_BUILD_APP)
         COMMAND ${CMAKE_COMMAND} -DAPP=$<TARGET_FILE:siliconforge> -DSOURCE=${PROJECT_SOURCE_DIR}
                 -DWORK=${CMAKE_CURRENT_BINARY_DIR}/McuCommandLine -P ${CMAKE_CURRENT_SOURCE_DIR}/McuCliTests.cmake)
     set_tests_properties(McuCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
-    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp integration/TerminalTests.cpp integration/ProjectTests.cpp)
+    add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp integration/TerminalTests.cpp integration/ProjectTests.cpp
+        integration/McpTests.cpp)
     target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options Catch2::Catch2WithMain)
     target_compile_definitions(siliconforge_bridge_tests PRIVATE SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
     catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
@@ -230,6 +231,12 @@ if(SILICONFORGE_BUILD_APP)
                     ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge-bench>;WAYLAND_DISPLAY=unset:")
             endif()
         endif()
+        # The agent acting on the window through MCP (#76), in a project of its own: its runs must not meet those of UI-Bench.
+        set(_ui_agent_project ${CMAKE_CURRENT_BINARY_DIR}/ui-agent-project)
+        siliconforge_ui_bench_project(${_ui_agent_project})
+        webfront_add_jasmine_test(NAME UI-Agent TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/agent.spec.js ARGS --port 0)
+        set_tests_properties(UI-Agent PROPERTIES WORKING_DIRECTORY ${_ui_agent_project} LABELS ui)
         set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
     elseif((CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WKWEBVIEW")
            OR (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBVIEW2"))

@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <vector>
 
 #if defined(_WIN32)
 #include <stdlib.h>
@@ -37,6 +38,36 @@ inline constexpr Client clients[] = {
     {"opencode", "OpenCode", "opencode"},
     {"vibe", "Mistral Vibe", "vibe"},
 };
+
+/// The MCP server of the window (Mcp.hpp, ADR 0011), as the clients are told of it when they start.
+struct AgentServer {
+    std::string url;    ///< http://127.0.0.1:<port>/mcp/
+    std::string token;  ///< Presented as `Authorization: Bearer <token>`.
+};
+
+/// What a session is started with to reach the MCP server: arguments after the program, and variables.
+struct Launch {
+    std::vector<std::string>           arguments;
+    std::map<std::string, std::string> environment;
+};
+
+/// Every session gets `SILICONFORGE_MCP_URL` and `SILICONFORGE_MCP_TOKEN`; the clients that take a server when they start
+/// get it in their own terms, the token through the environment (readable by its owner only, where the arguments of a
+/// process are readable by every user of the machine). Mistral Vibe reads its servers from its configuration file only.
+[[nodiscard]] inline Launch launchWith(std::string_view id, const AgentServer& server) {
+    Launch launch;
+    launch.environment = {{"SILICONFORGE_MCP_URL", server.url}, {"SILICONFORGE_MCP_TOKEN", server.token}};
+    const auto quoted  = nlohmann::json(server.url).dump();
+    if (id == "claude")
+        launch.arguments = {"--mcp-config", R"({"mcpServers":{"siliconforge":{"type":"http","url":)" + quoted +
+                                                R"(,"headers":{"Authorization":"Bearer ${SILICONFORGE_MCP_TOKEN}"}}}})"};
+    else if (id == "codex")
+        launch.arguments = {"-c", "mcp_servers.siliconforge.url=" + quoted, "-c", R"(mcp_servers.siliconforge.bearer_token_env_var="SILICONFORGE_MCP_TOKEN")"};
+    else if (id == "opencode")
+        launch.environment["OPENCODE_CONFIG_CONTENT"] = R"({"mcp":{"siliconforge":{"type":"remote","url":)" + quoted +
+                                                        R"(,"headers":{"Authorization":"Bearer {env:SILICONFORGE_MCP_TOKEN}"}}}})";
+    return launch;
+}
 
 /// Name of the callbacks of a client's session (`<name>.open`, `.read`...), the `name` of the page adapter.
 [[nodiscard]] inline std::string callbackName(std::string_view id) {
@@ -134,8 +165,9 @@ inline constexpr Client clients[] = {
 /// Registers the session of each client installed on this machine and of the shell, in `directory`, and describes them
 /// for the page: `{enabled, clients: [{id, title, available}]}`. Without PTY pages (the application listens
 /// elsewhere than on the loopback interface, or is a test double) nothing is registered and `enabled` is false.
+/// With `server`, each session is told of the MCP server of the window (launchWith).
 template <typename App>
-nlohmann::json registerClients(App& app, const std::filesystem::path& directory) {
+nlohmann::json registerClients(App& app, const std::filesystem::path& directory, const std::optional<AgentServer>& server = std::nullopt) {
     auto list = nlohmann::json::array();
     if constexpr (requires { app.allowsPtyPages(); }) {
         if (!app.allowsPtyPages())
@@ -144,8 +176,17 @@ nlohmann::json registerClients(App& app, const std::filesystem::path& directory)
         const auto path        = environment.contains("PATH") ? environment.at("PATH") : std::string{};
         const auto add         = [&](std::string_view id, std::string_view title, std::string argv0, bool available) {
             list.push_back({{"id", id}, {"title", title}, {"available", available}});
-            if (available)
-                webfront::registerPtyPage(app, {.argv = {std::move(argv0)}, .directory = directory, .environment = environment, .size = {}}, callbackName(id));
+            if (!available)
+                return;
+            std::vector<std::string> argv{std::move(argv0)};
+            auto                     variables = environment;
+            if (server) {
+                auto launch = launchWith(id, *server);
+                argv.insert(argv.end(), launch.arguments.begin(), launch.arguments.end());
+                for (auto& [name, value] : launch.environment)
+                    variables[name] = std::move(value);
+            }
+            webfront::registerPtyPage(app, {.argv = std::move(argv), .directory = directory, .environment = std::move(variables), .size = {}}, callbackName(id));
         };
         for (const auto& client : clients) {
             auto program = find(client.program, path);

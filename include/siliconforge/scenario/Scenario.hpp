@@ -1,6 +1,7 @@
 #pragma once
 
 #include <nlohmann/json.hpp>
+#include <siliconforge/core/Pin.hpp>
 #include <siliconforge/core/Types.hpp>
 
 #include <expected>
@@ -76,6 +77,18 @@ struct Measurement {
     bool                  passed{true};
     std::string           detail;
 };
+
+/// A logged change of a pin: the cycle and the state it took.
+struct PinChange {
+    Cycles   at;
+    PinState state;
+};
+
+/// Measures `result.quantity` ("dutyCycle", "frequency" or "period") over the closed window [result.from, result.to],
+/// in cycles, from the changes of a pin in time order and its state before the first of them, with the rules of a
+/// scenario measurement (docs/BANC.md, « Mesures »). Sets `unit`, `risingEdges`, and `value` or, when the window does
+/// not allow it, `detail`. The window and the expectation are not checked here.
+void measurePin(Measurement& result, const std::vector<PinChange>& changes, PinState initial, u64 clockHz);
 
 /// What one step did.
 struct StepRecord {

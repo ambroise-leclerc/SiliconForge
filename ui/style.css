@@ -131,16 +131,18 @@ select {
 .workspace {
   flex: 1; min-height: 0;
   display: grid;
+  /* The side column widens for the terminal and the sources (.wide); the board and the instruments narrow. */
+  --side-wide: 55%;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 400px);
   grid-template-rows: auto minmax(250px, 1fr);
-  grid-template-areas: "board side" "instruments side" "agent agent";
-  grid-auto-rows: auto;
+  grid-template-areas: "board side" "instruments side";
+  transition: grid-template-columns .18s ease-out;
   gap: 10px;
   padding: 2px 16px 14px;
 }
 @media (max-width: 1000px) {
   body { display: block; }
-  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "board" "instruments" "side" "agent"; }
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "board" "instruments" "side"; }
   .instruments { min-height: 340px; }
 }
 .panel { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px; padding: 10px 12px; min-width: 0; box-shadow: var(--shadow); }
@@ -148,7 +150,29 @@ select {
 .panel h3 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted); }
 .board { grid-area: board; }
 .instruments { grid-area: instruments; display: flex; flex-direction: column; min-height: 0; }
+/* Above the breakpoint only: below it, everything stacks in one column, whatever the tab. */
+@media (min-width: 1001px) { .workspace.wide { grid-template-columns: minmax(0, 1fr) minmax(420px, var(--side-wide)); } }
+@media (prefers-reduced-motion: reduce) { .workspace { transition: none; } }
 .side { grid-area: side; display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.side > .side-tabs { display: flex; align-self: stretch; margin-left: 0; }
+.side > .side-tabs button { flex: 1; height: 28px; }
+.side-tabs button[aria-selected=true] { background: var(--accent); color: var(--accent-text); font-weight: 650; }
+.side-pane { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+.side-pane[hidden] { display: none; }
+/* The calls the agent makes since the page opened, newest first; a count on the Bench tab while it is not shown. */
+.side-tabs button[data-unseen]::after { content: attr(data-unseen); margin-left: 6px; padding: 0 6px; border-radius: 9px; font-size: 11px; background: var(--accent-ink, var(--accent)); color: var(--panel); }
+.agent[hidden] { display: none; }
+.agent .check { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; font-size: 12.5px; }
+.agent[data-drives=false] { border-color: var(--accent-ink, var(--accent)); }
+.agent-log { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow: auto; font-size: 12px; }
+.agent-log li { padding: 4px 0; border-top: 1px solid var(--panel-edge); }
+.agent-log li:first-child { border-top: 0; }
+.agent-call { display: flex; gap: 8px; align-items: baseline; }
+.agent-call time { color: var(--muted); font: 11px var(--mono); white-space: nowrap; }
+.agent-call code { font: 600 12px var(--mono); }
+.agent-arguments { color: var(--muted); font: 11.5px var(--mono); overflow-wrap: anywhere; }
+.agent-result { font: 11.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; white-space: pre-wrap; max-height: 3.6em; overflow: hidden; }
+.agent-log li[data-ok=false] .agent-result { color: var(--error); }
 .serial { flex: 1; display: flex; flex-direction: column; min-height: 230px; }
 .hint { color: var(--muted); font-size: 12px; margin: 8px 0 0; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
 .hint .warning { color: var(--accent-ink); }
@@ -352,19 +376,17 @@ select {
 .bench-changes code { overflow-wrap: anywhere; }
 
 /* Agent terminal ---------------------------------------------------------------------------------------------------- */
-.agent-row { grid-area: agent; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 10px; align-items: start; }
-.agent-row:not(:has(> :not([hidden]))) { display: none; }
-@media (max-width: 1000px) { .agent-row { grid-auto-flow: row; grid-auto-columns: auto; } }
-.terminal { display: flex; flex-direction: column; height: 340px; min-height: 200px; resize: vertical; overflow: hidden; }
+/* The terminal and the editor fill the side column, down to the bottom of the instruments. */
+.terminal { display: flex; flex-direction: column; flex: 1; min-height: 360px; overflow: hidden; }
+@media (max-width: 1000px) { .terminal, .editor { flex: none; height: 480px; } }
 .terminal[hidden] { display: none; }
 .terminal-screen { flex: 1; min-height: 0; padding: 4px 6px; background: var(--bg); border-radius: 6px; }
 .terminal-screen .xterm { height: 100%; }
 .terminal-status[data-state=running] { color: var(--ok, #3fb950); }
 .terminal-status[data-state=exited] { color: var(--muted); }
-#terminal-toggle[aria-pressed=true] { background: var(--panel-raised); border-color: var(--accent, currentColor); }
 
 /* Sources ----------------------------------------------------------------------------------------------------------- */
-.editor { display: flex; flex-direction: column; height: 340px; min-height: 200px; resize: vertical; overflow: hidden; }
+.editor { display: flex; flex-direction: column; flex: 1; min-height: 360px; overflow: hidden; }
 .editor[hidden] { display: none; }
 .editor .check { display: inline-flex; align-items: center; gap: 5px; font-weight: 400; font-size: 12.5px; }
 .editor-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(150px, 30%) minmax(0, 1fr); gap: 10px; }
@@ -402,7 +424,6 @@ select {
 .conflict-versions { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .conflict-versions label { display: flex; flex-direction: column; gap: 3px; min-height: 0; font-size: 12px; font-weight: 650; }
 .conflict-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-#editor-toggle[aria-pressed=true] { background: var(--panel-raised); border-color: var(--accent, currentColor); }
 @media (max-width: 700px) { .editor-body { grid-template-columns: minmax(0, 1fr); } }
 
 /* The text is a textarea over its own highlighted copy: same box, same font, scrolled together. */

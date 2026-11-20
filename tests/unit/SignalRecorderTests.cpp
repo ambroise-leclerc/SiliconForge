@@ -8,6 +8,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -42,6 +43,23 @@ TEST_CASE("The signal recorder keeps the most recent samples and tells a reader 
     CHECK(recorder.epoch() == epoch + 1);
     CHECK(recorder.next() == 0);
     CHECK(recorder.read(20, 100, collect) == 0);  // A cursor of the previous epoch restarts from the beginning
+}
+
+SCENARIO("A reader may ask for every sample held, with the largest limit, once the ring has wrapped", "[instruments]") {
+    GIVEN("a ring of 8 samples that recorded 13") {
+        instruments::SignalRecorder recorder{8};
+        for (Cycles at = 0; at < 13; ++at)
+            recorder.record(0, at, PinState::Low, 0.0);
+        REQUIRE(recorder.first() == 5);
+        WHEN("it is read from its first sample with SIZE_MAX as the limit") {
+            std::vector<Cycles> seen;
+            const auto next = recorder.read(recorder.first(), std::numeric_limits<std::size_t>::max(), [&](const instruments::Sample& sample) { seen.push_back(sample.at); });
+            THEN("the eight samples held are visited, oldest first") {
+                CHECK(seen == std::vector<Cycles>{5, 6, 7, 8, 9, 10, 11, 12});
+                CHECK(next == 13);
+            }
+        }
+    }
 }
 
 TEST_CASE("A pin tells its drive and signal observers what the state observers cannot see", "[instruments][pin]") {

@@ -212,11 +212,13 @@ template <typename App>
 int serve(App& web, app::Simulation& simulation, const Options& options, const std::string& firmwareName, SelectedCircuit circuit) {
     app::WebBridge<App> bridge{web, simulation, firmwareName,
                                options.mcuFile ? std::nullopt : std::optional<std::string_view>{options.mcu},
-                               std::move(circuit.description), std::move(circuit.name)};
+                               std::move(circuit.description), std::move(circuit.name), options.address};
     webfront::testing::JasmineTest tests{web};  // Inert unless the build is a WebFront Jasmine test target.
     if (options.firmware)
         simulation.run();
     std::println("SiliconForge: http://{}:{}/", options.address == "0.0.0.0" ? "localhost" : options.address, web.port());
+    if (const auto agent = bridge.agentUrl())
+        std::println("MCP server of the agent: {} (Authorization: Bearer $SILICONFORGE_MCP_TOKEN in the terminal of the window)", *agent);
     if (options.display == Display::None)
         web.run();
     else

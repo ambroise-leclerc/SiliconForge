@@ -102,6 +102,7 @@ window.SiliconForgeEditor = (root, host) => {
     refresh: () => enqueue(refreshList),
     setFilter(next) { filter = {...filter, ...next}; $("[data-input=changed]").checked = filter.changedOnly; $("[data-input=filter]").value = filter.text; renderList(); },
     show,
+    display,
     close,
   };
 
@@ -448,9 +449,15 @@ window.SiliconForgeEditor = (root, host) => {
     renderBar();
   }
 
+  /** Brings the editor forward, or goes back to the bench: through the tabs of the window when it has them. */
   function show(visible = root.hidden) {
+    if (host.select) host.select(visible);
+    else display(visible);
+  }
+
+  /** Shows or hides the panel itself, and looks at the disk while it is shown; the window calls it from its tabs. */
+  function display(visible) {
     root.hidden = !visible;
-    document.getElementById("editor-toggle")?.setAttribute("aria-pressed", String(visible));
     clearInterval(timer);
     timer = null;
     if (visible) {
