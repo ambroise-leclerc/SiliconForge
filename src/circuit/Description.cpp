@@ -63,6 +63,8 @@ ElementRule ruleFor(std::string_view type) {
         return {3, {"resistance"}, "position", "number"};
     if (type == "supply")
         return {2, {}, "voltage", "number", {{"currentLimit", "number"}, {"enabled", "boolean"}, {"outputVoltage", "number"}, {"outputCurrent", "number"}, {"mode", "number"}}};
+    if (type == "generator")
+        return {2, {}, "setpoint", "number", {{"waveform", "number"}, {"frequency", "number"}, {"amplitude", "number"}, {"offset", "number"}, {"duty", "number"}, {"period", "number"}, {"sampleCount", "number"}, {"currentLimit", "number"}, {"enabled", "boolean"}, {"outputVoltage", "number"}, {"outputCurrent", "number"}, {"mode", "number"}}};
     if (type == "meter")
         return {2, {}, "voltage", "number"};
     if (type == "variable-resistor")

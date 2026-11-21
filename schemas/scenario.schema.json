@@ -72,6 +72,15 @@
           "additionalProperties": false
         },
         {
+          "required": ["component", "samples", "period"],
+          "properties": {
+            "component": {"$ref": "#/definitions/identifier"},
+            "samples": {"type": "array", "minItems": 2, "maxItems": 4096, "items": {"type": "number"}, "description": "The arbitrary wave of a signal generator, in volts. It is selected, and each sample is held for period / count."},
+            "period": {"$ref": "#/definitions/duration", "description": "The time the samples repeat over."}
+          },
+          "additionalProperties": false
+        },
+        {
           "required": ["probe", "volts"],
           "properties": {"probe": {"type": "string", "minLength": 1}, "volts": {"type": ["number", "null"]}},
           "additionalProperties": false

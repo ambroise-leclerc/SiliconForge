@@ -36,3 +36,13 @@ exécutable séparé : `siliconforge` tourne déjà sans fenêtre, et la CI le c
 les codes de sortie ne changent pas. Lancée dans le terminal de la fenêtre, la commande confie l’essai à la fenêtre
 ouverte ([ADR 0011](0011-agent-mcp.md)), qui l’affiche et charge le circuit et le firmware testés dans l’émulation
 visible : l’essai à la main de #61 avait montré qu’un firmware vérifié en ligne de commande restait invisible.
+
+## Mise à jour du 2026-11-21 (#63)
+
+Le GBF et le générateur d’ondes sont le composant `signal-generator`. Les instants des échantillons sont planifiés sur
+l’horloge du MCU par `Mcu::schedule`, que le circuit utilise (ADR 0002) : une réinitialisation du MCU efface les
+appels en attente, le circuit les replanifie. Le modèle publie ses bornes électriques (±20 V), sa résolution
+temporelle (un cycle ; 64 pas par période d’un sinus ou d’un triangle) et sa fréquence maximale à l’horloge de la cible ;
+une demande hors capacité est refusée avant l’essai, y compris la suite d’un scénario, rejouée dans l’ordre. Le modèle
+reste résistif : la voie est une source idéale qui fournit et absorbe du courant, sans impédance de sortie, et une
+charge au-delà de son courant nominal est signalée comme une surcharge.

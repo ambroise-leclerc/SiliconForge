@@ -1,0 +1,153 @@
+{
+  "formatVersion": 1,
+  "name": "Generator demo",
+  "description": "The Arduino demo with a signal generator on A0 in place of the potentiometer: program a sine, square, triangle or arbitrary wave from the Generator panel; the pin carries it for the ADC and for the oscilloscope. The firmware shipped with the demo does not read A0: bring your own, or use the scope.",
+  "board": {
+    "type": "breadboard",
+    "columns": 30
+  },
+  "chip": {
+    "mcu": "atmega328p",
+    "column": 6
+  },
+  "components": [
+    {
+      "id": "xtal",
+      "type": "crystal",
+      "at": {
+        "a": "d14",
+        "b": "d15"
+      },
+      "properties": {
+        "frequency": 16000000
+      }
+    },
+    {
+      "id": "r-d13",
+      "type": "resistor",
+      "at": {
+        "a": "h15",
+        "b": "h22"
+      },
+      "properties": {
+        "resistance": 220
+      }
+    },
+    {
+      "id": "led-d13",
+      "type": "led",
+      "at": {
+        "anode": "f22",
+        "cathode": "f23"
+      },
+      "properties": {
+        "color": "red",
+        "forwardVoltage": 1.8
+      },
+      "view": {
+        "offset": [
+          16,
+          -40
+        ]
+      }
+    },
+    {
+      "id": "r-d6",
+      "type": "resistor",
+      "at": {
+        "a": "c17",
+        "b": "c24"
+      },
+      "properties": {
+        "resistance": 220
+      }
+    },
+    {
+      "id": "led-d6",
+      "type": "led",
+      "at": {
+        "anode": "e24",
+        "cathode": "e25"
+      },
+      "properties": {
+        "color": "green",
+        "forwardVoltage": 2.1
+      },
+      "view": {
+        "offset": [
+          16,
+          -24
+        ]
+      }
+    },
+    {
+      "id": "button-d2",
+      "type": "push-button",
+      "at": {
+        "a": "c4",
+        "b": "c2"
+      }
+    },
+    {
+      "id": "gbf",
+      "type": "signal-generator",
+      "at": {
+        "output": "i24",
+        "common": "i26"
+      },
+      "view": {
+        "offset": [
+          60,
+          -62
+        ]
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "b12",
+      "to": "B+12",
+      "color": "red"
+    },
+    {
+      "from": "a13",
+      "to": "B-13",
+      "color": "black"
+    },
+    {
+      "from": "i14",
+      "to": "T+14",
+      "color": "red"
+    },
+    {
+      "from": "j12",
+      "to": "T-12",
+      "color": "black"
+    },
+    {
+      "from": "j23",
+      "to": "T-23",
+      "color": "black"
+    },
+    {
+      "from": "a25",
+      "to": "B-25",
+      "color": "black"
+    },
+    {
+      "from": "b9",
+      "to": "b4",
+      "color": "yellow"
+    },
+    {
+      "from": "h26",
+      "to": "T-26",
+      "color": "black"
+    },
+    {
+      "from": "h24",
+      "to": "h11",
+      "color": "yellow"
+    }
+  ]
+}

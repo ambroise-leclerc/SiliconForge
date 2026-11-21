@@ -1,0 +1,25 @@
+{
+  "formatVersion": 1,
+  "type": "signal-generator",
+  "name": "Signal generator",
+  "description": "A function generator channel: a sine, square or triangle wave set by frequency, amplitude and offset, or an arbitrary wave made of samples repeated over a period. It is an ideal voltage source between its output and common terminals, stepped on the clock of the MCU: a sine or a triangle is held for one sixty-fourth of its period at a time, a square wave changes at its two edges, an arbitrary wave holds each sample for period / count. Common must be tied to a reference (the ground rail or another source). The limits (voltage, frequency, time resolution) are published with the circuit view, and a request beyond them is refused before it takes effect.",
+  "terminals": [{"name": "output"}, {"name": "common"}],
+  "properties": {},
+  "footprint": {"kind": "fixed", "offsets": {"output": [0, 0], "common": [2, 0]}},
+  "model": {"elements": [{"type": "generator", "between": ["output", "common"]}]},
+  "state": {
+    "waveform": {"type": "number", "minimum": 0, "maximum": 3, "default": 0, "interactive": true, "description": "0: sine, 1: square, 2: triangle, 3: arbitrary (samples programmed with the circuit API or a scenario step)."},
+    "frequency": {"type": "number", "minimum": 0.1, "maximum": 100000, "default": 1000, "interactive": true, "description": "Frequency of a sine, square or triangle wave, in hertz. The highest value also depends on the MCU clock: the steps cannot be closer than 16 clock cycles."},
+    "amplitude": {"type": "number", "minimum": 0, "maximum": 10, "default": 1, "interactive": true, "description": "Peak amplitude of a sine, square or triangle wave, in volts."},
+    "offset": {"type": "number", "minimum": -10, "maximum": 10, "default": 0, "interactive": true, "description": "Voltage added to the wave, in volts."},
+    "duty": {"type": "number", "minimum": 1, "maximum": 99, "default": 50, "interactive": true, "description": "Share of the period a square wave spends high, in percent."},
+    "period": {"type": "number", "minimum": 0.0001, "maximum": 10, "default": 0.01, "interactive": true, "description": "Period over which the samples of an arbitrary wave repeat, in seconds."},
+    "enabled": {"type": "boolean", "default": false, "interactive": true, "description": "The channel output. Off, the terminals are left open. Enabling starts the wave at its first sample."},
+    "sampleCount": {"type": "number", "default": 0, "description": "Number of samples of the arbitrary wave."},
+    "currentLimit": {"type": "number", "default": 0.1, "description": "Current the output is rated for, in amperes: asking for more is reported as an overload, the voltage is still held."},
+    "setpoint": {"type": "number", "default": 0, "description": "Voltage the generator holds at this instant, in volts."},
+    "outputVoltage": {"type": "number", "default": 0, "description": "Voltage obtained between the terminals, in volts."},
+    "outputCurrent": {"type": "number", "default": 0, "description": "Current delivered by the output terminal, in amperes (negative when it absorbs current)."},
+    "mode": {"type": "number", "minimum": 0, "maximum": 2, "default": 0, "description": "0: output off, 1: output held, 2: overloaded."}
+  }
+}

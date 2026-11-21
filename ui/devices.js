@@ -1,9 +1,9 @@
 // The devices of the electronics bench in the bottom panel: logic analyser, oscilloscope, programmable supply,
-// variable load and multimeter. A bar selects what is shown: a click switches to one device, Shift- or Ctrl-click (or
+// signal generator, variable load and multimeter. A bar selects what is shown: a click switches to one device, Shift- or Ctrl-click (or
 // the "Side by side" switch) shows several at once. The analyser and the oscilloscope are two faces of the same
 // capture (ui/instruments.js), so they exclude each other.
 //
-// The supply, the load and the multimeter are the components of the circuit (components/<type>/): a faceplate is
+// The supply, the generator, the load and the multimeter are the components of the circuit (components/<type>/): a faceplate is
 // built for each one, shows what the electrical model computes and sends the settings through sf.component.set. The
 // jacks of a faceplate carry the symbol and the colour of the marker the breadboard draws on the hole where the lead is
 // connected (components/<type>/render.js), with the name of that hole.
@@ -15,14 +15,16 @@ window.SiliconForgeDevices = (root, host) => {
   const groups = {
     analyser: $("[data-device-group=analyser]"),
     supply: $("[data-device-group=supply]"),
+    generator: $("[data-device-group=generator]"),
     load: $("[data-device-group=load]"),
     multimeter: $("[data-device-group=multimeter]"),
   };
   const groupOf = (device) => (device === "logic" || device === "scope" ? "analyser" : device);
-  const all = ["logic", "scope", "supply", "load", "multimeter"];
-  const types = {supply: "bench-supply", load: "variable-load", multimeter: "multimeter"};
+  const all = ["logic", "scope", "supply", "generator", "load", "multimeter"];
+  const types = {supply: "bench-supply", generator: "signal-generator", load: "variable-load", multimeter: "multimeter"};
   const names = {
     supply: "programmable supply",
+    generator: "signal generator",
     load: "variable load",
     multimeter: "multimeter",
   };
@@ -107,6 +109,50 @@ window.SiliconForgeDevices = (root, host) => {
     };
   }
 
+  const waves = ["Sine", "Square", "Triangle", "Arbitrary"];
+  function generatorPlate(component) {
+    const set = (name) => (value) => host.setComponent(component.id, name, value);
+    const limits = component.limits ?? {};
+    const range = (name, fallback) => ({min: limits[name]?.min ?? fallback[0], max: limits[name]?.max ?? fallback[1]});
+    const frequency = field("Frequency", "Hz", "frequency", {...range("frequency", [0.1, 1e5]), step: "any"}, set("frequency"));
+    const amplitude = field("Amplitude", "V", "amplitude", {...range("amplitude", [0, 10]), step: 0.01}, set("amplitude"));
+    const offset = field("Offset", "V", "offset", {...range("offset", [-10, 10]), step: 0.01}, set("offset"));
+    const duty = field("Duty", "%", "duty", {...range("duty", [1, 99]), step: 1}, set("duty"));
+    const period = field("Period", "ms", "period", {min: (limits.period?.min ?? 0.0001) * 1000, max: (limits.period?.max ?? 10) * 1000, step: "any"}, (milli) => set("period")(milli / 1000));
+    const form = h("select", {"aria-label": "Waveform", "data-set": "waveform"},
+      ...waves.map((name, value) => h("option", {value: String(value)}, name)));
+    form.addEventListener("change", () => set("waveform")(Number(form.value)));
+    const output = h("button", {class: "output", type: "button", "aria-pressed": "false"}, "Output");
+    output.addEventListener("click", () => set("enabled")(output.getAttribute("aria-pressed") === "true" ? 0 : 1));
+    const bounds = limits.maxFrequency
+      ? `${limits.voltage.min} to ${limits.voltage.max} V, ${limits.frequency.min} Hz to ${Number(limits.maxFrequency.sine.toFixed(0))} Hz (sine, triangle) or ${Number(limits.maxFrequency.square.toFixed(0))} Hz (square), one step per clock cycle at best (${(limits.timeResolution.seconds * 1e9).toFixed(1)} ns)`
+      : "";
+    const element = h("article", {class: "faceplate generator", "data-id": component.id, "aria-label": `${component.id}: signal generator`},
+      h("header", {}, h("b", {}, "Signal generator"), h("span", {class: "muted"}, component.id)),
+      h("div", {class: "displays"}, lcd("v", "V"), lcd("i", "A"),
+        h("div", {class: "modes"}, h("span", {class: "mode-led cv", "data-led": "cv"}, "ON"), h("span", {class: "mode-led cc", "data-led": "cc"}, "OVL"))),
+      h("div", {class: "knobs"}, h("label", {class: "knob"}, h("span", {}, "Wave"), form), frequency.row, amplitude.row, offset.row, duty.row, period.row, output),
+      bounds ? h("p", {class: "hint"}, bounds) : "",
+      h("footer", {}, jack("volt", "out", component.at.output), jack("com", "COM", component.at.common)));
+    return {
+      element,
+      update(state) {
+        const on = Boolean(state.enabled);
+        readInto(element, "v", on ? volts(state.outputVoltage) : "off");
+        readInto(element, "i", on ? amps(state.outputCurrent) : "—");
+        element.dataset.supplyMode = ["off", "cv", "cc"][state.mode ?? 0];
+        output.setAttribute("aria-pressed", String(on));
+        if (state.waveform !== undefined && document.activeElement !== form) form.value = String(state.waveform);
+        element.dataset.wave = waves[state.waveform ?? 0].toLowerCase();
+        sync(frequency.input, state.frequency);
+        sync(amplitude.input, state.amplitude);
+        sync(offset.input, state.offset);
+        sync(duty.input, state.duty);
+        sync(period.input, state.period === undefined ? undefined : state.period * 1000);
+      },
+    };
+  }
+
   function loadPlate(component) {
     const resistance = field("Resistance", "Ω", "resistance", {min: 0.1, max: 1e8, step: "any"}, (value) => host.setComponent(component.id, "resistance", value));
     const presets = h("div", {class: "presets", role: "group", "aria-label": "Resistance presets"});
@@ -139,7 +185,7 @@ window.SiliconForgeDevices = (root, host) => {
     return {element, update(state) { readInto(element, "v", volts(state.voltage)); }};
   }
 
-  const builders = {supply: supplyPlate, load: loadPlate, multimeter: multimeterPlate};
+  const builders = {supply: supplyPlate, generator: generatorPlate, load: loadPlate, multimeter: multimeterPlate};
   let built = null;  // The circuit the faceplates were built for
 
   function rebuild() {

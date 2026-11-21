@@ -394,7 +394,8 @@ private:
         "person watches: every tool acts on the emulation shown there, and each call appears in the window's Agent activity "
         "journal. The working directory is the project: build the firmware with its own chain, then load_firmware the HEX or "
         "ELF it produced (a path relative to the project). run, pause and reset drive the emulation; set_component presses a "
-        "button or turns a potentiometer of the circuit (see status for their ids and states); set_voltage applies a voltage "
+        "button or turns a potentiometer of the circuit (see status for their ids and states) and sets a signal generator (set_waveform "
+        "programs its arbitrary wave); set_voltage applies a voltage "
         "to a pin; serial_send and serial_read use USART0. measure gives the duty cycle (%), frequency (Hz) or period (s) of "
         "a pin over the last window of the capture, with the rules of the bench; while the emulation runs, it waits for the "
         "window to pass. bench_run runs a scenario of scenarios/ with its own MCU, as `siliconforge bench run` does, and keeps "
@@ -642,6 +643,25 @@ private:
                            return Json{{"component", component}, {"state", state}, {"value", value}};
                        });
                    }});
+        agent.add({"set_waveform", "Program an arbitrary wave", "Programs the arbitrary wave of a signal generator of the circuit and selects it: "
+                   "`samples` in volts (2 to 4096, within +-20 V), each held for `period` / count seconds, then repeated. The sine, square and "
+                   "triangle waves are set with set_component (waveform, frequency, amplitude, offset, duty) and the output with enabled. A "
+                   "request beyond what the clock of the MCU can step is refused with the reason, before anything changes.",
+                   schema({{"component", {{"type", "string"}}},
+                           {"samples", {{"type", "array"}, {"items", {{"type", "number"}}}, {"minItems", 2}, {"maxItems", 4096}}},
+                           {"period", {{"type", "number"}, {"exclusiveMinimum", 0}, {"maximum", 10}}}},
+                          {"component", "samples", "period"}), true,
+                   [this, rethrow](const Json& arguments) {
+                       return rethrow([&] {
+                           const auto component = mcp::text(arguments, "component");
+                           const auto period    = mcp::number(arguments, "period");
+                           const auto found     = arguments.find("samples");
+                           if (found == arguments.end() || !found->is_array() || !std::ranges::all_of(*found, [](const Json& value) { return value.is_number(); }))
+                               throw mcp::ToolError{"The argument samples is missing or is not a list of numbers"};
+                           setWaveform(component, found->get<std::vector<double>>(), period);
+                           return Json{{"component", component}, {"samples", found->size()}, {"period", period}};
+                       });
+                   }});
         agent.add({"set_voltage", "Apply a voltage", "Applies a voltage to a pin, by the potentiometer that feeds it in the circuit when there "
                    "is one, otherwise by a probe.",
                    schema({{"pin", {{"type", "string"}}}, {"volts", {{"type", "number"}}}}, {"pin", "volts"}), true,
@@ -756,10 +776,14 @@ private:
 
     /// An interaction with a component: a button press (1 or 0), a potentiometer position (0 to 1).
     void setComponent(const std::string& id, const std::string& name, double value) {
-        const auto result = simulation.access([&](Mcu&) -> std::expected<void, circuit::SetError> {
+        std::string reason;  // Why a value inside the bounds of the type is still refused (a generator beyond what its clock can step).
+        const auto  result = simulation.access([&](Mcu&) -> std::expected<void, circuit::SetError> {
             if (!circuit)
                 return std::unexpected(circuit::SetError::UnknownComponent);
-            return circuit->set(id, name, value);
+            auto done = circuit->set(id, name, value);
+            if (!done && done.error() == circuit::SetError::OutOfRange)
+                reason = circuit->refusal(id, name, value).value_or(std::string{});
+            return done;
         });
         if (result)
             return;
@@ -769,7 +793,23 @@ private:
                                                 result.error() == circuit::SetError::UnknownComponent ? ": unknown component"
                                                 : result.error() == circuit::SetError::UnknownState   ? ": unknown state"
                                                 : result.error() == circuit::SetError::NotInteractive ? ": read-only state"
-                                                                                                      : ": out of bounds")};
+                                                : reason.empty()                                       ? ": out of bounds"
+                                                                                                      : ": out of bounds: " + reason)};
+    }
+
+    /// The arbitrary wave of a signal generator (#63): the reason it cannot be programmed goes back to the caller.
+    void setWaveform(const std::string& id, const std::vector<double>& samples, double period) {
+        std::optional<std::string> reason;
+        std::optional<bool>        known;
+        simulation.access([&](Mcu&) {
+            known = circuit && circuit->has(id);
+            if (known.value())
+                reason = circuit->program(id, samples, period);
+        });
+        if (!known.value_or(false))
+            throw webfront::BridgeError{std::string{error_code::unknownComponent}, "Unknown component: " + id};
+        if (reason)
+            throw webfront::BridgeError{std::string{error_code::invalidValue}, id + " cannot be programmed: " + *reason};
     }
 
     void reset() {

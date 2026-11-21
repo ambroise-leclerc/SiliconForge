@@ -26,6 +26,7 @@ add_executable(siliconforge_tests
     unit/CircuitDescriptionTests.cpp
     unit/CircuitModelTests.cpp
     unit/BenchSupplyTests.cpp
+    unit/GeneratorTests.cpp
     unit/SignalRecorderTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp
@@ -182,6 +183,8 @@ if(SILICONFORGE_BUILD_APP)
             SPECS ui/instruments.spec.js ARGS --port 0 ${SILICONFORGE_FIRMWARE_DIR}/demo.hex)
         webfront_add_jasmine_test(NAME UI-Devices TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ui/devices.spec.js ARGS --port 0 --circuit bench-demo ${SILICONFORGE_FIRMWARE_DIR}/demo.hex)
+        webfront_add_jasmine_test(NAME UI-Generator TARGET siliconforge_ui_test FRONTEND WebKitGTK
+            SPECS ui/generator.spec.js ARGS --port 0 --circuit generator-demo ${SILICONFORGE_FIRMWARE_DIR}/demo.hex)
         webfront_add_jasmine_test(NAME UI-Circuits TARGET siliconforge_ui_test FRONTEND WebKitGTK
             SPECS ${CMAKE_CURRENT_BINARY_DIR}/ui-fixtures.js ui/circuits.spec.js
             ARGS --port 0 --circuit seven-segment ${SILICONFORGE_FIRMWARE_DIR}/counter.hex)
@@ -242,7 +245,7 @@ if(SILICONFORGE_BUILD_APP)
             SPECS ui/agent.spec.js ARGS --port 0)
         set_tests_properties(UI-Agent PROPERTIES WORKING_DIRECTORY ${_ui_agent_project} LABELS ui
             ENVIRONMENT_MODIFICATION "PATH=path_list_prepend:$<TARGET_FILE_DIR:siliconforge>")
-        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Devices UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
+        set_property(TEST UI-Uart UI-Blink UI-Led UI-LedRealtime UI-Files UI-Instruments UI-Devices UI-Generator UI-Circuits UI-Mcu UI-Tour UI-Bench APPEND PROPERTY LABELS ui)
     elseif((CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WKWEBVIEW")
            OR (CMAKE_SYSTEM_NAME STREQUAL "Windows" AND _ui_webfront_definitions MATCHES "WEBFRONT_EMBED_WEBVIEW2"))
         # macOS and Windows (#55, #56): only the agent terminal and the editor are wired to the native frontend so far. The window needs the

@@ -39,6 +39,12 @@ public:
     RunResult step() override {
         return core.step();
     }
+    Scheduler::EventId schedule(Cycles at, Scheduler::Callback callback) override {
+        return scheduler.schedule(at, std::move(callback));
+    }
+    void cancel(Scheduler::EventId id) override {
+        scheduler.cancel(id);
+    }
     [[nodiscard]] Cycles cycles() const noexcept override {
         return core.cycles;
     }

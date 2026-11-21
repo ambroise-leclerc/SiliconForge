@@ -168,6 +168,27 @@ describe("The agent in the window", () => {
     await until(() => screen().includes("delegated-evidence-ok"), "delegated evidence in the current directory");
   });
 
+  it("programs the arbitrary wave of a signal generator, and says why a request is refused (#63)", async () => {
+    await sf().selectCircuit("generator-demo");
+    await until(() => sf().component("gbf"), "the generator of the circuit");
+    const refused = await tool("set_waveform", {component: "button-d2", samples: [0, 1], period: 0.01});
+    expect(refused.ok).toBe(false);
+    const tooFast = await tool("set_waveform", {component: "gbf", samples: Array.from({length: 200}, (_, i) => i % 2), period: 0.0001});
+    expect(tooFast.ok).toBe(false);
+    expect(tooFast.summary).toContain("below the minimum of 16 cycles");
+    expect(sf().component("gbf").sampleCount).toBe(0);  // Nothing changed.
+    const ok = await tool("set_waveform", {component: "gbf", samples: [0, 5, 5, 0], period: 0.004});
+    expect(ok.ok).toBe(true);
+    await until(() => sf().component("gbf").sampleCount === 4 && sf().component("gbf").waveform === 3, "the arbitrary wave");
+    expect((await tool("set_component", {component: "gbf", state: "enabled", value: 1})).ok).toBe(true);
+    await until(() => sf().component("gbf").mode === 1, "the output held");
+    const beyond = await tool("set_component", {component: "gbf", state: "waveform", value: 0});
+    expect(beyond.ok).toBe(true);
+    const fast = await tool("set_component", {component: "gbf", state: "frequency", value: 20000});
+    expect(fast.ok).toBe(false);
+    expect(fast.summary).toContain("15625");
+  });
+
   afterAll(async () => {
     await sf().terminal.hangUp();
   });

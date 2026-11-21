@@ -72,6 +72,8 @@ struct Step {
     std::string           component;
     std::string           stateName;
     double                value{0};
+    std::vector<double>   samples;       ///< set on a signal generator: the arbitrary wave...
+    double                samplePeriod{0};  ///< ...and the seconds it repeats over.
     std::string           probe;
     std::optional<double> volts;
     // waitFor
@@ -204,6 +206,18 @@ public:
                                name,
                                minimum ? formatNumber(*minimum) : "-inf",
                                maximum ? formatNumber(*maximum) : "+inf"));
+        // What also depends on the other settings and on the clock (a generator cannot step as fast as it is asked): the
+        // steps are rehearsed in order on the circuit that checks the scenario, so that each one sees the ones before it.
+        if (const auto reason = model.refusal(id, name, number))
+            reject(Problem::Cause::Capacity, path, *reason);
+        (void)model.set(id, name, number);
+    }
+
+    /// The arbitrary wave of a signal generator: rehearsed like any setting.
+    void waveform(const std::string& id, const std::vector<double>& samples, double period, const std::string& path) {
+        component(id, path);
+        if (const auto reason = model.program(id, samples, period))
+            reject(Problem::Cause::Capacity, path, *reason);
     }
 
     void component(const std::string& id, const std::string& path) {
@@ -711,7 +725,12 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
         } else if (entry.contains("set")) {
             step.kind       = Step::Kind::Set;
             const auto& set = entry.at("set");
-            if (set.contains("component")) {
+            if (set.contains("samples")) {
+                step.component    = set.at("component").get<std::string>();
+                step.samples      = set.at("samples").get<std::vector<double>>();
+                step.samplePeriod = static_cast<double>(parseDuration(set.at("period"), path + "/set/period", clockHz)) / static_cast<double>(clockHz);
+                check.waveform(step.component, step.samples, step.samplePeriod, path + "/set");
+            } else if (set.contains("component")) {
                 step.component = set.at("component").get<std::string>();
                 step.stateName = set.at("state").get<std::string>();
                 check.setting(step.component, step.stateName, set.at("value"), path + "/set");
@@ -906,7 +925,10 @@ Report Scenario::run() {
                     break;
                 case Step::Kind::Set:
                     record.applied = device.cycles();
-                    if (step.probe.empty()) {
+                    if (!step.samples.empty()) {
+                        (void)model.program(step.component, step.samples, step.samplePeriod);
+                        record.detail = std::format("{} = {} samples over {} s", step.component, step.samples.size(), formatNumber(step.samplePeriod));
+                    } else if (step.probe.empty()) {
                         (void)model.set(step.component, step.stateName, step.value);
                         record.detail = std::format("{}.{} = {}", step.component, step.stateName, formatNumber(step.value));
                     } else {
