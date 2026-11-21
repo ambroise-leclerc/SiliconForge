@@ -119,7 +119,9 @@ struct Circuit::Model {
         std::vector<double>      value;  ///< Per element: brightness or wiper voltage.
         std::vector<double>      extra;  ///< Per element: LED, load or supply current.
         std::vector<char>        mode;   ///< Per element: the mode of a supply (0 off, 1 CV, 2 CC).
-        std::vector<char>        fought;  ///< Per element: a supply in CV whose positive terminal another source holds at another voltage.
+        std::vector<char>        held;    ///< Per element: a supply in CV whose positive terminal another source holds above its setpoint.
+        std::vector<char>        fought;  ///< Per element: a supply in CV whose positive terminal another source holds below its setpoint.
+        std::vector<std::string> fight;   ///< Per element: the conflict that made it so.
         std::vector<std::string> shorts;
     };
 
@@ -212,8 +214,9 @@ struct Circuit::Model {
         for (std::size_t i = 0; i < elements.size(); ++i)
             if (elements[i].kind == Kind::Supply && entryOf(elements[i], elements[i].enabledIndex)->value != 0.0)
                 mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) ? 2 : 1;  // Terminals shorted: it can only limit.
-        std::vector<char> fought(elements.size(), 0);
-        Solution          result;
+        std::vector<char>        fought(elements.size(), 0);
+        std::vector<std::string> fights(elements.size());
+        Solution                 result;
         for (int round = 0; round < 8; ++round) {
             result       = solveOnce(supplyVolts, mode);
             bool changed = false;
@@ -226,6 +229,7 @@ struct Circuit::Model {
                     // Another source holds its output at a different voltage: all it can do is limit its current.
                     mode[i]   = 2;
                     fought[i] = 1;
+                    fights[i] = result.fight[i];
                     changed   = true;
                 } else if (mode[i] == 1 && result.extra[i] > limit * (1 + 1e-9)) {
                     mode[i] = 2;
@@ -238,6 +242,10 @@ struct Circuit::Model {
             if (!changed)
                 break;
         }
+        // The conflict of a supply that now limits its current is no longer imposed, but it remains a short.
+        for (std::size_t i = 0; i < elements.size(); ++i)
+            if (fought[i] && !fights[i].empty() && std::ranges::find(result.shorts, fights[i]) == result.shorts.end())
+                result.shorts.push_back(fights[i]);
         return result;
     }
 
@@ -283,6 +291,8 @@ struct Circuit::Model {
     Solution solveOnce(double supplyVolts, const std::vector<char>& supplyMode) {
         Solution result;
         result.fought.assign(elements.size(), 0);
+        result.held.assign(elements.size(), 0);
+        result.fight.assign(elements.size(), {});
         fixed.assign(netCount, std::nullopt);
         std::vector<std::string> origin(netCount);
         const auto               impose = [&](std::size_t target, double volts, std::string what) {
@@ -317,9 +327,16 @@ struct Circuit::Model {
                 if (!reference)
                     continue;
                 const auto wanted = *reference + entryOf(element, element.stateIndex)->value;
-                if (fixed[net(element.nodes[0])] && std::abs(*fixed[net(element.nodes[0])] - wanted) > shortTolerance)
+                const auto before = result.shorts.size();
+                // Held below its setpoint, it is overloaded and can only limit its current; held above, it is driven by
+                // the other source and delivers nothing: it stays in constant voltage.
+                if (fixed[net(element.nodes[0])] && *fixed[net(element.nodes[0])] < wanted - shortTolerance)
                     result.fought[i] = 1;
+                else if (fixed[net(element.nodes[0])] && *fixed[net(element.nodes[0])] > wanted + shortTolerance)
+                    result.held[i] = 1;
                 impose(net(element.nodes[0]), wanted, "supply " + components[element.component].id);
+                if (result.shorts.size() > before)
+                    result.fight[i] = result.shorts[before];
                 placed[i] = progress = true;
             }
             if (!progress)
@@ -536,7 +553,7 @@ struct Circuit::Model {
                                                    - (result.voltage[net(elements[i].nodes[0])] - result.voltage[net(elements[i].nodes[1])]));
         for (std::size_t round = 0; round <= elements.size(); ++round)
             for (std::size_t i = 0; i < elements.size(); ++i) {
-                if (elements[i].kind != Kind::Supply || !active[i] || supplyMode[i] != 1 || stiff[i])
+                if (elements[i].kind != Kind::Supply || !active[i] || supplyMode[i] != 1 || stiff[i] || result.held[i])
                     continue;
                 const auto positive = net(elements[i].nodes[0]);
                 auto       current  = currentOut(positive, result, conducting, supplyVolts);

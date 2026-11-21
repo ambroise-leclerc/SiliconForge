@@ -160,7 +160,7 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
             const auto& entry = state.at(key);
             if (!entry.contains("minimum") || entry.at("minimum").get<double>() <= 0.0)
                 fail(path + "/type", "The state '" + key + "' of a variable-resistor needs a minimum above zero");
-            if (entry.contains("default") && entry.at("default").get<double>() <= 0.0)
+            if (!entry.contains("default") || entry.at("default").get<double>() <= 0.0)
                 fail(path + "/type", "The state '" + key + "' of a variable-resistor needs a default above zero");
         }
         for (const auto& [extra, extraType] : rule.more) {

@@ -248,6 +248,28 @@ SCENARIO("a supply whose output another source holds at another voltage limits i
         THEN("it is in current limitation at its limit instead of staying in constant voltage with no current") {
             CHECK(reading(*circuit, "psu", "mode") == 2.0);
             CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-9));
+        }
+        THEN("the conflict is still reported once the supply limits its current") {
+            const auto shorts = circuit->shorts();
+            REQUIRE(!shorts.empty());
+            CHECK(shorts.front().find("supply psu") != std::string::npos);
+        }
+    }
+    GIVEN("a channel at 5 V wired to a 10 V channel") {
+        auto description = bench();
+        description["components"].insert(
+            description["components"].begin(),
+            Json{{"id", "upper"}, {"type", "bench-supply"}, {"at", {{"positive", "a27"}, {"negative", "a29"}}}});
+        description["wires"].push_back({{"from", "d22"}, {"to", "d27"}, {"color", "red"}});
+        description["wires"].push_back({{"from", "b29"}, {"to", "T-29"}, {"color", "black"}});
+        auto circuit = build(description);
+        REQUIRE(circuit->set("upper", "voltage", 10.0));
+        REQUIRE(circuit->set("upper", "currentLimit", 1.0));
+        REQUIRE(circuit->set("upper", "enabled", 1.0));
+        configure(*circuit, 5.0, 0.1, true);
+        THEN("the lower one is driven above its setpoint: it stays in constant voltage and pushes no current into the other") {
+            CHECK(reading(*circuit, "psu", "mode") == 1.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.0).margin(1e-9));
             CHECK(!circuit->shorts().empty());
         }
     }
@@ -272,6 +294,11 @@ SCENARIO("a variable load cannot be described with a resistance that can reach z
         THEN("the description is refused") {
             CHECK(!circuit::validateComponent(load(0.0, 10.0)));
             CHECK(!circuit::validateComponent(load(1.0, 0.0)));
+        }
+        THEN("so is one with no default, which would start at zero") {
+            auto description = load(1.0, 10.0);
+            description["state"]["resistance"].erase("default");
+            CHECK(!circuit::validateComponent(description));
         }
     }
     GIVEN("a strictly positive minimum and default") {
