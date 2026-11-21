@@ -925,3 +925,32 @@ SCENARIO("The initial state of a generator is one state, whatever the order of i
         }
     }
 }
+
+SCENARIO("A bounded wait on a generator state sees the step that crosses its threshold", "[scenario][generator]") {
+    GIVEN("a 1 kHz sine of 2 V around 0 V, which never makes a digital edge on the pin: nothing but the generator changes") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "state": "amplitude", "value": 2}},
+            {"set": {"component": "gbf", "state": "offset", "value": 0}},
+            {"set": {"component": "gbf", "state": "enabled", "value": true}},
+            {"label": "above 1.5 V", "waitFor": {"component": "gbf", "state": "outputVoltage", "above": 1.5}, "timeout": "2ms"}
+        ])");
+        THEN("the wait is met at the cycle of the first step above 1.5 V: step 9 of 64, 2250 cycles after the output was enabled") {
+            const auto report = runOf(document);
+            REQUIRE(report.verdict == scenario::Verdict::Pass);
+            REQUIRE(report.steps.size() == 4);
+            CHECK(report.steps[3].outcome == Outcome::Done);
+            CHECK(report.steps[3].end - report.steps[2].applied.value() == 2250);
+        }
+    }
+    GIVEN("the same wave and a threshold it never reaches") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "state": "amplitude", "value": 2}},
+            {"set": {"component": "gbf", "state": "offset", "value": 0}},
+            {"set": {"component": "gbf", "state": "enabled", "value": true}},
+            {"waitFor": {"component": "gbf", "state": "outputVoltage", "above": 2.5}, "timeout": "2ms"}
+        ])");
+        THEN("the wait reaches its timeout") {
+            CHECK(runOf(document).verdict == scenario::Verdict::Fail);
+        }
+    }
+}

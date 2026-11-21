@@ -609,6 +609,11 @@ struct Scenario::State {
                 notice(at);
             });
         }
+        // A generator steps by itself: the states it changes are recorded and the waits on them evaluated at its cycle.
+        model->onChange([this](Cycles at) {
+            recordStates(at);
+            notice(at);
+        });
         transmitted.assign(device->serialPorts().size(), {});
         for (std::size_t port = 0; port < transmitted.size(); ++port)
             device->serialPorts()[port].onTransmit([this, port](u8, Cycles at) {

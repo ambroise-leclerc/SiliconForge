@@ -5,6 +5,7 @@
 #include <siliconforge/core/Mcu.hpp>
 
 #include <expected>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -50,6 +51,11 @@ public:
 
     /// Solves the circuit for the current pin drives and applies the result to the MCU inputs.
     void update();
+    /// Called with the MCU cycle after every change the circuit makes by itself, once it is solved: a signal generator
+    /// stepping. Pin changes and what a caller does through set() are not reported here, the caller knows them. What
+    /// watches the states of the components (a bounded wait of a scenario) listens here, or it would not see a voltage
+    /// that crosses a threshold between two pin changes.
+    void onChange(std::function<void(Cycles at)> observer) { observed = std::move(observer); }
     /// The MCU was reset: its clock restarted, so the averages start again from now.
     void restart();
 
@@ -115,6 +121,7 @@ private:
     nlohmann::json           source;
     double                   supply{5.0};
     std::vector<std::string> shortCircuits;
+    std::function<void(Cycles)> observed;
 };
 
 }  // namespace siliconforge::circuit

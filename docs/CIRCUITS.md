@@ -302,6 +302,10 @@ const std::vector<double> samples{0.5, 4.0, 1.0, 3.0, 2.0};
 bench.circuit().program("gbf", samples, 0.005);   // onde arbitraire de 5 ms, rend la raison d’un refus
 ```
 
+Chaque pas du générateur prévient les observateurs du circuit (`Circuit::onChange`) une fois le circuit résolu : le moteur
+de scénarios enregistre alors les états au cycle du pas et évalue ses `waitFor`, de sorte qu’une attente sur
+`gbf.outputVoltage` voit le pas qui franchit son seuil même sans aucun front sur une broche.
+
 Sans MCU il n’y a pas d’horloge : `Circuit::set` n’a alors que les bornes du type à vérifier. `Circuit::attach` revérifie
 chaque générateur et refuse (`/components/<indice>`) celui que le MCU ne peut pas suivre, par exemple un sinus de 100 kHz
 réglé avant l’attachement, ou une onde arbitraire sans échantillons. Dans un scénario, l’état initial d’un composant

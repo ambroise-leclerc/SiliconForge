@@ -1082,7 +1082,10 @@ void Circuit::stepGenerator(std::size_t index, std::uint64_t step) {
     model->entryOf(element, element.stateIndex)->value = model->waveValue(element, run, step);
     model->remembered.clear();  // The setpoint is continuous: a remembered solution is for another instant.
     update();
-    scheduleStep(index, step, model->mcu->cycles());
+    const auto now = model->mcu->cycles();
+    if (observed)
+        observed(now);
+    scheduleStep(index, step, now);
 }
 
 std::vector<std::string> Circuit::componentIds() const {
