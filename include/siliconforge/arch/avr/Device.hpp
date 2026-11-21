@@ -4,6 +4,7 @@
 #include <siliconforge/arch/avr/AvrCore.hpp>
 #include <siliconforge/arch/avr/peripherals/Gpio.hpp>
 #include <siliconforge/arch/avr/peripherals/Timer8.hpp>
+#include <siliconforge/arch/avr/peripherals/Spi.hpp>
 #include <siliconforge/arch/avr/peripherals/Usart.hpp>
 #include <siliconforge/core/Mcu.hpp>
 
@@ -79,6 +80,7 @@ private:
     void                                             makeGpio(const nlohmann::json& p);
     void                                             makeTimer(const nlohmann::json& p);
     void                                             makeUsart(const nlohmann::json& p);
+    void                                             makeSpi(const nlohmann::json& p);
     void                                             makeEeprom(const nlohmann::json& p);
     void                                             makeAdc(const nlohmann::json& p);
     std::unique_ptr<nlohmann::json>                  description;
@@ -97,6 +99,7 @@ private:
     std::map<std::string, std::unique_ptr<GpioPort>> ports;
     std::vector<std::unique_ptr<Timer8>>             timers;
     std::vector<std::unique_ptr<Usart>>              usarts;
+    std::vector<std::unique_ptr<Spi>>                spis;
     std::vector<std::function<void()>>               resetters;
     /// Reset values of the description, read once: address and value of every register, then of the core registers
     /// (SPL, SPH, SREG) written through their handlers.

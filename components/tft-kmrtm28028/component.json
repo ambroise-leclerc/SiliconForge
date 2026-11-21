@@ -1,0 +1,159 @@
+{
+  "formatVersion": 1,
+  "type": "tft-kmrtm28028",
+  "name": "KMRTM28028 TFT (ILI9341, SPI)",
+  "description": "A 2.8-inch 240 x 320 TFT module with an ILI9341 controller on a 4-wire SPI bus, nine pins in a row: VCC, GND, CS, RESET, DC, SDI (MOSI), SCK, LED (backlight) and SDO (not driven by the model). The model decodes the wires: SDI is sampled at each rising edge of SCK while CS is low (SPI mode 0), D/C tells commands from data, and the pixels written with RAMWR (16 or 18 bits per pixel, windowed by CASET and PASET, oriented by MADCTL) are kept in a memory the bench can read and compare with an expected image. It draws no current. An unconnected RESET is held high by the module.",
+  "terminals": [
+    {
+      "name": "vcc"
+    },
+    {
+      "name": "gnd"
+    },
+    {
+      "name": "cs"
+    },
+    {
+      "name": "reset"
+    },
+    {
+      "name": "dc"
+    },
+    {
+      "name": "sdi"
+    },
+    {
+      "name": "sck"
+    },
+    {
+      "name": "led"
+    },
+    {
+      "name": "sdo"
+    }
+  ],
+  "properties": {
+    "controller": {
+      "type": "string",
+      "default": "ili9341",
+      "enum": [
+        "ili9341"
+      ]
+    }
+  },
+  "footprint": {
+    "kind": "fixed",
+    "offsets": {
+      "vcc": [
+        0,
+        0
+      ],
+      "gnd": [
+        1,
+        0
+      ],
+      "cs": [
+        2,
+        0
+      ],
+      "reset": [
+        3,
+        0
+      ],
+      "dc": [
+        4,
+        0
+      ],
+      "sdi": [
+        5,
+        0
+      ],
+      "sck": [
+        6,
+        0
+      ],
+      "led": [
+        7,
+        0
+      ],
+      "sdo": [
+        8,
+        0
+      ]
+    }
+  },
+  "model": {
+    "elements": [
+      {
+        "type": "tft-spi",
+        "between": [
+          "cs",
+          "reset",
+          "dc",
+          "sdi",
+          "sck",
+          "led",
+          "vcc",
+          "gnd"
+        ]
+      }
+    ]
+  },
+  "state": {
+    "powered": {
+      "type": "boolean",
+      "default": false,
+      "description": "The supply is within the range of the controller (at least 2.5 V between VCC and GND)."
+    },
+    "backlight": {
+      "type": "boolean",
+      "default": false,
+      "description": "The backlight input is high."
+    },
+    "displayOn": {
+      "type": "boolean",
+      "default": false,
+      "description": "The controller shows its memory: out of sleep (SLPOUT) and display on (DISPON)."
+    },
+    "sleeping": {
+      "type": "boolean",
+      "default": true,
+      "description": "The controller is in sleep mode, as after a reset."
+    },
+    "commands": {
+      "type": "number",
+      "default": 0,
+      "description": "Commands received on the bus since power on."
+    },
+    "dataBytes": {
+      "type": "number",
+      "default": 0,
+      "description": "Parameter and pixel bytes received on the bus since power on."
+    },
+    "pixelsWritten": {
+      "type": "number",
+      "default": 0,
+      "description": "Pixels written to the memory since power on."
+    },
+    "unknown": {
+      "type": "number",
+      "default": 0,
+      "description": "Commands this controller does not have."
+    },
+    "unsupported": {
+      "type": "number",
+      "default": 0,
+      "description": "Reads of the controller, which the model cannot answer."
+    },
+    "framing": {
+      "type": "number",
+      "default": 0,
+      "description": "Chip-select releases in the middle of a byte (SPI)."
+    },
+    "revision": {
+      "type": "number",
+      "default": 0,
+      "description": "Increases whenever the pixels change."
+    }
+  }
+}

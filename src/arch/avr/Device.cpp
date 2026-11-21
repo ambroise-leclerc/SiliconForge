@@ -63,6 +63,7 @@ Device::Device(Json d, u64 clockOverride)
         {  "avr.gpio",   &Device::makeGpio},
         {"avr.timer8",  &Device::makeTimer},
         { "avr.usart",  &Device::makeUsart},
+        {   "avr.spi",    &Device::makeSpi},
         {"avr.eeprom", &Device::makeEeprom},
         {   "avr.adc",    &Device::makeAdc}
     };
@@ -143,6 +144,19 @@ void Device::makeUsart(const Json& p) {
         ptr->reset(true);
     });
     usarts.push_back(std::move(usart));
+}
+void Device::makeSpi(const Json& p) {
+    auto spi = std::make_unique<Spi>(data,
+                                     scheduler,
+                                     interrupts,
+                                     core.cycles,
+                                     Spi::Registers{reg(p, "spcr"), reg(p, "spsr"), reg(p, "spdr")},
+                                     vector(p.at("vectors"), "transferComplete"),
+                                     Spi::Pins{ports.at(p.at("port")).get(), p.at("mosi"), p.at("miso"), p.at("sck")});
+    resetters.emplace_back([ptr = spi.get()] {
+        ptr->reset(true);
+    });
+    spis.push_back(std::move(spi));
 }
 void Device::makeEeprom(const Json& p) {
     const auto control = reg(p, "control"), valueReg = reg(p, "data"), low = reg(p, "addressLow"), high = reg(p, "addressHigh");

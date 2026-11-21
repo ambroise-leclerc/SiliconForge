@@ -1,0 +1,24 @@
+{
+  "formatVersion": 1,
+  "name": "tft-parallel",
+  "description": "The firmware paints a window of four colour quadrants on the screen; the pixels the controller received are compared with the expected picture.",
+  "circuit": "../circuits/tft-parallel-demo.json",
+  "firmware": "../firmware/prebuilt/tft_parallel.hex",
+  "steps": [
+    {
+      "label": "painted",
+      "waitFor": {
+        "pin": "D12",
+        "state": "high"
+      },
+      "timeout": "500ms"
+    },
+    {
+      "label": "the screen shows the quadrants",
+      "screen": {
+        "component": "tft",
+        "image": "tft-parallel-expected.ppm"
+      }
+    }
+  ]
+}
