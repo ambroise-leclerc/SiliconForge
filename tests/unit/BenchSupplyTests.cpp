@@ -362,3 +362,18 @@ SCENARIO("a supply held a few millivolts below its setpoint still limits its cur
         }
     }
 }
+
+SCENARIO("a disabled supply still reports the voltage the circuit applies across its terminals", "[circuit][supply]") {
+    GIVEN("a disabled channel in parallel with a 10 V channel") {
+        auto circuit = build(parallel(true));
+        REQUIRE(circuit->set("upper", "voltage", 10.0));
+        REQUIRE(circuit->set("upper", "currentLimit", 1.0));
+        REQUIRE(circuit->set("upper", "enabled", 1.0));
+        REQUIRE(circuit->set("psu", "voltage", 5.0));
+        THEN("its output is open, with no current and no mode, but it measures the 10 V") {
+            CHECK(reading(*circuit, "psu", "mode") == 0.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == 0.0);
+            CHECK(reading(*circuit, "psu", "outputVoltage") == Approx(10.0).margin(1e-6));
+        }
+    }
+}

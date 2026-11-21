@@ -577,10 +577,14 @@ struct Circuit::Model {
             }
         for (std::size_t i = 0; i < elements.size(); ++i) {
             const auto& element = elements[i];
-            if (element.kind != Kind::Supply || !active[i])
+            if (element.kind != Kind::Supply)
+                continue;
+            // The voltage across the terminals is measured in every mode: an open output still sees what the circuit
+            // applies to it. Only the mode and the current stay at zero when it delivers nothing.
+            result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
+            if (!active[i])
                 continue;
             result.mode[i]  = supplyMode[i];
-            result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
             result.extra[i] = std::abs(delivered[i]) < 1e-12 ? 0.0 : delivered[i];
             if (net(element.nodes[0]) == net(element.nodes[1]))
                 result.shorts.push_back(std::format("Short circuit: the terminals of supply {} are connected together; it limits the current to {:.3g} A",
