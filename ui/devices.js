@@ -72,7 +72,9 @@ window.SiliconForgeDevices = (root, host) => {
     const input = h("input", {type: "number", "aria-label": `${label} (${unit})`, "data-set": name, ...attributes});
     input.addEventListener("change", () => {
       const value = Math.min(Number(attributes.max), Math.max(Number(attributes.min), Number(input.value)));
-      if (Number.isFinite(value)) commit(value);
+      if (!Number.isFinite(value)) return;
+      input.value = String(value);  // The field keeps the focus: show the value that is applied, not the one that was typed.
+      commit(value);
     });
     return {input, row: h("label", {class: "knob"}, h("span", {}, label), input, h("small", {}, unit))};
   };

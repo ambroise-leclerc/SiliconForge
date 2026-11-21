@@ -72,6 +72,17 @@ describe("Bench devices", () => {
     expect(read("load", "p")).toBe("250.0 mW");
   });
 
+  it("shows the clamped value in a setpoint field that keeps the focus", async () => {
+    const field = plate("psu").querySelector("[data-set=voltage]");
+    field.focus();
+    change(field, 40);  // beyond the 30 V of the channel
+    expect(field.value).toBe("30");
+    await until(() => sf().component("psu")?.voltage === 30, "the clamped setpoint");
+    change(field, 5);
+    await until(() => sf().component("psu")?.voltage === 5, "the setpoint back to 5 V");
+    field.blur();
+  });
+
   it("shows the supply, the load and the multimeter side by side with their markers on the breadboard", async () => {
     devices().show(["supply", "load", "multimeter"]);
     await new Promise((resolve) => setTimeout(resolve, 300));
