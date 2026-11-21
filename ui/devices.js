@@ -99,7 +99,7 @@ window.SiliconForgeDevices = (root, host) => {
         const on = Boolean(state.enabled);
         readInto(element, "v", on ? volts(state.outputVoltage) : "off");
         readInto(element, "i", on ? amps(state.outputCurrent) : "—");
-        element.dataset.mode = ["off", "cv", "cc"][state.mode ?? 0];
+        element.dataset.supplyMode = ["off", "cv", "cc"][state.mode ?? 0];
         output.setAttribute("aria-pressed", String(on));
         sync(voltage.input, state.voltage);
         sync(limit.input, state.currentLimit === undefined ? undefined : state.currentLimit * 1000);

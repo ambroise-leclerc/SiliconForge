@@ -460,3 +460,28 @@ SCENARIO("two supplies in series beat a lower channel in parallel with them", "[
         }
     }
 }
+
+SCENARIO("a channel that opened takes the regulation back when the voltage falls below its setpoint", "[circuit][supply]") {
+    GIVEN("two 1 V channels in series limited to 30 mA and 50 mA, and a third 1 V channel limited to 30 mA, on 25 ohms") {
+        auto description = stacked();
+        description["components"].push_back({{"id", "low"}, {"type", "bench-supply"}, {"at", {{"positive", "f26"}, {"negative", "f28"}}}});
+        description["wires"].push_back({{"from", "g26"}, {"to", "d26"}, {"color", "red"}});
+        description["wires"].push_back({{"from", "g28"}, {"to", "T-28"}, {"color", "black"}});
+        auto circuit = build(description);
+        REQUIRE(circuit->set("load", "resistance", 25.0));
+        const auto channel = [&](const char* id, double limit) {
+            REQUIRE(circuit->set(id, "voltage", 1.0));
+            REQUIRE(circuit->set(id, "currentLimit", limit));
+            REQUIRE(circuit->set(id, "enabled", 1.0));
+        };
+        channel("psu", 0.03);
+        channel("upper", 0.05);
+        channel("low", 0.03);
+        THEN("the load gets 1 V and 40 mA: 30 mA from the stack and 10 mA from the third channel") {
+            CHECK(circuit->voltageAt("e26").value() == Approx(1.0).margin(1e-6));
+            CHECK(reading(*circuit, "load", "current") == Approx(0.04).margin(1e-6));
+            CHECK(reading(*circuit, "low", "outputCurrent") == Approx(0.01).margin(1e-6));
+            CHECK(reading(*circuit, "low", "mode") == 1.0);
+        }
+    }
+}

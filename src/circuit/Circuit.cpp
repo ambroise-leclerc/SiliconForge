@@ -217,6 +217,7 @@ struct Circuit::Model {
             if (elements[i].kind == Kind::Supply && entryOf(elements[i], elements[i].enabledIndex)->value != 0.0)
                 mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) ? 2 : 1;  // Terminals shorted: it can only limit.
         std::vector<char>        fought(elements.size(), 0);
+        std::vector<char>        opened(elements.size(), 0);
         std::vector<std::string> fights(elements.size());
         const auto               supplies = static_cast<int>(std::ranges::count_if(elements, [](const auto& e) { return e.kind == Kind::Supply; }));
         // Modes may go both ways while the supplies settle. If they have not settled after `free` rounds (supplies
@@ -229,10 +230,22 @@ struct Circuit::Model {
             bool changed     = false;
             const bool oneWay = round >= free;
             for (std::size_t i = 0; i < elements.size(); ++i) {
-                if (elements[i].kind != Kind::Supply || result.mode[i] == 0)
+                if (elements[i].kind != Kind::Supply)
                     continue;
                 const auto setpoint = entryOf(elements[i], elements[i].stateIndex)->value;
                 const auto limit    = entryOf(elements[i], elements[i].limitIndex)->value;
+                if (opened[i]) {
+                    // An output opened because something pushed current into it takes the regulation back as soon as
+                    // the circuit lets its voltage fall below the setpoint again.
+                    if (!oneWay && result.value[i] < setpoint - absorbedCurrent) {
+                        mode[i]   = 1;
+                        opened[i] = 0;
+                        changed   = true;
+                    }
+                    continue;
+                }
+                if (result.mode[i] == 0)
+                    continue;
                 if (mode[i] == 1 && result.fought[i]) {
                     // Another source holds its output at a different voltage: all it can do is limit its current.
                     mode[i]   = 2;
@@ -244,8 +257,9 @@ struct Circuit::Model {
                     changed = true;
                 } else if (mode[i] == 1 && result.extra[i] < -absorbedCurrent) {
                     // Something pushes current into it and it cannot absorb any: its output opens.
-                    mode[i] = 0;
-                    changed = true;
+                    mode[i]   = 0;
+                    opened[i] = 1;
+                    changed   = true;
                 } else if (mode[i] == 2 && !oneWay && result.value[i] > setpoint) {
                     // Back in constant voltage, and no longer in conflict until it is placed again: what held its output
                     // below its setpoint may have gone (a lower channel that opened).

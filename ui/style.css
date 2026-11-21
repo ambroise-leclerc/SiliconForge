@@ -479,8 +479,8 @@ select {
 .lcd.big output { font-size: 30px; }
 .modes { display: flex; flex-direction: column; justify-content: center; gap: 4px; }
 .mode-led { font: 700 10.5px var(--mono); padding: 1px 6px; border-radius: 3px; background: var(--low); color: var(--muted); text-align: center; }
-.faceplate[data-mode="cv"] .mode-led.cv { background: var(--ok); color: #04130a; }
-.faceplate[data-mode="cc"] .mode-led.cc { background: var(--error); color: #1f0504; }
+.faceplate[data-supply-mode="cv"] .mode-led.cv { background: var(--ok); color: #04130a; }
+.faceplate[data-supply-mode="cc"] .mode-led.cc { background: var(--error); color: #1f0504; }
 .faceplate .knobs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .knob { display: inline-flex; align-items: center; gap: 6px; }
 .knob input { width: 90px; font-family: var(--mono); text-align: right; cursor: text; }

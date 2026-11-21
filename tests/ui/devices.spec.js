@@ -61,14 +61,14 @@ describe("Bench devices", () => {
     expect(sf().component("psu").outputCurrent).toBeCloseTo(0.05, 4);
     await until(() => read("psu", "v") === "5.000 V" && read("psu", "i") === "50.0 mA", "the displays of the supply");
     await until(() => read("dmm", "v") === "5.000 V", "the multimeter");
-    expect(plate("psu").dataset.mode).toBe("cv");
+    expect(plate("psu").dataset.supplyMode).toBe("cv");
   });
 
   it("limits the current and lets the voltage fall when the load drops", async () => {
     change(plate("load").querySelector("[data-set=resistance]"), 25);
     await until(() => sf().component("psu")?.mode === 2, "constant current");
     await until(() => read("psu", "i") === "100.0 mA" && read("psu", "v") === "2.500 V" && read("dmm", "v") === "2.500 V", "the limited readings");
-    expect(plate("psu").dataset.mode).toBe("cc");
+    expect(plate("psu").dataset.supplyMode).toBe("cc");
     expect(read("load", "p")).toBe("250.0 mW");
   });
 
