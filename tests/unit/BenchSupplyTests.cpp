@@ -175,3 +175,65 @@ SCENARIO("a multimeter reads the voltage across the load without disturbing it",
         }
     }
 }
+
+namespace {
+/// Two supplies in series (psu on the ground rail, upper on top of it) feeding a load of 100 ohms to ground.
+Json stacked() {
+    return {
+        {"formatVersion", 1},
+        {"name", "Stacked supplies"},
+        {"board", {{"type", "breadboard"}, {"columns", 30}}},
+        {"chip", {{"mcu", "atmega328p"}, {"column", 3}}},
+        {"components",
+         {{{"id", "psu"}, {"type", "bench-supply"}, {"at", {{"positive", "a22"}, {"negative", "a24"}}}},
+          {{"id", "upper"}, {"type", "bench-supply"}, {"at", {{"positive", "a26"}, {"negative", "a28"}}}},
+          {{"id", "load"}, {"type", "variable-load"}, {"at", {{"a", "e26"}, {"b", "e29"}}}}}},
+        {"wires",
+         {{{"from", "b24"}, {"to", "T-24"}, {"color", "black"}},   // psu negative on ground
+          {{"from", "b22"}, {"to", "b28"}, {"color", "red"}},      // psu positive on the upper negative
+          {{"from", "c29"}, {"to", "B-29"}, {"color", "black"}}}}  // the load returns to ground
+    };
+}
+}  // namespace
+
+SCENARIO("a supply with its terminals shorted limits the current and holds no voltage", "[circuit][supply]") {
+    GIVEN("a channel at 5 V and 100 mA whose positive terminal is wired to its negative one") {
+        auto description = bench();
+        description["wires"].push_back({{"from", "c22"}, {"to", "c24"}, {"color", "red"}});
+        auto circuit = build(description);
+        configure(*circuit, 5.0, 0.1, true);
+        THEN("it is in current limitation at the limit, with no voltage across it, and the short is reported") {
+            CHECK(reading(*circuit, "psu", "mode") == 2.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-9));
+            CHECK(reading(*circuit, "psu", "outputVoltage") == Approx(0.0).margin(1e-6));
+            CHECK(!circuit->shorts().empty());
+        }
+    }
+}
+
+SCENARIO("a supply carries the current of the supply stacked on it", "[circuit][supply]") {
+    GIVEN("two 5 V supplies in series feeding 100 ohms") {
+        auto circuit = build(stacked());
+        REQUIRE(circuit->set("load", "resistance", 100.0));
+        REQUIRE(circuit->set("psu", "voltage", 5.0));
+        REQUIRE(circuit->set("upper", "voltage", 5.0));
+        REQUIRE(circuit->set("psu", "currentLimit", 1.0));
+        REQUIRE(circuit->set("upper", "currentLimit", 1.0));
+        REQUIRE(circuit->set("psu", "enabled", 1.0));
+        REQUIRE(circuit->set("upper", "enabled", 1.0));
+        THEN("both deliver 100 mA at 10 V across the load") {
+            CHECK(circuit->voltageAt("a26").value() == Approx(10.0).margin(1e-6));
+            CHECK(reading(*circuit, "upper", "outputCurrent") == Approx(0.1).margin(1e-6));
+            CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-6));
+            CHECK(reading(*circuit, "psu", "mode") == 1.0);
+        }
+        WHEN("the lower supply is limited to 50 mA") {
+            REQUIRE(circuit->set("psu", "currentLimit", 0.05));
+            THEN("it limits, and the whole stack carries 50 mA: 5 V + 5 V would drive 100 mA, 50 mA gives 5 V") {
+                CHECK(reading(*circuit, "psu", "mode") == 2.0);
+                CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.05).margin(1e-6));
+                CHECK(reading(*circuit, "load", "current") == Approx(0.05).margin(1e-6));
+            }
+        }
+    }
+}
