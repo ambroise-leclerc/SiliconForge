@@ -119,6 +119,7 @@ struct Circuit::Model {
         std::vector<double>      value;  ///< Per element: brightness or wiper voltage.
         std::vector<double>      extra;  ///< Per element: LED, load or supply current.
         std::vector<char>        mode;   ///< Per element: the mode of a supply (0 off, 1 CV, 2 CC).
+        std::vector<char>        fought;  ///< Per element: a supply in CV whose positive terminal another source holds at another voltage.
         std::vector<std::string> shorts;
     };
 
@@ -211,7 +212,8 @@ struct Circuit::Model {
         for (std::size_t i = 0; i < elements.size(); ++i)
             if (elements[i].kind == Kind::Supply && entryOf(elements[i], elements[i].enabledIndex)->value != 0.0)
                 mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) ? 2 : 1;  // Terminals shorted: it can only limit.
-        Solution result;
+        std::vector<char> fought(elements.size(), 0);
+        Solution          result;
         for (int round = 0; round < 8; ++round) {
             result       = solveOnce(supplyVolts, mode);
             bool changed = false;
@@ -220,10 +222,15 @@ struct Circuit::Model {
                     continue;
                 const auto setpoint = entryOf(elements[i], elements[i].stateIndex)->value;
                 const auto limit    = entryOf(elements[i], elements[i].limitIndex)->value;
-                if (mode[i] == 1 && result.extra[i] > limit * (1 + 1e-9)) {
+                if (mode[i] == 1 && result.fought[i]) {
+                    // Another source holds its output at a different voltage: all it can do is limit its current.
+                    mode[i]   = 2;
+                    fought[i] = 1;
+                    changed   = true;
+                } else if (mode[i] == 1 && result.extra[i] > limit * (1 + 1e-9)) {
                     mode[i] = 2;
                     changed = true;
-                } else if (mode[i] == 2 && result.value[i] > setpoint) {
+                } else if (mode[i] == 2 && !fought[i] && result.value[i] > setpoint) {
                     mode[i] = 1;
                     changed = true;
                 }
@@ -275,6 +282,7 @@ struct Circuit::Model {
 
     Solution solveOnce(double supplyVolts, const std::vector<char>& supplyMode) {
         Solution result;
+        result.fought.assign(elements.size(), 0);
         fixed.assign(netCount, std::nullopt);
         std::vector<std::string> origin(netCount);
         const auto               impose = [&](std::size_t target, double volts, std::string what) {
@@ -308,7 +316,10 @@ struct Circuit::Model {
                 const auto& reference = fixed[net(element.nodes[1])];
                 if (!reference)
                     continue;
-                impose(net(element.nodes[0]), *reference + entryOf(element, element.stateIndex)->value, "supply " + components[element.component].id);
+                const auto wanted = *reference + entryOf(element, element.stateIndex)->value;
+                if (fixed[net(element.nodes[0])] && std::abs(*fixed[net(element.nodes[0])] - wanted) > shortTolerance)
+                    result.fought[i] = 1;
+                impose(net(element.nodes[0]), wanted, "supply " + components[element.component].id);
                 placed[i] = progress = true;
             }
             if (!progress)

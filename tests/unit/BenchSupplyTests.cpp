@@ -2,6 +2,7 @@
 // transition is qualified on reference values that follow from Ohm's law, not from the model's own output.
 
 #include <siliconforge/circuit/Circuit.hpp>
+#include <siliconforge/circuit/Description.hpp>
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
@@ -234,6 +235,48 @@ SCENARIO("a supply carries the current of the supply stacked on it", "[circuit][
                 CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.05).margin(1e-6));
                 CHECK(reading(*circuit, "load", "current") == Approx(0.05).margin(1e-6));
             }
+        }
+    }
+}
+
+SCENARIO("a supply whose output another source holds at another voltage limits its current", "[circuit][supply]") {
+    GIVEN("a channel at 5 V and 100 mA whose positive terminal is wired to the ground rail") {
+        auto description = bench();
+        description["wires"].push_back({{"from", "c22"}, {"to", "T-22"}, {"color", "red"}});
+        auto circuit = build(description);
+        configure(*circuit, 5.0, 0.1, true);
+        THEN("it is in current limitation at its limit instead of staying in constant voltage with no current") {
+            CHECK(reading(*circuit, "psu", "mode") == 2.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-9));
+            CHECK(!circuit->shorts().empty());
+        }
+    }
+}
+
+SCENARIO("a variable load cannot be described with a resistance that can reach zero", "[circuit][supply][description]") {
+    auto load = [](double minimum, double fallback) {
+        return Json{
+            {"formatVersion", 1},
+            {"type", "zero-load"},
+            {"name", "Zero load"},
+            {"terminals", {{{"name", "a"}}, {{"name", "b"}}}},
+            {"properties", Json::object()},
+            {"footprint", {{"kind", "span"}, {"minimum", 2}, {"maximum", 12}}},
+            {"model", {{"elements", {{{"type", "variable-resistor"}, {"between", {"a", "b"}}}}}}},
+            {"state",
+             {{"resistance", {{"type", "number"}, {"minimum", minimum}, {"maximum", 1000.0}, {"default", fallback}}},
+              {"voltage", {{"type", "number"}, {"default", 0}}},
+              {"current", {{"type", "number"}, {"default", 0}}}}}};
+    };
+    GIVEN("a minimum or a default of zero") {
+        THEN("the description is refused") {
+            CHECK(!circuit::validateComponent(load(0.0, 10.0)));
+            CHECK(!circuit::validateComponent(load(1.0, 0.0)));
+        }
+    }
+    GIVEN("a strictly positive minimum and default") {
+        THEN("the description is accepted") {
+            CHECK(circuit::validateComponent(load(1.0, 10.0)));
         }
     }
 }

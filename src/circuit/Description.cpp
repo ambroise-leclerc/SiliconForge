@@ -154,6 +154,15 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
             if (!state.contains(key) || state.at(key).at("type") != std::string(rule.stateType))
                 fail(path + "/type", "A " + type + " needs the " + std::string(rule.stateType) + " state '" + key + "'");
         }
+        if (type == "variable-resistor") {
+            // The resistance divides: it must be above zero in every value the state can take.
+            const auto  key   = name.empty() ? std::string("resistance") : name + ".resistance";
+            const auto& entry = state.at(key);
+            if (!entry.contains("minimum") || entry.at("minimum").get<double>() <= 0.0)
+                fail(path + "/type", "The state '" + key + "' of a variable-resistor needs a minimum above zero");
+            if (entry.contains("default") && entry.at("default").get<double>() <= 0.0)
+                fail(path + "/type", "The state '" + key + "' of a variable-resistor needs a default above zero");
+        }
         for (const auto& [extra, extraType] : rule.more) {
             const auto key = name.empty() ? std::string(extra) : name + "." + std::string(extra);
             if (!state.contains(key) || state.at(key).at("type") != std::string(extraType))
