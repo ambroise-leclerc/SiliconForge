@@ -215,7 +215,8 @@ struct Circuit::Model {
         std::vector<char> mode(elements.size(), 0);
         for (std::size_t i = 0; i < elements.size(); ++i)
             if (elements[i].kind == Kind::Supply && entryOf(elements[i], elements[i].enabledIndex)->value != 0.0)
-                mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) ? 2 : 1;  // Terminals shorted: it can only limit.
+                // Terminals shorted: it can only limit, unless it is asked for 0 V, which is what a short gives.
+                mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) && entryOf(elements[i], elements[i].stateIndex)->value > 0.0 ? 2 : 1;
         std::vector<char>        fought(elements.size(), 0);
         std::vector<char>        opened(elements.size(), 0);
         std::vector<std::string> fights(elements.size());
@@ -389,6 +390,10 @@ struct Circuit::Model {
         for (std::size_t i = 0; i < elements.size(); ++i) {
             if (elements[i].kind != Kind::Supply || supplyMode[i] == 0)
                 continue;
+            if (supplyMode[i] == 1 && net(elements[i].nodes[0]) == net(elements[i].nodes[1])) {
+                active[i] = 1;  // A 0 V channel with its terminals together: nothing to hold, nothing delivered.
+                continue;
+            }
             if (fixed[net(elements[i].nodes[1])] && (supplyMode[i] == 2 || placed[i])) {
                 active[i] = 1;
                 continue;
@@ -600,6 +605,8 @@ struct Circuit::Model {
                 if (elements[i].kind != Kind::Supply || !active[i] || supplyMode[i] != 1 || stiff[i] || result.held[i])
                     continue;
                 const auto positive = net(elements[i].nodes[0]);
+                if (positive == net(elements[i].nodes[1]))
+                    continue;  // Its terminals are together: whatever leaves one enters the other.
                 auto       current  = currentOut(positive, result, conducting, supplyVolts);
                 for (std::size_t j = 0; j < elements.size(); ++j) {
                     if (j == i || elements[j].kind != Kind::Supply || !active[j])
@@ -622,7 +629,7 @@ struct Circuit::Model {
                 continue;
             result.mode[i]  = supplyMode[i];
             result.extra[i] = std::abs(delivered[i]) < 1e-12 ? 0.0 : delivered[i];
-            if (net(element.nodes[0]) == net(element.nodes[1]))
+            if (net(element.nodes[0]) == net(element.nodes[1]) && supplyMode[i] == 2)
                 result.shorts.push_back(std::format("Short circuit: the terminals of supply {} are connected together; it limits the current to {:.3g} A",
                                                     components[element.component].id, delivered[i]));
         }

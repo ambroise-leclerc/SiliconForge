@@ -485,3 +485,18 @@ SCENARIO("a channel that opened takes the regulation back when the voltage falls
         }
     }
 }
+
+SCENARIO("a supply set to 0 V with its terminals together delivers nothing", "[circuit][supply]") {
+    GIVEN("a channel at 0 V and 100 mA whose positive terminal is wired to its negative one") {
+        auto description = bench();
+        description["wires"].push_back({{"from", "c22"}, {"to", "c24"}, {"color", "red"}});
+        auto circuit = build(description);
+        configure(*circuit, 0.0, 0.1, true);
+        THEN("it stays in constant voltage with no current, and nothing is reported as a short") {
+            CHECK(reading(*circuit, "psu", "mode") == 1.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.0).margin(1e-9));
+            CHECK(reading(*circuit, "psu", "outputVoltage") == Approx(0.0).margin(1e-9));
+            CHECK(circuit->shorts().empty());
+        }
+    }
+}
