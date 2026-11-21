@@ -15,7 +15,8 @@ SiliconForge.components.define("bench-supply", {
     readout.textContent = "off";
     return {
       update(state) {
-        readout.textContent = state.enabled ? `${(state.outputVoltage ?? 0).toFixed(2)} V ${state.mode === 2 ? "CC" : "CV"}` : "off";
+        // Enabled with no mode: the solver left the output open (no reference, or something pushes current into it).
+        readout.textContent = !state.enabled ? "off" : !state.mode ? "open" : `${(state.outputVoltage ?? 0).toFixed(2)} V ${state.mode === 2 ? "CC" : "CV"}`;
       },
     };
   },

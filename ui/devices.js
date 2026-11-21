@@ -165,11 +165,13 @@ window.SiliconForgeDevices = (root, host) => {
   // Selection ----------------------------------------------------------------------------------------------------
   let visible = new Set(["logic"]);
   let tile = false;
+  let lastMode;  // The mode of the analyser the bar last saw: a change made elsewhere (instruments.set) is not undone.
   const mode = () => (host.instruments?.view.mode === "scope" ? "scope" : "logic");
 
   function apply() {
     const analyser = [...visible].find((device) => groupOf(device) === "analyser");
     if (analyser && host.instruments && host.instruments.view.mode !== analyser) host.instruments.set({mode: analyser});
+    lastMode = host.instruments?.view.mode;
     for (const [name, element] of Object.entries(groups)) element.hidden = !(name === "analyser" ? analyser : visible.has(name));
     for (const button of bar.querySelectorAll("[data-device]")) button.setAttribute("aria-pressed", String(visible.has(button.dataset.device)));
     root.dataset.devices = String(visible.size);
@@ -231,8 +233,12 @@ window.SiliconForgeDevices = (root, host) => {
         const state = host.state?.components?.[id];
         if (state) plate.update(state);
       }
-      const current = visible.has("scope") ? "scope" : visible.has("logic") ? "logic" : null;
-      if (current && host.instruments && host.instruments.view.mode !== current) host.instruments.set({mode: current});
+      const seen = host.instruments?.view.mode;
+      if (seen && seen !== lastMode) {  // Changed through instruments.set(): the bar follows it.
+        lastMode = seen;
+        const current = visible.has("scope") ? "scope" : visible.has("logic") ? "logic" : null;
+        if (current && current !== seen && (seen === "scope" || seen === "logic")) show([...visible].map((device) => (groupOf(device) === "analyser" ? seen : device)));
+      }
     },
     show,
     get visible() { return [...visible]; },

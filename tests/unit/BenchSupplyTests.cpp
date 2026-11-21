@@ -436,3 +436,27 @@ SCENARIO("several supplies sharing one load settle with every limit respected", 
         }
     }
 }
+
+SCENARIO("two supplies in series beat a lower channel in parallel with them", "[circuit][supply]") {
+    GIVEN("two 3 V channels in series and a 5 V channel, all on a 100 ohm load") {
+        auto description = stacked();
+        description["components"][1]["at"] = {{"positive", "a26"}, {"negative", "a28"}};
+        description["components"].push_back({{"id", "low"}, {"type", "bench-supply"}, {"at", {{"positive", "f26"}, {"negative", "f28"}}}});
+        description["wires"].push_back({{"from", "g26"}, {"to", "d26"}, {"color", "red"}});
+        description["wires"].push_back({{"from", "g28"}, {"to", "T-28"}, {"color", "black"}});
+        auto circuit = build(description);
+        REQUIRE(circuit->set("load", "resistance", 100.0));
+        for (const char* id : {"psu", "upper", "low"}) {
+            REQUIRE(circuit->set(id, "voltage", std::string_view{id} == "low" ? 5.0 : 3.0));
+            REQUIRE(circuit->set(id, "currentLimit", 1.0));
+            REQUIRE(circuit->set(id, "enabled", 1.0));
+        }
+        THEN("the stack holds the node at 6 V, the 5 V channel opens, and nothing is reported as a short") {
+            CHECK(circuit->voltageAt("e26").value() == Approx(6.0).margin(1e-6));
+            CHECK(reading(*circuit, "load", "current") == Approx(0.06).margin(1e-9));
+            CHECK(reading(*circuit, "upper", "mode") == 1.0);
+            CHECK(reading(*circuit, "low", "mode") == 0.0);
+            CHECK(circuit->shorts().empty());
+        }
+    }
+}

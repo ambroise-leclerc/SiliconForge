@@ -246,9 +246,13 @@ struct Circuit::Model {
                     // Something pushes current into it and it cannot absorb any: its output opens.
                     mode[i] = 0;
                     changed = true;
-                } else if (mode[i] == 2 && !fought[i] && !oneWay && result.value[i] > setpoint) {
-                    mode[i] = 1;
-                    changed = true;
+                } else if (mode[i] == 2 && !oneWay && result.value[i] > setpoint) {
+                    // Back in constant voltage, and no longer in conflict until it is placed again: what held its output
+                    // below its setpoint may have gone (a lower channel that opened).
+                    mode[i]   = 1;
+                    fought[i] = 0;
+                    fights[i].clear();
+                    changed   = true;
                 }
             }
             if (!changed)
