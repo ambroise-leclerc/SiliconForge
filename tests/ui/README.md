@@ -14,6 +14,7 @@ live emulated MCU. It drives the firmware through `window.siliconForge`, the aut
 | `component(id)`, `setComponent(id, name, value)` | State of a component in the last frame (`{brightness}`, `{pressed}`...), and the user's interactions (`"pressed"`, 1) |
 | `examples()`, `loadExample(id)` | Built-in firmware with their circuits |
 | `instruments` | The capture and its measurements: `sync()`, `samples(pin)`, `measure(pin, from, to)`, `decodeUart(pin)`, `vcd()`; see [the guide](../../docs/INSTRUMENTS.md) |
+| `devices` | The bench devices of the bottom panel: `show([...])`, `visible`, `faceplate(id)`; see [the instruments guide](../../docs/INSTRUMENTS.md#les-appareils-du-banc) |
 | `terminal` | The agent terminal (#55): `clients`, `open(id)`, `hangUp()`, `state`, the xterm.js `terminal`; see [the terminal guide](../../docs/TERMINAL.md) |
 | `editor` | The editor of the project sources (#56): `files`, `open(path)`, `text`, `save()`, `state`, `conflict`, `keepMine()`, `useDisk()`, `restore()`, `view(mode)`, `poll()`; see [the editor guide](../../docs/EDITOR.md) |
 | `bench` | The bench (#60): `list()`, `run(scenarioFile)`, `open(runName)`, the shown `result`, `differences(a, b)`; see [the bench guide](../../docs/BANC.md) |

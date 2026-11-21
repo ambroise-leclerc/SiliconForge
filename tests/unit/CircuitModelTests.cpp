@@ -277,3 +277,29 @@ TEST_CASE("A circuit is refused when it is invalid or when the chip does not fit
         CHECK(attached.error().path == "/chip/column");
     }
 }
+
+SCENARIO("a supply referenced only by the pull-up of an input is regulated", "[circuit][model][supply]") {
+    auto description = circuit::builtinDescription("led-buttons");
+    description["components"].push_back({{"id", "psu"}, {"type", "bench-supply"}, {"at", {{"positive", "a25"}, {"negative", "a27"}}}});
+    description["components"].push_back({{"id", "r-ground"}, {"type", "resistor"}, {"at", {{"a", "c25"}, {"b", "c29"}}}, {"properties", {{"resistance", 1000}}}});
+    description["wires"].push_back({{"from", "d29"}, {"to", "B-29"}, {"color", "black"}});
+    description["wires"].push_back({{"from", "d4"}, {"to", "d27"}, {"color", "green"}});
+    GIVEN("a channel whose negative terminal is on D2, an input with its pull-up, and whose positive terminal returns to ground through 1 kohm") {
+        const auto path = firmwareDir / "buttons.hex";
+        if (!std::filesystem::exists(path))
+            SKIP(path.string() << " is missing: build the firmware (see firmware/README.md)");
+        testing::Bench bench{mcu::create("atmega328p")};
+        bench.attach(description);
+        bench.load(path);
+        bench.runFor(20ms);  // The firmware turns the pull-up on.
+        auto psu = bench.component("psu");
+        REQUIRE(bench.circuit().set("psu", "voltage", 1.0));
+        REQUIRE(bench.circuit().set("psu", "currentLimit", 0.1));
+        REQUIRE(bench.circuit().set("psu", "enabled", 1.0));
+        THEN("it holds 1 V across its terminals and delivers what the pull-up pushes through 36 kohm") {
+            CHECK(psu.state("mode") == 1.0);
+            CHECK(psu.state("outputVoltage") == Approx(1.0).margin(1e-3));
+            CHECK(psu.state("outputCurrent") == Approx(6.0 / 36000.0).epsilon(0.01));
+        }
+    }
+}

@@ -11,6 +11,7 @@
   <script src="breadboard.js" defer></script>
   <script src="pinout.js" defer></script>
   <script src="instruments.js" defer></script>
+  <script src="devices.js" defer></script>
   <script src="vendor/xterm/xterm.js" defer></script>
   <script src="vendor/xterm/addon-fit.js" defer></script>
   <script src="vendor/prism/prism.min.js" data-manual defer></script>
@@ -130,6 +131,16 @@
     </section>
 
     <section class="panel instruments" id="instruments" aria-label="Instruments">
+      <div class="device-bar" role="toolbar" aria-label="Bench devices">
+        <button type="button" data-device="logic" aria-pressed="true" title="Digital lanes, one per pin">Logic analyser</button>
+        <button type="button" data-device="scope" aria-pressed="false" title="Voltages of the pins">Oscilloscope</button>
+        <button type="button" data-device="supply" aria-pressed="false">Supply</button>
+        <button type="button" data-device="load" aria-pressed="false">Load</button>
+        <button type="button" data-device="multimeter" aria-pressed="false">Multimeter</button>
+        <button type="button" class="toggle end" data-action="tile" aria-pressed="false" title="Show several devices at once (or Shift-click a device)">Side by side</button>
+      </div>
+      <div class="devices">
+      <div class="device analyser" data-device-group="analyser">
       <h2 class="panel-header">
         <span class="tabs" role="tablist">
           <button role="tab" data-mode="logic" aria-selected="true" title="Digital lanes, one per pin">Logic analyser</button>
@@ -168,6 +179,20 @@
         <output class="warning" data-readout="capture"></output>
         <span class="end">Edges are time-stamped in clock cycles: wheel to zoom, drag to look back.</span>
       </p>
+      </div>
+      <div class="device" data-device-group="supply" hidden>
+        <div class="plates"></div>
+        <p class="hint empty">This circuit has no programmable supply. Load the “Bench demo” circuit, or add a <code>bench-supply</code> component (docs/CIRCUITS.md).</p>
+      </div>
+      <div class="device" data-device-group="load" hidden>
+        <div class="plates"></div>
+        <p class="hint empty">This circuit has no variable load. Load the “Bench demo” circuit, or add a <code>variable-load</code> component (docs/CIRCUITS.md).</p>
+      </div>
+      <div class="device" data-device-group="multimeter" hidden>
+        <div class="plates"></div>
+        <p class="hint empty">This circuit has no multimeter. Load the “Bench demo” circuit, or add a <code>multimeter</code> component (docs/CIRCUITS.md).</p>
+      </div>
+      </div>
     </section>
 
     <aside class="side" id="side">

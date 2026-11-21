@@ -130,6 +130,33 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
   const drawn = new Map();  // Id -> update(state) of its rendering module
   const placed = new Map();  // Id -> {component, renderer, layer, footprint}: what can be drawn again elsewhere
   let lastState = null;
+  /**
+   * Where an instrument is connected: a coloured, labelled marker on the hole and a lead of the same colour to the
+   * tag of the instrument. The symbol and the colour are those of the jack on the instrument panel (ui/devices.js):
+   * plus (red), minus (black), com (ground symbol), volt (yellow V), load (blue Ω).
+   */
+  const probe = (parent, point, tag, {kind, symbol, title}) => {
+    const group = el("g", {class: `bb-probe ${kind}`}, parent);
+    el("path", {d: `M ${point.x} ${point.y} Q ${point.x} ${tag.y + 16} ${tag.x} ${tag.y + 16}`, class: "bb-probe-lead"}, group);
+    el("circle", {cx: point.x, cy: point.y, r: 7, class: "bb-probe-dot"}, group);
+    if (symbol === "ground") {
+      el("path", {d: `M ${point.x} ${point.y - 4} v 2.5 M ${point.x - 4} ${point.y - 1.5} h 8 M ${point.x - 2.6} ${point.y + 0.8} h 5.2 M ${point.x - 1.2} ${point.y + 3} h 2.4`,
+                  class: "bb-probe-symbol"}, group);
+    } else {
+      el("text", {x: point.x, y: point.y + 3.4, class: "bb-probe-text", "text-anchor": "middle"}, group, symbol);
+    }
+    if (title) el("title", {}, group, title);
+    return group;
+  };
+  /** The tag of an instrument on the board: its name and, below it, a reading (`.reading`), centred on `centre`. */
+  const instrumentTag = (parent, centre, text) => {
+    const width = Math.max(66, text.length * 6.6 + 12);
+    const group = el("g", {class: "bb-instrument-tag"}, parent);
+    el("rect", {x: centre.x - width / 2, y: centre.y - 1, width, height: 34, rx: 4, class: "bb-tag-box"}, group);
+    el("text", {x: centre.x, y: centre.y + 13, class: "bb-tag-text", "text-anchor": "middle"}, group, text);
+    group.reading = el("text", {x: centre.x, y: centre.y + 27, class: "bb-tag-reading", "text-anchor": "middle"}, group, "");
+    return group;
+  };
   /** Draws a component with its terminals in `holes`, in place of its previous drawing when there is one. */
   const draw = (entry, holes) => {
     const {component, renderer} = entry;
@@ -144,6 +171,8 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
     const at = Object.fromEntries(Object.entries(holes).map(([terminal, spec]) => [terminal, hole(spec)]));
     const instance = renderer.create({
       el, layer, at, hole, pitch, glow, capture,
+      probe: (point, tag, options) => probe(layer, point, tag, options),
+      instrumentTag: (centre, text) => instrumentTag(layer, centre, text),
       set: (name, value) => ctx.setComponent(component.id, name, value),
     }, {...component, at: holes}) || {};
     if (isDipole(entry)) layer.classList.add("bb-movable");
@@ -393,9 +422,34 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
     svg.append(overlay);    // The handles above everything
   }
 
+  // The channels of the logic analyser and the oscilloscope: a ring in the colour of the trace around the leg of the pin.
+  const channelLayer = el("g", {class: "bb-channels"}, svg);
+  let channelKey = "";
+  const markChannels = () => {
+    const channels = ctx.channels?.() ?? [];
+    const key = channels.map((channel) => `${channel.pin}:${channel.colour}`).join();
+    if (key === channelKey) return;
+    channelKey = key;
+    channelLayer.replaceChildren();
+    channels.forEach((channel, row) => {
+      const leg = legs.get(channel.pin);
+      if (!leg) return;
+      const x = Number(leg.getAttribute("x")) + 4;
+      const y = Number(leg.getAttribute("y")) + 4;
+      const top = y < 168;
+      const group = el("g", {class: "bb-channel-mark"}, channelLayer);
+      el("circle", {cx: x, cy: y, r: 7.5, fill: "none", stroke: channel.colour, "stroke-width": 2.2}, group);
+      el("line", {x1: x, y1: top ? y - 7.5 : y + 7.5, x2: x, y2: top ? y - 13 : y + 13, stroke: channel.colour, "stroke-width": 2}, group);
+      el("text", {x, y: top ? y - 16 : y + 22, "text-anchor": "middle", class: "bb-channel-text", fill: channel.colour}, group, String(row + 1));
+      el("title", {}, group, `${ctx.channelName?.() ?? "Instrument"} channel ${row + 1}: ${channel.pin}`);
+    });
+  };
+  svg.append(channelLayer);
+
   return {
     update(state) {
       lastState = state;
+      markChannels();
       for (const pin of state.pins) {
         const leg = legs.get(pin.name);
         if (!leg) continue;

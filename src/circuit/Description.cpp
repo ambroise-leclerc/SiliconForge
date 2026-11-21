@@ -43,6 +43,8 @@ struct ElementRule {
     std::vector<std::string_view> properties;
     std::string_view              state;
     std::string_view              stateType;
+    /// More state entries the model reads or writes, as (name, type).
+    std::vector<std::pair<std::string_view, std::string_view>> more{};
 };
 
 ElementRule ruleFor(std::string_view type) {
@@ -59,6 +61,12 @@ ElementRule ruleFor(std::string_view type) {
         return {2, {}, "pressed", "boolean"};
     if (type == "potentiometer")
         return {3, {"resistance"}, "position", "number"};
+    if (type == "supply")
+        return {2, {}, "voltage", "number", {{"currentLimit", "number"}, {"enabled", "boolean"}, {"outputVoltage", "number"}, {"outputCurrent", "number"}, {"mode", "number"}}};
+    if (type == "meter")
+        return {2, {}, "voltage", "number"};
+    if (type == "variable-resistor")
+        return {2, {}, "resistance", "number", {{"voltage", "number"}, {"current", "number"}}};
     return {2, {}, "", ""};  // wire
 }
 
@@ -145,6 +153,20 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
             const auto key = name.empty() ? std::string(rule.state) : name + "." + std::string(rule.state);
             if (!state.contains(key) || state.at(key).at("type") != std::string(rule.stateType))
                 fail(path + "/type", "A " + type + " needs the " + std::string(rule.stateType) + " state '" + key + "'");
+        }
+        if (type == "variable-resistor") {
+            // The resistance divides: it must be above zero in every value the state can take.
+            const auto  key   = name.empty() ? std::string("resistance") : name + ".resistance";
+            const auto& entry = state.at(key);
+            if (!entry.contains("minimum") || entry.at("minimum").get<double>() <= 0.0)
+                fail(path + "/type", "The state '" + key + "' of a variable-resistor needs a minimum above zero");
+            if (!entry.contains("default") || entry.at("default").get<double>() <= 0.0)
+                fail(path + "/type", "The state '" + key + "' of a variable-resistor needs a default above zero");
+        }
+        for (const auto& [extra, extraType] : rule.more) {
+            const auto key = name.empty() ? std::string(extra) : name + "." + std::string(extra);
+            if (!state.contains(key) || state.at(key).at("type") != std::string(extraType))
+                fail(path + "/type", "A " + type + " needs the " + std::string(extraType) + " state '" + key + "'");
         }
     }
 }

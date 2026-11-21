@@ -18,6 +18,7 @@
   let lastRate = null;  // Cycles and wall time of the last speed measurement
   let circuit = null;  // The circuit the chip is plugged in (sf.circuit()), null for a bare board
   let instruments = null;
+  let devices = null;
   let bench = null;
   let terminal = null;
   let editor = null;
@@ -68,6 +69,8 @@
      */
     moveComponent: (id, holes) => call("sf.component.move", id, JSON.stringify(holes)),
     get instruments() { return instruments; },
+    /** The bench devices of the bottom panel: `show([...])`, `visible`, `faceplate(id)`; see ui/devices.js. */
+    get devices() { return devices; },
     /** The bench: `list()`, `run(scenarioFile)`, `open(runName)`, the shown `result`; see ui/bench.js. */
     get bench() { return bench; },
     /** The agent terminal: `clients`, `open(id)`, `hangUp()`, `state`; see ui/terminal.js. */
@@ -206,6 +209,8 @@
     cycle: cycleInput,
     forced: (name) => (forced.has(name) ? (forced.get(name) ? "high" : "low") : ""),
     setPin: (name, level) => api.setPin(name, level),
+    channels: () => (devices?.analyserVisible ? instruments?.channels() : []),
+    channelName: () => (instruments?.view.mode === "scope" ? "Oscilloscope" : "Logic analyser"),
     setComponent: (id, name, value) => api.setComponent(id, name, value).catch((error) => console.warn(error.message)),
     moveComponent: (id, holes) => api.moveComponent(id, holes).then(() => showCircuitError(null), (error) => {
       showCircuitError(new Error(`Cannot move ${id}: ${error.message}`));
@@ -404,6 +409,7 @@
     renderSerial(s.serial);
     showShorts(s.shorts);
     instruments?.update();
+    devices?.update();
   }
 
   // Controls ------------------------------------------------------------------------------------------------------
@@ -548,6 +554,10 @@
   try { theme = localStorage.getItem("siliconforge.theme") || theme; } catch { /* Storage may be unavailable */ }
   applyTheme(theme);
   instruments = window.SiliconForgeInstruments($("instruments"), {call, get state() { return state; }, get circuit() { return circuit; }});
+  devices = window.SiliconForgeDevices($("instruments"), {
+    get state() { return state; }, get circuit() { return circuit; }, instruments,
+    setComponent: (id, name, value) => viewContext.setComponent(id, name, value),
+  });
   bench = window.SiliconForgeBench($("bench"), {call, ready: webFront.ready});
   side = sideTabs();
   agent = window.SiliconForgeAgent($("agent"), {

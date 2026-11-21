@@ -1,0 +1,18 @@
+{
+  "formatVersion": 1,
+  "type": "bench-supply",
+  "name": "Programmable supply",
+  "description": "One channel of a bench power supply. Enabled, it holds the set voltage between its terminals until the load asks for more than the current limit; it then limits the current and lets the voltage fall (constant-voltage to constant-current transition). Its negative terminal must be tied to a reference: the ground rail or any other source.",
+  "terminals": [{"name": "positive"}, {"name": "negative"}],
+  "properties": {},
+  "footprint": {"kind": "fixed", "offsets": {"positive": [0, 0], "negative": [2, 0]}},
+  "model": {"elements": [{"type": "supply", "between": ["positive", "negative"]}]},
+  "state": {
+    "voltage": {"type": "number", "minimum": 0, "maximum": 30, "default": 5, "interactive": true, "description": "Voltage setpoint, in volts."},
+    "currentLimit": {"type": "number", "minimum": 0.001, "maximum": 3, "default": 0.1, "interactive": true, "description": "Current limit, in amperes."},
+    "enabled": {"type": "boolean", "default": false, "interactive": true, "description": "The channel output. Off, the terminals are left open."},
+    "outputVoltage": {"type": "number", "default": 0, "description": "Voltage obtained between the terminals, in volts."},
+    "outputCurrent": {"type": "number", "default": 0, "description": "Current delivered by the positive terminal, in amperes."},
+    "mode": {"type": "number", "minimum": 0, "maximum": 2, "default": 0, "description": "0: output off, 1: constant voltage, 2: constant current (the limit is reached)."}
+  }
+}

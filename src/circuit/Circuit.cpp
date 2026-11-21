@@ -14,7 +14,10 @@ using Json = nlohmann::json;
 constexpr double pullUpResistance  = 35'000.0;  // Typical internal pull-up of an AVR input.
 constexpr double ledOnResistance   = 5.0;       // Dynamic resistance of a conducting LED.
 constexpr double leakConductance   = 1e-10;     // Keeps an unconnected net solvable; it reads 0 V.
+constexpr double stiffConductance  = 1e6;       // A supply held between two nets that no source fixes: 1 µΩ.
 constexpr double minimumResistance = 1e-3;      // A potentiometer at the end of its track.
+constexpr double absorbedCurrent   = 1e-9;      // A supply cannot take in more than numerical noise.
+constexpr double conflictTolerance = 1e-9;      // A supply whose output is held at another voltage than its setpoint, however little.
 constexpr double shortTolerance    = 0.05;      // Two sources closer than this agree.
 constexpr std::size_t maxRemembered = 4096;
 
@@ -85,13 +88,17 @@ struct Circuit::Model {
         std::vector<int>        terminals;  ///< Nodes, in the order of the type's terminals.
         std::string             pin;        ///< MCU pin the component is wired to, when there is one.
     };
-    enum class Kind { Wire, Resistor, Led, Switch, Potentiometer };
+    enum class Kind { Wire, Resistor, Led, Switch, Potentiometer, Supply, Load, Meter };
     struct Element {
         Kind        kind;
         int         nodes[3]{-1, -1, -1};
         std::size_t component;
         int         stateIndex{-1};  ///< brightness, pressed or position.
-        int         extraIndex{-1};  ///< current (LED) or voltage (potentiometer), when the type declares it.
+        int         extraIndex{-1};  ///< current (LED, supply, load) or voltage (potentiometer), when the type declares it.
+        int         limitIndex{-1};    ///< Supply: current limit.
+        int         enabledIndex{-1};  ///< Supply: output enabled.
+        int         voltageIndex{-1};  ///< Supply: voltage obtained; load: voltage across.
+        int         modeIndex{-1};     ///< Supply: 0 off, 1 constant voltage, 2 constant current.
         double      resistance{0};
         double      forwardVoltage{0};
         double      nominalCurrent{1};
@@ -112,7 +119,11 @@ struct Circuit::Model {
         std::vector<char>        driven;   ///< Per net: a source reaches it through wires and components.
         std::vector<char>        conducting;
         std::vector<double>      value;  ///< Per element: brightness or wiper voltage.
-        std::vector<double>      extra;  ///< Per element: LED current.
+        std::vector<double>      extra;  ///< Per element: LED, load or supply current.
+        std::vector<char>        mode;   ///< Per element: the mode of a supply (0 off, 1 CV, 2 CC).
+        std::vector<char>        held;    ///< Per element: a supply in CV whose positive terminal another source holds above its setpoint.
+        std::vector<char>        fought;  ///< Per element: a supply in CV whose positive terminal another source holds below its setpoint.
+        std::vector<std::string> fight;   ///< Per element: the conflict that made it so.
         std::vector<std::string> shorts;
     };
 
@@ -192,8 +203,127 @@ struct Circuit::Model {
         return result;
     }
 
+    /// The state entry of an element, or nullptr when the type does not declare it.
+    StateEntry* entryOf(const Element& element, int index) {
+        return index < 0 ? nullptr : &components[element.component].state[static_cast<std::size_t>(index)];
+    }
+
+    /// Solves the circuit with the supplies in the modes they take as the load asks for current: a supply starts in
+    /// constant voltage, goes to constant current when it would deliver more than its limit, and returns to constant
+    /// voltage when the voltage it can hold in constant current exceeds its setpoint.
     Solution solve(double supplyVolts) {
+        std::vector<char> mode(elements.size(), 0);
+        for (std::size_t i = 0; i < elements.size(); ++i)
+            if (elements[i].kind == Kind::Supply && entryOf(elements[i], elements[i].enabledIndex)->value != 0.0)
+                // Terminals shorted: it can only limit, unless it is asked for 0 V, which is what a short gives.
+                mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) && entryOf(elements[i], elements[i].stateIndex)->value > 0.0 ? 2 : 1;
+        std::vector<char>        fought(elements.size(), 0);
+        std::vector<char>        opened(elements.size(), 0);
+        std::vector<std::string> fights(elements.size());
+        const auto               supplies = static_cast<int>(std::ranges::count_if(elements, [](const auto& e) { return e.kind == Kind::Supply; }));
+        // Modes may go both ways while the supplies settle. If they have not settled after `free` rounds (supplies
+        // sharing a load can hand the limit to one another), only the one-way changes are still allowed: a supply that
+        // reaches its limit stays there, and each round fixes at least one of them, so the rounds that follow end.
+        const int free = 4 * supplies + 8;
+        Solution  result;
+        for (int round = 0; round < free + supplies + 1; ++round) {
+            result           = solveOnce(supplyVolts, mode);
+            bool changed     = false;
+            const bool oneWay = round >= free;
+            for (std::size_t i = 0; i < elements.size(); ++i) {
+                if (elements[i].kind != Kind::Supply)
+                    continue;
+                const auto setpoint = entryOf(elements[i], elements[i].stateIndex)->value;
+                const auto limit    = entryOf(elements[i], elements[i].limitIndex)->value;
+                if (opened[i]) {
+                    // An output opened because something pushed current into it takes the regulation back as soon as
+                    // the circuit lets its voltage fall below the setpoint again.
+                    if (!oneWay && result.value[i] < setpoint - absorbedCurrent) {
+                        mode[i]   = 1;
+                        opened[i] = 0;
+                        changed   = true;
+                    }
+                    continue;
+                }
+                if (result.mode[i] == 0)
+                    continue;
+                if (mode[i] == 1 && result.fought[i]) {
+                    // Another source holds its output at a different voltage: all it can do is limit its current.
+                    mode[i]   = 2;
+                    fought[i] = 1;
+                    fights[i] = result.fight[i];
+                    changed   = true;
+                } else if (mode[i] == 1 && result.extra[i] > limit * (1 + 1e-9)) {
+                    mode[i] = 2;
+                    changed = true;
+                } else if (mode[i] == 1 && result.extra[i] < -absorbedCurrent) {
+                    // Something pushes current into it and it cannot absorb any: its output opens.
+                    mode[i]   = 0;
+                    opened[i] = 1;
+                    changed   = true;
+                } else if (mode[i] == 2 && !oneWay && result.value[i] > setpoint) {
+                    // Back in constant voltage, and no longer in conflict until it is placed again: what held its output
+                    // below its setpoint may have gone (a lower channel that opened).
+                    mode[i]   = 1;
+                    fought[i] = 0;
+                    fights[i].clear();
+                    changed   = true;
+                }
+            }
+            if (!changed)
+                break;
+        }
+        // The conflict of a supply that now limits its current is no longer imposed, but it remains a short.
+        for (std::size_t i = 0; i < elements.size(); ++i)
+            if (fought[i] && !fights[i].empty() && std::ranges::find(result.shorts, fights[i]) == result.shorts.end())
+                result.shorts.push_back(fights[i]);
+        return result;
+    }
+
+    /// The current that leaves a net through the components that touch it, for the voltages of a solution.
+    [[nodiscard]] double currentOut(std::size_t target, const Solution& solution, const std::vector<char>& conducting, double supplyVolts) const {
+        double total = 0;
+        const auto flow = [&](int from, int to, double g) {
+            if (net(from) == target && net(to) != target)
+                total += g * (solution.voltage[net(from)] - solution.voltage[net(to)]);
+            else if (net(to) == target && net(from) != target)
+                total += g * (solution.voltage[net(to)] - solution.voltage[net(from)]);
+        };
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+            const auto& element = elements[i];
+            switch (element.kind) {
+                case Kind::Resistor: flow(element.nodes[0], element.nodes[1], 1.0 / element.resistance); break;
+                case Kind::Load: flow(element.nodes[0], element.nodes[1], 1.0 / components[element.component].state[static_cast<std::size_t>(element.stateIndex)].value); break;
+                case Kind::Potentiometer: {
+                    const auto position = components[element.component].state[static_cast<std::size_t>(element.stateIndex)].value;
+                    flow(element.nodes[0], element.nodes[1], 1.0 / std::max(element.resistance * position, minimumResistance));
+                    flow(element.nodes[1], element.nodes[2], 1.0 / std::max(element.resistance * (1.0 - position), minimumResistance));
+                    break;
+                }
+                case Kind::Led:
+                    if (conducting[i]) {
+                        const auto g       = 1.0 / ledOnResistance;
+                        const auto through = g * (solution.voltage[net(element.nodes[0])] - solution.voltage[net(element.nodes[1])] - element.forwardVoltage);
+                        if (net(element.nodes[0]) == target && net(element.nodes[1]) != target)
+                            total += through;
+                        else if (net(element.nodes[1]) == target && net(element.nodes[0]) != target)
+                            total -= through;
+                    }
+                    break;
+                default: break;
+            }
+        }
+        for (const auto& entry : chip)
+            if (entry.pin && !entry.pin->isOutput() && entry.pin->hasPullUp() && net(entry.node) == target)
+                total += (solution.voltage[target] - supplyVolts) / pullUpResistance;
+        return total;
+    }
+
+    Solution solveOnce(double supplyVolts, const std::vector<char>& supplyMode) {
         Solution result;
+        result.fought.assign(elements.size(), 0);
+        result.held.assign(elements.size(), 0);
+        result.fight.assign(elements.size(), {});
         fixed.assign(netCount, std::nullopt);
         std::vector<std::string> origin(netCount);
         const auto               impose = [&](std::size_t target, double volts, std::string what) {
@@ -215,6 +345,83 @@ struct Circuit::Model {
         for (const auto& entry : chip)
             if (entry.force)
                 impose(net(entry.node), *entry.force, "the probe on " + (entry.label.empty() ? entry.name : entry.label));
+        // A supply in constant voltage holds its positive terminal above its negative one, once that one is fixed:
+        // the supplies are placed in turn, so that one may be stacked on another.
+        std::vector<char> placed(elements.size(), 0);
+        for (std::size_t round = 0; round < elements.size(); ++round) {
+            // The supplies that can be placed this round go from the highest voltage to the lowest, whatever their order
+            // in the description: a supply cannot sink current, so the highest one holds a net they share and the
+            // others, driven above their setpoint, deliver nothing.
+            std::vector<std::pair<double, std::size_t>> ready;
+            for (std::size_t i = 0; i < elements.size(); ++i) {
+                const auto& element = elements[i];
+                if (element.kind != Kind::Supply || supplyMode[i] != 1 || placed[i])
+                    continue;
+                const auto& reference = fixed[net(element.nodes[1])];
+                if (reference)
+                    ready.emplace_back(*reference + entryOf(element, element.stateIndex)->value, i);
+            }
+            std::ranges::sort(ready, [](const auto& a, const auto& b) { return a.first != b.first ? a.first > b.first : a.second < b.second; });
+            for (const auto& [wanted, i] : ready) {
+                const auto& element = elements[i];
+                const auto  before  = result.shorts.size();
+                // Held below its setpoint, it is overloaded and can only limit its current; held above, it is driven by
+                // the other source and delivers nothing: it stays in constant voltage.
+                const auto& held = fixed[net(element.nodes[0])];
+                if (held && *held < wanted - conflictTolerance)
+                    result.fought[i] = 1;
+                else if (held && *held > wanted + conflictTolerance)
+                    result.held[i] = 1;
+                // Driven above its setpoint it merely delivers nothing, as a supply behind a diode would: that is no short.
+                if (!result.held[i])
+                    impose(net(element.nodes[0]), wanted, "supply " + components[element.component].id);
+                if (result.shorts.size() > before)
+                    result.fight[i] = result.shorts[before];
+                placed[i] = true;
+            }
+            if (ready.empty())
+                break;
+        }
+        // A supply whose negative terminal is not fixed yet (stacked on a supply in constant current, say) is held by
+        // a very stiff branch between its terminals, as long as its negative terminal reaches a fixed net through the
+        // other components and supplies. One that reaches nothing has no reference: it delivers nothing.
+        std::vector<char> active(elements.size(), 0);
+        std::vector<char> stiff(elements.size(), 0);
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+            if (elements[i].kind != Kind::Supply || supplyMode[i] == 0)
+                continue;
+            if (supplyMode[i] == 1 && net(elements[i].nodes[0]) == net(elements[i].nodes[1])) {
+                active[i] = 1;  // A 0 V channel with its terminals together: nothing to hold, nothing delivered.
+                continue;
+            }
+            if (fixed[net(elements[i].nodes[1])] && (supplyMode[i] == 2 || placed[i])) {
+                active[i] = 1;
+                continue;
+            }
+            Sets group{netCount};
+            for (std::size_t j = 0; j < elements.size(); ++j) {
+                const auto& other = elements[j];
+                const bool  links = other.kind == Kind::Resistor || other.kind == Kind::Load || other.kind == Kind::Led || other.kind == Kind::Potentiometer
+                                   || (other.kind == Kind::Supply && j != i && supplyMode[j] != 0);
+                if (!links)
+                    continue;
+                group.unite(static_cast<int>(net(other.nodes[0])), static_cast<int>(net(other.nodes[1])));
+                if (other.kind == Kind::Potentiometer)
+                    group.unite(static_cast<int>(net(other.nodes[1])), static_cast<int>(net(other.nodes[2])));
+            }
+            bool referenced = false;
+            // An input with its pull-up on is tied to the supply rail through 35 kohm: that is a reference too.
+            for (const auto& entry : chip)
+                if (entry.pin && !entry.pin->isOutput() && entry.pin->hasPullUp()
+                    && group.find(static_cast<int>(net(entry.node))) == group.find(static_cast<int>(net(elements[i].nodes[1]))))
+                    referenced = true;
+            for (std::size_t n = 0; n < netCount && !referenced; ++n)
+                referenced = fixed[n] && group.find(static_cast<int>(n)) == group.find(static_cast<int>(net(elements[i].nodes[1])));
+            if (!referenced)
+                continue;
+            active[i] = 1;
+            stiff[i]  = supplyMode[i] == 1;
+        }
 
         // Unknowns: the nets a component or a pull-up touches and that no source fixes.
         std::vector<int> row(netCount, -1);
@@ -225,13 +432,18 @@ struct Circuit::Model {
                 row[target] = static_cast<int>(unknowns++);
         };
         for (const auto& element : elements) {
-            if (element.kind == Kind::Wire || element.kind == Kind::Switch)
+            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Supply || element.kind == Kind::Meter)
                 continue;
             touch(element.nodes[0]);
             touch(element.nodes[1]);
             if (element.kind == Kind::Potentiometer)
                 touch(element.nodes[2]);
         }
+        for (std::size_t i = 0; i < elements.size(); ++i)
+            if (active[i] && (supplyMode[i] == 2 || stiff[i])) {
+                touch(elements[i].nodes[0]);
+                touch(elements[i].nodes[1]);
+            }
         for (const auto& entry : chip)
             if (entry.pin && !entry.pin->isOutput() && entry.pin->hasPullUp())
                 touch(entry.node);
@@ -280,6 +492,19 @@ struct Circuit::Model {
                 const auto& element = elements[i];
                 switch (element.kind) {
                     case Kind::Resistor: conductance(net(element.nodes[0]), net(element.nodes[1]), 1.0 / element.resistance); break;
+                    case Kind::Load: conductance(net(element.nodes[0]), net(element.nodes[1]), 1.0 / entryOf(element, element.stateIndex)->value); break;
+                    case Kind::Supply:
+                        if (active[i] && stiff[i]) {  // An ideal source as a Norton pair: a conductance and the current it pushes.
+                            const auto setpoint = entryOf(element, element.stateIndex)->value;
+                            conductance(net(element.nodes[0]), net(element.nodes[1]), stiffConductance);
+                            inject(net(element.nodes[0]), stiffConductance * setpoint);
+                            inject(net(element.nodes[1]), -stiffConductance * setpoint);
+                        } else if (active[i] && supplyMode[i] == 2) {  // A current source: the limit leaves the negative terminal and enters the positive one.
+                            const auto limit = entryOf(element, element.limitIndex)->value;
+                            inject(net(element.nodes[0]), limit);
+                            inject(net(element.nodes[1]), -limit);
+                        }
+                        break;
                     case Kind::Potentiometer: {
                         const auto position = components[element.component].state[static_cast<std::size_t>(element.stateIndex)].value;
                         conductance(net(element.nodes[0]), net(element.nodes[1]), 1.0 / std::max(element.resistance * position, minimumResistance));
@@ -326,8 +551,10 @@ struct Circuit::Model {
         // so that an input left to its pull-up stays "released" for the MCU.
         Sets reach{netCount};
         for (const auto& element : elements) {
-            if (element.kind == Kind::Wire || element.kind == Kind::Switch)
-                continue;
+            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Meter)
+                continue;  // A voltmeter draws no current: it joins nothing.
+            if (element.kind == Kind::Supply && !active[static_cast<std::size_t>(&element - elements.data())])
+                continue;  // An output that is off is an open circuit.
             reach.unite(static_cast<int>(net(element.nodes[0])), static_cast<int>(net(element.nodes[1])));
             if (element.kind == Kind::Potentiometer)
                 reach.unite(static_cast<int>(net(element.nodes[1])), static_cast<int>(net(element.nodes[2])));
@@ -354,7 +581,57 @@ struct Circuit::Model {
                 result.value[i]    = std::min(1.0, current / element.nominalCurrent);
             } else if (element.kind == Kind::Potentiometer) {
                 result.value[i] = result.voltage[net(element.nodes[1])];
+            } else if (element.kind == Kind::Meter) {
+                result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
+            } else if (element.kind == Kind::Load) {
+                result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
+                result.extra[i] = result.value[i] / entryOf(element, element.stateIndex)->value;
             }
+        }
+        // What a supply obtains and delivers. In constant current it is the limit; in constant voltage it is what the
+        // components draw from its positive terminal, plus what the supplies stacked on it draw through their
+        // negative terminal, less what supplies in parallel deliver (Kirchhoff's current law on its positive net). The
+        // supplies depend on one another along a stack, so the currents are settled by repeating the sum.
+        result.mode.assign(elements.size(), 0);
+        std::vector<double> delivered(elements.size(), 0.0);
+        for (std::size_t i = 0; i < elements.size(); ++i)
+            if (elements[i].kind == Kind::Supply && active[i] && supplyMode[i] == 2)
+                delivered[i] = entryOf(elements[i], elements[i].limitIndex)->value;
+            else if (elements[i].kind == Kind::Supply && stiff[i])
+                delivered[i] = stiffConductance * (entryOf(elements[i], elements[i].stateIndex)->value
+                                                   - (result.voltage[net(elements[i].nodes[0])] - result.voltage[net(elements[i].nodes[1])]));
+        for (std::size_t round = 0; round <= elements.size(); ++round)
+            for (std::size_t i = 0; i < elements.size(); ++i) {
+                if (elements[i].kind != Kind::Supply || !active[i] || supplyMode[i] != 1 || stiff[i] || result.held[i])
+                    continue;
+                const auto positive = net(elements[i].nodes[0]);
+                if (positive == net(elements[i].nodes[1]))
+                    continue;  // Its terminals are together: whatever leaves one enters the other.
+                auto       current  = currentOut(positive, result, conducting, supplyVolts);
+                for (std::size_t j = 0; j < elements.size(); ++j) {
+                    if (j == i || elements[j].kind != Kind::Supply || !active[j])
+                        continue;
+                    if (net(elements[j].nodes[1]) == positive)
+                        current += delivered[j];
+                    if (net(elements[j].nodes[0]) == positive)
+                        current -= delivered[j];
+                }
+                delivered[i] = current;
+            }
+        for (std::size_t i = 0; i < elements.size(); ++i) {
+            const auto& element = elements[i];
+            if (element.kind != Kind::Supply)
+                continue;
+            // The voltage across the terminals is measured in every mode: an open output still sees what the circuit
+            // applies to it. Only the mode and the current stay at zero when it delivers nothing.
+            result.value[i] = result.voltage[net(element.nodes[0])] - result.voltage[net(element.nodes[1])];
+            if (!active[i])
+                continue;
+            result.mode[i]  = supplyMode[i];
+            result.extra[i] = std::abs(delivered[i]) < 1e-12 ? 0.0 : delivered[i];
+            if (net(element.nodes[0]) == net(element.nodes[1]) && supplyMode[i] == 2)
+                result.shorts.push_back(std::format("Short circuit: the terminals of supply {} are connected together; it limits the current to {:.3g} A",
+                                                    components[element.component].id, delivered[i]));
         }
         return result;
     }
@@ -393,6 +670,13 @@ struct Circuit::Model {
                     states[static_cast<std::size_t>(element.extraIndex)].value = solution.extra[i];
             } else if (element.kind == Kind::Potentiometer && element.extraIndex >= 0) {
                 states[static_cast<std::size_t>(element.extraIndex)].value = solution.value[i];
+            } else if (element.kind == Kind::Meter) {
+                states[static_cast<std::size_t>(element.voltageIndex)].value = solution.value[i];
+            } else if (element.kind == Kind::Load || element.kind == Kind::Supply) {
+                states[static_cast<std::size_t>(element.voltageIndex)].value = solution.value[i];
+                states[static_cast<std::size_t>(element.extraIndex)].value   = solution.extra[i];
+                if (element.kind == Kind::Supply)
+                    states[static_cast<std::size_t>(element.modeIndex)].value = solution.mode[i];
             }
         }
     }
@@ -500,6 +784,22 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
                 element.resistance = number("resistance");
                 element.stateIndex = stateIndex(prefix + "position");
                 element.extraIndex = stateIndex(prefix + "voltage");
+            } else if (kind == "variable-resistor") {
+                element.kind         = Model::Kind::Load;
+                element.stateIndex   = stateIndex(prefix + "resistance");
+                element.voltageIndex = stateIndex(prefix + "voltage");
+                element.extraIndex   = stateIndex(prefix + "current");
+            } else if (kind == "meter") {
+                element.kind         = Model::Kind::Meter;
+                element.voltageIndex = stateIndex(prefix + "voltage");
+            } else if (kind == "supply") {
+                element.kind         = Model::Kind::Supply;
+                element.stateIndex   = stateIndex(prefix + "voltage");
+                element.limitIndex   = stateIndex(prefix + "currentLimit");
+                element.enabledIndex = stateIndex(prefix + "enabled");
+                element.voltageIndex = stateIndex(prefix + "outputVoltage");
+                element.extraIndex   = stateIndex(prefix + "outputCurrent");
+                element.modeIndex    = stateIndex(prefix + "mode");
             } else {
                 element.kind = Model::Kind::Wire;
             }
@@ -562,7 +862,7 @@ std::expected<void, LoadError> Circuit::attach(Mcu& mcu) {
                 if (entry.pin && model->net(entry.node) == target && component.pin.empty())
                     component.pin = entry.label.empty() ? entry.name : entry.label;
             for (const auto& element : model->elements)
-                if (element.kind == Model::Kind::Resistor) {
+                if (element.kind == Model::Kind::Resistor || element.kind == Model::Kind::Load) {
                     if (model->net(element.nodes[0]) == target)
                         visit(element.nodes[1]);
                     if (model->net(element.nodes[1]) == target)
