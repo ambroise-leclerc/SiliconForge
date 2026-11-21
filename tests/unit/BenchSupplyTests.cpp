@@ -271,7 +271,7 @@ SCENARIO("a supply whose output another source holds at another voltage limits i
         THEN("the lower one is driven above its setpoint: it stays in constant voltage and pushes no current into the other") {
             CHECK(reading(*circuit, "psu", "mode") == 1.0);
             CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.0).margin(1e-9));
-            CHECK(!circuit->shorts().empty());
+            CHECK(circuit->shorts().empty());
         }
     }
 }
@@ -346,6 +346,7 @@ SCENARIO("two supplies in parallel give the same result in whatever order they a
                 CHECK(reading(*circuit, "psu", "mode") == 1.0);
                 CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.0).margin(1e-9));
                 CHECK(circuit->voltageAt("a22").value() == Approx(10.0).margin(1e-6));
+                CHECK(circuit->shorts().empty());
             }
         }
     }

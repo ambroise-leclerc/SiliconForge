@@ -353,7 +353,9 @@ struct Circuit::Model {
                     result.fought[i] = 1;
                 else if (held && *held > wanted + conflictTolerance)
                     result.held[i] = 1;
-                impose(net(element.nodes[0]), wanted, "supply " + components[element.component].id);
+                // Driven above its setpoint it merely delivers nothing, as a supply behind a diode would: that is no short.
+                if (!result.held[i])
+                    impose(net(element.nodes[0]), wanted, "supply " + components[element.component].id);
                 if (result.shorts.size() > before)
                     result.fight[i] = result.shorts[before];
                 placed[i] = true;
