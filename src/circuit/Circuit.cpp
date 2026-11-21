@@ -16,6 +16,7 @@ constexpr double ledOnResistance   = 5.0;       // Dynamic resistance of a condu
 constexpr double leakConductance   = 1e-10;     // Keeps an unconnected net solvable; it reads 0 V.
 constexpr double stiffConductance  = 1e6;       // A supply held between two nets that no source fixes: 1 µΩ.
 constexpr double minimumResistance = 1e-3;      // A potentiometer at the end of its track.
+constexpr double conflictTolerance = 1e-9;      // A supply whose output is held at another voltage than its setpoint, however little.
 constexpr double shortTolerance    = 0.05;      // Two sources closer than this agree.
 constexpr std::size_t maxRemembered = 4096;
 
@@ -318,28 +319,35 @@ struct Circuit::Model {
         // the supplies are placed in turn, so that one may be stacked on another.
         std::vector<char> placed(elements.size(), 0);
         for (std::size_t round = 0; round < elements.size(); ++round) {
-            bool progress = false;
+            // The supplies that can be placed this round go from the highest voltage to the lowest, whatever their order
+            // in the description: a supply cannot sink current, so the highest one holds a net they share and the
+            // others, driven above their setpoint, deliver nothing.
+            std::vector<std::pair<double, std::size_t>> ready;
             for (std::size_t i = 0; i < elements.size(); ++i) {
                 const auto& element = elements[i];
                 if (element.kind != Kind::Supply || supplyMode[i] != 1 || placed[i])
                     continue;
                 const auto& reference = fixed[net(element.nodes[1])];
-                if (!reference)
-                    continue;
-                const auto wanted = *reference + entryOf(element, element.stateIndex)->value;
-                const auto before = result.shorts.size();
+                if (reference)
+                    ready.emplace_back(*reference + entryOf(element, element.stateIndex)->value, i);
+            }
+            std::ranges::sort(ready, [](const auto& a, const auto& b) { return a.first != b.first ? a.first > b.first : a.second < b.second; });
+            for (const auto& [wanted, i] : ready) {
+                const auto& element = elements[i];
+                const auto  before  = result.shorts.size();
                 // Held below its setpoint, it is overloaded and can only limit its current; held above, it is driven by
                 // the other source and delivers nothing: it stays in constant voltage.
-                if (fixed[net(element.nodes[0])] && *fixed[net(element.nodes[0])] < wanted - shortTolerance)
+                const auto& held = fixed[net(element.nodes[0])];
+                if (held && *held < wanted - conflictTolerance)
                     result.fought[i] = 1;
-                else if (fixed[net(element.nodes[0])] && *fixed[net(element.nodes[0])] > wanted + shortTolerance)
+                else if (held && *held > wanted + conflictTolerance)
                     result.held[i] = 1;
                 impose(net(element.nodes[0]), wanted, "supply " + components[element.component].id);
                 if (result.shorts.size() > before)
                     result.fight[i] = result.shorts[before];
-                placed[i] = progress = true;
+                placed[i] = true;
             }
-            if (!progress)
+            if (ready.empty())
                 break;
         }
         // A supply whose negative terminal is not fixed yet (stacked on a supply in constant current, say) is held by

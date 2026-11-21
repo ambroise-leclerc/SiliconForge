@@ -307,3 +307,58 @@ SCENARIO("a variable load cannot be described with a resistance that can reach z
         }
     }
 }
+
+namespace {
+/// A 5 V and a 10 V channel in parallel on the same load, declared in the order given.
+Json parallel(bool tenFirst) {
+    auto description = bench();
+    const Json upper = {{"id", "upper"}, {"type", "bench-supply"}, {"at", {{"positive", "a27"}, {"negative", "a29"}}}};
+    if (tenFirst)
+        description["components"].insert(description["components"].begin(), upper);
+    else
+        description["components"].push_back(upper);
+    description["wires"].push_back({{"from", "d22"}, {"to", "d27"}, {"color", "red"}});
+    description["wires"].push_back({{"from", "b29"}, {"to", "T-29"}, {"color", "black"}});
+    return description;
+}
+
+void tenAndFive(circuit::Circuit& circuit) {
+    REQUIRE(circuit.set("upper", "voltage", 10.0));
+    REQUIRE(circuit.set("upper", "currentLimit", 1.0));
+    REQUIRE(circuit.set("upper", "enabled", 1.0));
+    REQUIRE(circuit.set("psu", "voltage", 5.0));
+    REQUIRE(circuit.set("psu", "currentLimit", 0.1));
+    REQUIRE(circuit.set("psu", "enabled", 1.0));
+}
+}  // namespace
+
+SCENARIO("two supplies in parallel give the same result in whatever order they are declared", "[circuit][supply]") {
+    GIVEN("a 5 V and a 10 V channel on one 100 ohm load") {
+        auto first  = build(parallel(true));
+        auto second = build(parallel(false));
+        tenAndFive(*first);
+        tenAndFive(*second);
+        THEN("the 10 V one holds the node and feeds the load, the 5 V one delivers nothing, in both orders") {
+            for (auto* circuit : {first.get(), second.get()}) {
+                CHECK(reading(*circuit, "upper", "mode") == 1.0);
+                CHECK(reading(*circuit, "upper", "outputCurrent") == Approx(0.1).margin(1e-9));
+                CHECK(reading(*circuit, "psu", "mode") == 1.0);
+                CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.0).margin(1e-9));
+                CHECK(circuit->voltageAt("a22").value() == Approx(10.0).margin(1e-6));
+            }
+        }
+    }
+}
+
+SCENARIO("a supply held a few millivolts below its setpoint still limits its current", "[circuit][supply]") {
+    GIVEN("a channel at 40 mV and 100 mA whose positive terminal is wired to the ground rail") {
+        auto description = bench();
+        description["wires"].push_back({{"from", "c22"}, {"to", "T-22"}, {"color", "red"}});
+        auto circuit = build(description);
+        configure(*circuit, 0.04, 0.1, true);
+        THEN("it is in current limitation at its limit") {
+            CHECK(reading(*circuit, "psu", "mode") == 2.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == Approx(0.1).margin(1e-9));
+        }
+    }
+}
