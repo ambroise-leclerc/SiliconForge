@@ -3,11 +3,13 @@
 #include "Sha256.hpp"
 #include "VcdClock.hpp"
 #include <siliconforge/circuit/Circuit.hpp>
+#include <siliconforge/circuit/Tft.hpp>
 #include <siliconforge/mcu/Registry.hpp>
 #include <siliconforge/scenario/Scenario.hpp>
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <charconv>
 #include <chrono>
 #include <cmath>
@@ -46,6 +48,72 @@ std::optional<std::string> readFile(const std::filesystem::path& path) {
     return std::string{std::istreambuf_iterator<char>{stream}, {}};
 }
 
+/// A picture of the portable pixmap format (P3 text or P6 binary, 8 bits per channel), as 0xRRGGBB row by row.
+struct Picture {
+    unsigned                   width{0}, height{0};
+    std::vector<std::uint32_t> pixels;
+};
+std::optional<Picture> parsePpm(const std::string& text, std::string& why) {
+    std::size_t position = 0;
+    const auto  token    = [&]() -> std::string {
+        while (position < text.size()) {
+            if (text[position] == '#')
+                while (position < text.size() && text[position] != '\n')
+                    ++position;
+            else if (std::isspace(static_cast<unsigned char>(text[position])))
+                ++position;
+            else
+                break;
+        }
+        const auto begin = position;
+        while (position < text.size() && !std::isspace(static_cast<unsigned char>(text[position])))
+            ++position;
+        return text.substr(begin, position - begin);
+    };
+    const auto number = [&](std::size_t& value) {
+        const auto word = token();
+        const auto [end, error] = std::from_chars(word.data(), word.data() + word.size(), value);
+        return error == std::errc{} && end == word.data() + word.size();
+    };
+    const auto magic = token();
+    if (magic != "P3" && magic != "P6") {
+        why = "not a portable pixmap: it starts with neither P3 nor P6";
+        return std::nullopt;
+    }
+    std::size_t width = 0, height = 0, maximum = 0;
+    if (!number(width) || !number(height) || !number(maximum) || width == 0 || height == 0 || width > 4096 || height > 4096 || maximum == 0 || maximum > 255) {
+        why = "the header must give a width and a height up to 4096 and a maximum value up to 255";
+        return std::nullopt;
+    }
+    Picture picture;
+    picture.width  = static_cast<unsigned>(width);
+    picture.height = static_cast<unsigned>(height);
+    picture.pixels.reserve(width * height);
+    const auto scale = [&](std::size_t value) { return static_cast<std::uint32_t>((value * 255 + maximum / 2) / maximum); };
+    if (magic == "P6") {
+        ++position;  // The single whitespace that ends the header.
+        if (text.size() < position + width * height * 3) {
+            why = "the pixel data are shorter than the header says";
+            return std::nullopt;
+        }
+        for (std::size_t i = 0; i < width * height; ++i) {
+            const auto at = position + 3 * i;
+            picture.pixels.push_back(scale(static_cast<unsigned char>(text[at])) << 16 | scale(static_cast<unsigned char>(text[at + 1])) << 8
+                                     | scale(static_cast<unsigned char>(text[at + 2])));
+        }
+    } else {
+        for (std::size_t i = 0; i < width * height; ++i) {
+            std::size_t r = 0, g = 0, b = 0;
+            if (!number(r) || !number(g) || !number(b) || r > maximum || g > maximum || b > maximum) {
+                why = "a pixel is missing or above the maximum value";
+                return std::nullopt;
+            }
+            picture.pixels.push_back(scale(r) << 16 | scale(g) << 8 | scale(b));
+        }
+    }
+    return picture;
+}
+
 std::string hash(std::string_view bytes) {
     return scenario::detail::sha256({reinterpret_cast<const unsigned char*>(bytes.data()), bytes.size()});
 }
@@ -62,7 +130,7 @@ double seconds(Cycles cycles, u64 clockHz) {
 using Transition = PinChange;
 
 struct Step {
-    enum class Kind { Wait, Set, WaitFor, Measure };
+    enum class Kind { Wait, Set, WaitFor, Measure, Screen };
     enum class Condition { Pin, Serial, Component };
     Kind                  kind{Kind::Wait};
     std::string           label;
@@ -85,6 +153,10 @@ struct Step {
     std::size_t           watched{0};  ///< Component condition: index in State::watchedStates.
     std::optional<double> above;
     std::optional<double> below;
+    // screen
+    std::vector<std::uint32_t> expected;       ///< The expected picture, 0xRRGGBB row by row.
+    std::string                imageFile;
+    std::size_t                tolerance{0};   ///< Pixels allowed to differ.
     // measure
     std::string           id;
     std::string           quantity;
@@ -102,6 +174,8 @@ std::string_view kindName(Step::Kind kind) {
             return "waitFor";
         case Step::Kind::Measure:
             return "measure";
+        case Step::Kind::Screen:
+            return "screen";
     }
     return "";
 }
@@ -755,6 +829,33 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
                     step.volts = set.at("volts").get<double>();
                 check.probe(step.probe, step.volts, path + "/set/probe", path + "/set/volts");
             }
+        } else if (entry.contains("screen")) {
+            step.kind          = Step::Kind::Screen;
+            const auto& screen = entry.at("screen");
+            step.component     = screen.at("component").get<std::string>();
+            step.imageFile     = screen.at("image").get<std::string>();
+            step.tolerance     = screen.value("tolerance", std::size_t{0});
+            const auto* tft    = (*checkModel)->display(step.component);
+            if (!tft)
+                reject(Problem::Cause::Resource,
+                       path + "/screen/component",
+                       std::format("{} is not a display of the circuit: a screen step needs a tft component", step.component),
+                       circuitFile);
+            const auto imageText = readFile(directory / step.imageFile);
+            if (!imageText)
+                reject(Problem::Cause::Unreadable, path + "/screen/image", std::format("Cannot read the image {}", step.imageFile));
+            inputs.push_back({"image", step.imageFile, hash(*imageText)});
+            std::string why;
+            auto        picture = parsePpm(*imageText, why);
+            if (!picture)
+                reject(Problem::Cause::Unreadable, path + "/screen/image", std::format("{}: {}", step.imageFile, why), step.imageFile);
+            if (picture->width != tft->width() || picture->height != tft->height())
+                reject(Problem::Cause::Capacity,
+                       path + "/screen/image",
+                       std::format("{} is {} x {} pixels, and the screen of {} is {} x {}", step.imageFile, picture->width, picture->height, step.component,
+                                   tft->width(), tft->height()),
+                       step.imageFile);
+            step.expected = std::move(picture->pixels);
         } else if (entry.contains("waitFor")) {
             step.kind             = Step::Kind::WaitFor;
             step.duration         = parseDuration(entry.at("timeout"), path + "/timeout", clockHz);
@@ -1092,6 +1193,35 @@ Report Scenario::run() {
                     report.measurements.push_back(std::move(measurement));
                     break;
                 }
+                case Step::Kind::Screen: {
+                    // The screen as it is now: the writes of the firmware up to this step are in it.
+                    const auto* tft    = model.display(step.component);
+                    const auto  shown  = tft->shown();
+                    const auto  result = circuit::compareImages(shown, step.expected, tft->width());
+                    ScreenCheck check;
+                    check.component = step.component;
+                    check.label     = step.label;
+                    check.image     = step.imageFile;
+                    check.width     = tft->width();
+                    check.height    = tft->height();
+                    check.differing = result.differing;
+                    check.tolerance = step.tolerance;
+                    check.firstX    = result.firstX;
+                    check.firstY    = result.firstY;
+                    check.at        = begin;
+                    check.passed    = result.differing <= step.tolerance;
+                    record.detail   = check.passed ? std::format("{}: {} of {} pixels differ from {} (at most {} allowed)", step.component, result.differing,
+                                                                 shown.size(), step.imageFile, step.tolerance)
+                                                   : std::format("{}: {} of {} pixels differ from {}, more than the {} allowed; the first at ({}, {})",
+                                                                 step.component, result.differing, shown.size(), step.imageFile, step.tolerance,
+                                                                 result.firstX, result.firstY);
+                    if (!check.passed) {
+                        record.outcome = StepRecord::Outcome::Failed;
+                        report.verdict = Verdict::Fail;
+                    }
+                    report.screens.push_back(std::move(check));
+                    break;
+                }
             }
         }
         if (failure) {
@@ -1172,6 +1302,24 @@ Json toJson(const Report& report, std::string_view traceFile) {
         if (!step.detail.empty())
             entry["detail"] = step.detail;
         steps.push_back(std::move(entry));
+    }
+    auto& screens = out["screens"] = Json::array();
+    for (const auto& check : report.screens) {
+        Json entry{
+            {"component", check.component},
+            {"image", check.image},
+            {"width", check.width},
+            {"height", check.height},
+            {"differing", check.differing},
+            {"tolerance", check.tolerance},
+            {"verdict", check.passed ? "pass" : "fail"},
+            {"at", timeJson(check.at, clock)}
+        };
+        if (!check.label.empty())
+            entry["label"] = check.label;
+        if (check.differing > 0)
+            entry["first"] = {{"x", check.firstX}, {"y", check.firstY}};
+        screens.push_back(std::move(entry));
     }
     auto& measurements = out["measurements"] = Json::array();
     for (const auto& measurement : report.measurements) {

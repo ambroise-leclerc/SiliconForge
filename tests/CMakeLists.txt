@@ -27,6 +27,8 @@ add_executable(siliconforge_tests
     unit/CircuitModelTests.cpp
     unit/BenchSupplyTests.cpp
     unit/GeneratorTests.cpp
+    unit/TftTests.cpp
+    unit/SpiTests.cpp
     unit/SignalRecorderTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp

@@ -67,6 +67,10 @@ ElementRule ruleFor(std::string_view type) {
         return {2, {}, "setpoint", "number", {{"waveform", "number"}, {"frequency", "number"}, {"amplitude", "number"}, {"offset", "number"}, {"duty", "number"}, {"period", "number"}, {"sampleCount", "number"}, {"currentLimit", "number"}, {"enabled", "boolean"}, {"outputVoltage", "number"}, {"outputCurrent", "number"}, {"mode", "number"}}};
     if (type == "meter")
         return {2, {}, "voltage", "number"};
+    if (type == "tft-spi")
+        return {8, {}, "revision", "number"};
+    if (type == "tft-parallel")
+        return {15, {}, "revision", "number"};
     if (type == "variable-resistor")
         return {2, {}, "resistance", "number", {{"voltage", "number"}, {"current", "number"}}};
     return {2, {}, "", ""};  // wire

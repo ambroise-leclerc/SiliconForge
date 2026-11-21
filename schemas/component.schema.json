@@ -90,7 +90,7 @@
             "required": ["type", "between"],
             "additionalProperties": false,
             "properties": {
-              "type": {"enum": ["wire", "resistor", "led", "switch", "potentiometer", "supply", "generator", "variable-resistor", "meter"]},
+              "type": {"enum": ["wire", "resistor", "led", "switch", "potentiometer", "supply", "generator", "variable-resistor", "meter", "tft-spi", "tft-parallel"]},
               "name": {"$ref": "#/definitions/identifier"},
               "swapWhen": {
                 "description": "A led only: name of a boolean property that, when true, reverses the anode and the cathode.",
@@ -100,7 +100,7 @@
                 "type": "array",
                 "items": {"$ref": "#/definitions/identifier"},
                 "minItems": 2,
-                "maxItems": 3
+                "maxItems": 16
               }
             }
           }

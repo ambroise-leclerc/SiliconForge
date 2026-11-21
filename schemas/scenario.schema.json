@@ -50,7 +50,8 @@
             "properties": {"label": true, "at": true, "waitFor": {"$ref": "#/definitions/condition"}, "timeout": {"$ref": "#/definitions/duration"}},
             "additionalProperties": false
           },
-          {"required": ["measure"], "properties": {"label": true, "at": true, "measure": {"$ref": "#/definitions/measure"}}, "additionalProperties": false}
+          {"required": ["measure"], "properties": {"label": true, "at": true, "measure": {"$ref": "#/definitions/measure"}}, "additionalProperties": false},
+          {"required": ["screen"], "properties": {"label": true, "at": true, "screen": {"$ref": "#/definitions/screen"}}, "additionalProperties": false}
         ]
       }
     }
@@ -112,6 +113,17 @@
           "additionalProperties": false
         }
       ]
+    },
+    "screen": {
+      "type": "object",
+      "required": ["component", "image"],
+      "additionalProperties": false,
+      "description": "Compares the pixels of a display module (a tft component) with a picture, at the instant of the step.",
+      "properties": {
+        "component": {"$ref": "#/definitions/identifier"},
+        "image": {"type": "string", "minLength": 1, "description": "The expected picture, a portable pixmap (P3 or P6, 8 bits per channel) of exactly the size of the screen, relative to the scenario file. Colours are compared as the controller stores them: 5 bits of red, 6 of green, 5 of blue."},
+        "tolerance": {"type": "integer", "minimum": 0, "description": "Pixels allowed to differ; 0 by default."}
+      }
     },
     "measure": {
       "type": "object",
