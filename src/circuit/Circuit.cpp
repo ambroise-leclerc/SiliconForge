@@ -16,6 +16,7 @@ constexpr double ledOnResistance   = 5.0;       // Dynamic resistance of a condu
 constexpr double leakConductance   = 1e-10;     // Keeps an unconnected net solvable; it reads 0 V.
 constexpr double stiffConductance  = 1e6;       // A supply held between two nets that no source fixes: 1 µΩ.
 constexpr double minimumResistance = 1e-3;      // A potentiometer at the end of its track.
+constexpr double absorbedCurrent   = 1e-9;      // A supply cannot take in more than numerical noise.
 constexpr double conflictTolerance = 1e-9;      // A supply whose output is held at another voltage than its setpoint, however little.
 constexpr double shortTolerance    = 0.05;      // Two sources closer than this agree.
 constexpr std::size_t maxRemembered = 4096;
@@ -217,10 +218,16 @@ struct Circuit::Model {
                 mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) ? 2 : 1;  // Terminals shorted: it can only limit.
         std::vector<char>        fought(elements.size(), 0);
         std::vector<std::string> fights(elements.size());
-        Solution                 result;
-        for (int round = 0; round < 8; ++round) {
-            result       = solveOnce(supplyVolts, mode);
-            bool changed = false;
+        const auto               supplies = static_cast<int>(std::ranges::count_if(elements, [](const auto& e) { return e.kind == Kind::Supply; }));
+        // Modes may go both ways while the supplies settle. If they have not settled after `free` rounds (supplies
+        // sharing a load can hand the limit to one another), only the one-way changes are still allowed: a supply that
+        // reaches its limit stays there, and each round fixes at least one of them, so the rounds that follow end.
+        const int free = 4 * supplies + 8;
+        Solution  result;
+        for (int round = 0; round < free + supplies + 1; ++round) {
+            result           = solveOnce(supplyVolts, mode);
+            bool changed     = false;
+            const bool oneWay = round >= free;
             for (std::size_t i = 0; i < elements.size(); ++i) {
                 if (elements[i].kind != Kind::Supply || result.mode[i] == 0)
                     continue;
@@ -235,7 +242,11 @@ struct Circuit::Model {
                 } else if (mode[i] == 1 && result.extra[i] > limit * (1 + 1e-9)) {
                     mode[i] = 2;
                     changed = true;
-                } else if (mode[i] == 2 && !fought[i] && result.value[i] > setpoint) {
+                } else if (mode[i] == 1 && result.extra[i] < -absorbedCurrent) {
+                    // Something pushes current into it and it cannot absorb any: its output opens.
+                    mode[i] = 0;
+                    changed = true;
+                } else if (mode[i] == 2 && !fought[i] && !oneWay && result.value[i] > setpoint) {
                     mode[i] = 1;
                     changed = true;
                 }

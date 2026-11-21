@@ -7,6 +7,7 @@
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
 
+#include <format>
 #include <memory>
 
 using namespace siliconforge;
@@ -374,6 +375,63 @@ SCENARIO("a disabled supply still reports the voltage the circuit applies across
             CHECK(reading(*circuit, "psu", "mode") == 0.0);
             CHECK(reading(*circuit, "psu", "outputCurrent") == 0.0);
             CHECK(reading(*circuit, "psu", "outputVoltage") == Approx(10.0).margin(1e-6));
+        }
+    }
+}
+
+SCENARIO("a supply in constant voltage never absorbs current: its output opens instead", "[circuit][supply]") {
+    GIVEN("a channel at 2 V whose output is pulled up to the 5 V rail through 100 ohms") {
+        auto description = bench();
+        description["components"].push_back({{"id", "pull"}, {"type", "resistor"}, {"at", {{"a", "e22"}, {"b", "e20"}}}, {"properties", {{"resistance", 100}}}});
+        description["wires"].push_back({{"from", "d20"}, {"to", "T+20"}, {"color", "red"}});
+        auto circuit = build(description);
+        REQUIRE(circuit->set("load", "resistance", 1e6));
+        configure(*circuit, 2.0, 0.1, true);
+        THEN("it delivers nothing, reports no mode, and the circuit sets the voltage at its output") {
+            CHECK(reading(*circuit, "psu", "mode") == 0.0);
+            CHECK(reading(*circuit, "psu", "outputCurrent") == 0.0);
+            CHECK(reading(*circuit, "psu", "outputVoltage") > 4.9);
+        }
+    }
+}
+
+SCENARIO("several supplies sharing one load settle with every limit respected", "[circuit][supply]") {
+    GIVEN("six channels of 5 V and 10 mA in parallel on a 50 ohm load, which asks for 100 mA") {
+        Json description = {
+            {"formatVersion", 1},
+            {"name", "Six supplies"},
+            {"board", {{"type", "breadboard"}, {"columns", 30}}},
+            {"chip", {{"mcu", "atmega328p"}, {"column", 3}}},
+            {"components", Json::array()},
+            {"wires",
+             {{{"from", "d22"}, {"to", "d26"}, {"color", "red"}},
+              {{"from", "d24"}, {"to", "d28"}, {"color", "black"}},
+              {{"from", "e24"}, {"to", "T-24"}, {"color", "black"}}}}};
+        for (const char* row : {"a", "b", "c"})
+            for (const int column : {22, 26}) {
+                const auto id = std::format("s{}{}", row, column);
+                description["components"].push_back({{"id", id},
+                                                     {"type", "bench-supply"},
+                                                     {"at", {{"positive", std::format("{}{}", row, column)}, {"negative", std::format("{}{}", row, column + 2)}}}});
+            }
+        description["components"].push_back({{"id", "load"}, {"type", "variable-load"}, {"at", {{"a", "e22"}, {"b", "e28"}}}});
+        auto circuit = build(description);
+        REQUIRE(circuit->set("load", "resistance", 50.0));
+        for (const char* row : {"a", "b", "c"})
+            for (const int column : {22, 26}) {
+                const auto id = std::format("s{}{}", row, column);
+                REQUIRE(circuit->set(id, "voltage", 5.0));
+                REQUIRE(circuit->set(id, "currentLimit", 0.01));
+                REQUIRE(circuit->set(id, "enabled", 1.0));
+            }
+        THEN("no channel in constant voltage delivers more than its limit") {
+            for (const char* row : {"a", "b", "c"})
+                for (const int column : {22, 26}) {
+                    const auto id = std::format("s{}{}", row, column);
+                    if (reading(*circuit, id, "mode") == 1.0)
+                        CHECK(reading(*circuit, id, "outputCurrent") <= 0.01 * (1 + 1e-6));
+                    CHECK(reading(*circuit, id, "outputCurrent") <= 0.01 * (1 + 1e-6));
+                }
         }
     }
 }
