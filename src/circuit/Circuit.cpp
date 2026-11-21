@@ -405,6 +405,11 @@ struct Circuit::Model {
                     group.unite(static_cast<int>(net(other.nodes[1])), static_cast<int>(net(other.nodes[2])));
             }
             bool referenced = false;
+            // An input with its pull-up on is tied to the supply rail through 35 kohm: that is a reference too.
+            for (const auto& entry : chip)
+                if (entry.pin && !entry.pin->isOutput() && entry.pin->hasPullUp()
+                    && group.find(static_cast<int>(net(entry.node))) == group.find(static_cast<int>(net(elements[i].nodes[1]))))
+                    referenced = true;
             for (std::size_t n = 0; n < netCount && !referenced; ++n)
                 referenced = fixed[n] && group.find(static_cast<int>(n)) == group.find(static_cast<int>(net(elements[i].nodes[1])));
             if (!referenced)
