@@ -84,9 +84,9 @@ sans `WAYLAND_DISPLAY` : il n’ouvre rien sur le bureau.
    client doit demander avant d’agir : pour Claude Code, mode par défaut et non *auto mode* (Maj+Tab change de mode).
 4. Démarrer le chronomètre et donner la consigne :
    > Bouton D2 relâché, la PWM de D6 doit être à 0 % ; bouton enfoncé, rien ne change. Le scénario
-   > scenarios/pwm-setpoint.json décrit déjà cette consigne. Modifie le firmware firmware/src/pwm_setpoint.c, compile avec
-   > `make -C firmware prebuilt` et vérifie avec `siliconforge bench run scenarios/pwm-setpoint.json` jusqu’à un verdict
-   > pass. Ne modifie pas le scénario.
+   > scenarios/pwm-setpoint.json décrit déjà cette consigne. Modifiez le firmware firmware/src/pwm_setpoint.c, compilez avec
+   > `make -C firmware prebuilt` et vérifiez avec `siliconforge bench run scenarios/pwm-setpoint.json` jusqu’à un verdict
+   > pass. Ne modifiez pas le scénario.
 
    Lancée dans le terminal de la fenêtre, `siliconforge bench run` confie chaque essai à la fenêtre ([BANC.md](BANC.md#la-commande)) :
    il s’ouvre dans l’onglet **Bench**, et le firmware testé tourne sur la carte.
