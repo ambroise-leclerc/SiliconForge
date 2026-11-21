@@ -82,6 +82,7 @@ cycles, l’instruction se termine d’abord. Ce dépassement ne décale pas la 
 | --- | --- |
 | `{"wait": "2ms"}` | Avance le temps simulé |
 | `{"set": {"component": "button-d2", "state": "pressed", "value": true}}` | Change un état interactif d’un composant, comme l’utilisateur sur le breadboard |
+| `{"set": {"component": "gbf", "samples": [0, 5, 5, 0], "period": "4ms"}}` | Programme l’onde arbitraire d’un générateur de signaux (`signal-generator`) et la sélectionne : 2 à 4096 échantillons en volts (±20 V), chacun tenu `period / nombre` ; voir [Générateur de signaux](CIRCUITS.md#générateur-de-signaux) |
 | `{"set": {"probe": "A0", "volts": 2.5}}` | Pose une sonde sur une broche ; `null` la retire |
 | `{"waitFor": {"pin": "D13", "state": "high"}, "timeout": "1ms"}` | Attente bornée d’un niveau (`high`, `low`, `floating`) |
 | `{"waitFor": {"serial": "ready", "port": 0}, "timeout": "100ms"}` | Attente bornée d’un texte émis sur un port série depuis le début de l’étape |
@@ -118,7 +119,7 @@ nomme le fichier fautif, le JSON Pointer de la faute et sa cause :
 | `schema` | Étape mal formée, durée sans unité, identifiant de mesure en double |
 | `wiring` | Circuit invalide, puce qui ne tient pas sur la carte, sonde sur une broche absente du breadboard |
 | `resource` | Microcontrôleur inconnu, composant, état, broche ou port série absent, état non modifiable de l’extérieur |
-| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, attente sur un état moyenné dans le temps (luminosité d’une LED), valeur hors des bornes d’un composant, sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période de la plus haute fréquence attendue (elle ne peut contenir deux fronts montants pour aucune valeur attendue), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
+| `capacity` | Firmware qui ne tient pas dans les mémoires du microcontrôleur, attente sur un état moyenné dans le temps (luminosité d’une LED), valeur hors des bornes d’un composant, réglage d’un générateur que l’horloge du MCU ne peut pas suivre (pas d’échantillon de moins de 16 cycles, onde arbitraire sans échantillons), sonde au-delà de l’alimentation, tolérance plus fine que la résolution de la fenêtre (100 % / nombre de cycles), fenêtre plus courte qu’une période de la plus haute fréquence attendue (elle ne peut contenir deux fronts montants pour aucune valeur attendue), fréquence au-delà de la moitié de l’horloge, durée de plus d’une heure |
 | `schedule` | Étape placée (`at`) avant la durée minimale des étapes qui la précèdent |
 
 ## La commande
@@ -230,8 +231,8 @@ machines (`--address 0.0.0.0`) ne peut donc ni lire ni écrire hors du projet. L
 ## Limites
 
 - Les stimuli disponibles sont les états interactifs des composants (boutons, potentiomètres) et les sondes de
-  tension. L’alimentation pilotable, la charge variable, le GBF et l’écran externe font l’objet des stories #62, #63 et
-  #64.
+  tension. L’alimentation pilotable, la charge variable (#62) et le générateur de signaux (#63) sont des composants
+  dont on règle les états ; l’écran externe fait l’objet de la story #64.
 - Les mesures portent sur une broche à la fois ; pas encore de tension moyenne, de niveau d’un nœud du circuit ni de
   décodage UART dans un scénario.
 - Le premier incrément est qualifié sur l’ATmega328P simulé.

@@ -72,6 +72,8 @@ struct Step {
     std::string           component;
     std::string           stateName;
     double                value{0};
+    std::vector<double>   samples;       ///< set on a signal generator: the arbitrary wave...
+    double                samplePeriod{0};  ///< ...and the seconds it repeats over.
     std::string           probe;
     std::optional<double> volts;
     // waitFor
@@ -204,6 +206,18 @@ public:
                                name,
                                minimum ? formatNumber(*minimum) : "-inf",
                                maximum ? formatNumber(*maximum) : "+inf"));
+        // What also depends on the other settings and on the clock (a generator cannot step as fast as it is asked): the
+        // steps are rehearsed in order on the circuit that checks the scenario, so that each one sees the ones before it.
+        if (const auto reason = model.refusal(id, name, number))
+            reject(Problem::Cause::Capacity, path, *reason);
+        (void)model.set(id, name, number);
+    }
+
+    /// The arbitrary wave of a signal generator: rehearsed like any setting.
+    void waveform(const std::string& id, const std::vector<double>& samples, double period, const std::string& path) {
+        component(id, path);
+        if (const auto reason = model.program(id, samples, period))
+            reject(Problem::Cause::Capacity, path, *reason);
     }
 
     void component(const std::string& id, const std::string& path) {
@@ -595,6 +609,11 @@ struct Scenario::State {
                 notice(at);
             });
         }
+        // A generator steps by itself: the states it changes are recorded and the waits on them evaluated at its cycle.
+        model->onChange([this](Cycles at) {
+            recordStates(at);
+            notice(at);
+        });
         transmitted.assign(device->serialPorts().size(), {});
         for (std::size_t port = 0; port < transmitted.size(); ++port)
             device->serialPorts()[port].onTransmit([this, port](u8, Cycles at) {
@@ -674,12 +693,21 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
 
     if (document.contains("initial")) {
         const auto& initial = document.at("initial");
-        for (const auto& [id, entries] : initial.value("components", Json::object()).items())
-            for (const auto& [entry, value] : entries.items()) {
+        for (const auto& [id, entries] : initial.value("components", Json::object()).items()) {
+            // The settings of a component are one state, not a sequence: a JSON object has no order (its keys come back
+            // sorted), so a generator's frequency must not be checked against the sine it is before the waveform is
+            // set. The waveform goes first; the other settings only get less demanding than the defaults they replace
+            // (a generator's steps are never closer with a lower frequency or a duty cycle nearer to 50 %).
+            std::vector<std::pair<std::string, const Json*>> ordered;
+            for (const auto& [entry, value] : entries.items())
+                ordered.emplace_back(entry, &value);
+            std::ranges::stable_partition(ordered, [](const auto& item) { return item.first == "waveform"; });
+            for (const auto& [entry, value] : ordered) {
                 const auto path = child(child("/initial/components", id), entry);
-                check.setting(id, entry, value, path);
-                initialComponents.emplace_back(id, entry, numericValue(value));
+                check.setting(id, entry, *value, path);
+                initialComponents.emplace_back(id, entry, numericValue(*value));
             }
+        }
         for (const auto& [pin, volts] : initial.value("probes", Json::object()).items()) {
             const auto path = child("/initial/probes", pin);
             check.probe(pin, volts.get<double>(), path, path);
@@ -711,7 +739,12 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
         } else if (entry.contains("set")) {
             step.kind       = Step::Kind::Set;
             const auto& set = entry.at("set");
-            if (set.contains("component")) {
+            if (set.contains("samples")) {
+                step.component    = set.at("component").get<std::string>();
+                step.samples      = set.at("samples").get<std::vector<double>>();
+                step.samplePeriod = static_cast<double>(parseDuration(set.at("period"), path + "/set/period", clockHz)) / static_cast<double>(clockHz);
+                check.waveform(step.component, step.samples, step.samplePeriod, path + "/set");
+            } else if (set.contains("component")) {
                 step.component = set.at("component").get<std::string>();
                 step.stateName = set.at("state").get<std::string>();
                 check.setting(step.component, step.stateName, set.at("value"), path + "/set");
@@ -906,7 +939,10 @@ Report Scenario::run() {
                     break;
                 case Step::Kind::Set:
                     record.applied = device.cycles();
-                    if (step.probe.empty()) {
+                    if (!step.samples.empty()) {
+                        (void)model.program(step.component, step.samples, step.samplePeriod);
+                        record.detail = std::format("{} = {} samples over {} s", step.component, step.samples.size(), formatNumber(step.samplePeriod));
+                    } else if (step.probe.empty()) {
                         (void)model.set(step.component, step.stateName, step.value);
                         record.detail = std::format("{}.{} = {}", step.component, step.stateName, formatNumber(step.value));
                     } else {

@@ -800,3 +800,157 @@ SCENARIO("The steps of a run end where the MCU stopped", "[scenario]") {
         }
     }
 }
+
+// Signal generator (#63) -----------------------------------------------------------------------------------------------
+
+namespace {
+/// A signal generator wired to PC5 (the chip at column 3 of the breadboard) and to the ground rail, in a temporary file.
+std::filesystem::path generatorCircuitFile() {
+    const Json circuit = {
+        {"formatVersion", 1},
+        {"name", "Generator"},
+        {"board", {{"type", "breadboard"}, {"columns", 30}}},
+        {"chip", {{"mcu", "atmega328p"}, {"column", 3}}},
+        {"components", {{{"id", "gbf"}, {"type", "signal-generator"}, {"at", {{"output", "i20"}, {"common", "i22"}}}}}},
+        {"wires", {{{"from", "h22"}, {"to", "T-22"}, {"color", "black"}}, {{"from", "h20"}, {"to", "h3"}, {"color", "yellow"}}}}
+    };
+    const auto file = std::filesystem::temp_directory_path() / "siliconforge-generator-circuit.json";
+    std::ofstream{file} << circuit.dump();
+    return file;
+}
+
+Json generatorScenario(std::string_view steps) {
+    const auto firmware = firmwareDir / "blink.hex";
+    if (!std::filesystem::exists(firmware))
+        SKIP(firmware.string() << " is missing: build the firmware (see firmware/README.md)");
+    return {{"formatVersion", 1},
+            {"name", "Generator"},
+            {"circuit", generatorCircuitFile().generic_string()},
+            {"firmware", firmware.generic_string()},
+            {"steps", Json::parse(steps)}};
+}
+}  // namespace
+
+SCENARIO("A scenario programs a generator and measures its wave on a pin", "[scenario][generator]") {
+    GIVEN("a 1 kHz square wave of 5 V peak around 2.5 V, 25 % high, on PC5") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "state": "waveform", "value": 1}},
+            {"set": {"component": "gbf", "state": "frequency", "value": 1000}},
+            {"set": {"component": "gbf", "state": "amplitude", "value": 2.5}},
+            {"set": {"component": "gbf", "state": "offset", "value": 2.5}},
+            {"set": {"component": "gbf", "state": "duty", "value": 25}},
+            {"set": {"component": "gbf", "state": "enabled", "value": true}},
+            {"measure": {"id": "frequency", "pin": "PC5", "quantity": "frequency", "window": "5ms", "expect": {"value": 1000, "tolerance": 0.5}}},
+            {"measure": {"id": "duty", "pin": "PC5", "quantity": "dutyCycle", "window": "5ms", "expect": {"value": 25, "tolerance": 0.5}}}
+        ])");
+        THEN("the captured edges give the frequency and duty cycle programmed") {
+            const auto report = runOf(document);
+            CHECK(report.verdict == scenario::Verdict::Pass);
+            CHECK(measurement(report, "frequency").value.value() == Approx(1000.0).margin(0.5));
+            CHECK(measurement(report, "duty").value.value() == Approx(25.0).margin(0.5));
+        }
+    }
+    GIVEN("an arbitrary wave of four samples over 4 ms, two of them above half the supply") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "samples": [0, 5, 5, 0], "period": "4ms"}},
+            {"set": {"component": "gbf", "state": "enabled", "value": true}},
+            {"measure": {"id": "frequency", "pin": "PC5", "quantity": "frequency", "window": "12ms", "expect": {"value": 250, "tolerance": 0.5}}},
+            {"measure": {"id": "duty", "pin": "PC5", "quantity": "dutyCycle", "window": "12ms", "expect": {"value": 50, "tolerance": 1}}}
+        ])");
+        THEN("it repeats at 250 Hz with the share of time the samples are high") {
+            const auto report = runOf(document);
+            CHECK(report.verdict == scenario::Verdict::Pass);
+            CHECK(measurement(report, "frequency").value.value() == Approx(250.0).margin(0.5));
+        }
+    }
+}
+
+SCENARIO("A scenario that asks a generator for more than it can do is refused before it runs", "[scenario][generator]") {
+    GIVEN("a 20 kHz sine on a 16 MHz MCU, which steps 64 times per period") {
+        const auto document = generatorScenario(R"([{"set": {"component": "gbf", "state": "frequency", "value": 20000}}])");
+        THEN("it is a capacity problem that names the highest frequency") {
+            expectProblem(document, scenario::Problem::Cause::Capacity, "/steps/0/set", "15625");
+        }
+    }
+    GIVEN("the same frequency after the wave was changed to a square wave") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "state": "waveform", "value": 1}},
+            {"set": {"component": "gbf", "state": "frequency", "value": 20000}}
+        ])");
+        THEN("it is accepted: the steps are rehearsed in order") {
+            CHECK(prepared(document));
+        }
+    }
+    GIVEN("a request beyond the electrical bounds") {
+        THEN("an amplitude above 10 V is refused") {
+            expectProblem(generatorScenario(R"([{"set": {"component": "gbf", "state": "amplitude", "value": 12}}])"), scenario::Problem::Cause::Capacity,
+                          "/steps/0/set", "amplitude");
+        }
+        THEN("a sample above 20 V is refused") {
+            expectProblem(generatorScenario(R"([{"set": {"component": "gbf", "samples": [0, 25], "period": "1ms"}}])"), scenario::Problem::Cause::Capacity,
+                          "/steps/0/set", "25 V");
+        }
+        THEN("samples too close in time are refused") {
+            Json many = Json::array();  // 200 samples over 0.1 ms: 8 cycles each on a 16 MHz clock.
+            for (int i = 0; i < 200; ++i)
+                many.push_back(i % 2);
+            auto document = generatorScenario(R"([{"set": {"component": "gbf", "samples": [0, 1], "period": "0.1ms"}}])");
+            document["steps"][0]["set"]["samples"] = many;
+            expectProblem(document, scenario::Problem::Cause::Capacity, "/steps/0/set", "below the minimum of 16 cycles");
+        }
+        THEN("the arbitrary wave cannot be selected before samples were programmed") {
+            expectProblem(generatorScenario(R"([{"set": {"component": "gbf", "state": "waveform", "value": 3}}])"), scenario::Problem::Cause::Capacity,
+                          "/steps/0/set", "program its samples first");
+        }
+    }
+}
+
+SCENARIO("The initial state of a generator is one state, whatever the order of its keys", "[scenario][generator]") {
+    GIVEN("a square wave of 20 kHz set in the initial state, where frequency sorts before waveform") {
+        auto document       = generatorScenario(R"([
+            {"measure": {"id": "frequency", "pin": "PC5", "quantity": "frequency", "window": "1ms", "expect": {"value": 20000, "tolerance": 20}}}
+        ])");
+        document["initial"] = Json::parse(R"({"components": {"gbf": {"frequency": 20000, "waveform": 1, "amplitude": 2.5, "offset": 2.5, "enabled": true}}})");
+        THEN("it is accepted, and the run applies it: the pin toggles at 20 kHz") {
+            const auto report = runOf(document);
+            CHECK(report.verdict == scenario::Verdict::Pass);
+            CHECK(measurement(report, "frequency").value.value() == Approx(20000.0).margin(20.0));
+        }
+    }
+    GIVEN("the same frequency with the default sine") {
+        auto document       = generatorScenario(R"([{"wait": "1ms"}])");
+        document["initial"] = Json::parse(R"({"components": {"gbf": {"frequency": 20000}}})");
+        THEN("it is still refused before the run") {
+            expectProblem(document, scenario::Problem::Cause::Capacity, "/initial/components/gbf/frequency", "15625");
+        }
+    }
+}
+
+SCENARIO("A bounded wait on a generator state sees the step that crosses its threshold", "[scenario][generator]") {
+    GIVEN("a 1 kHz sine of 2 V around 0 V, which never makes a digital edge on the pin: nothing but the generator changes") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "state": "amplitude", "value": 2}},
+            {"set": {"component": "gbf", "state": "offset", "value": 0}},
+            {"set": {"component": "gbf", "state": "enabled", "value": true}},
+            {"label": "above 1.5 V", "waitFor": {"component": "gbf", "state": "outputVoltage", "above": 1.5}, "timeout": "2ms"}
+        ])");
+        THEN("the wait is met at the cycle of the first step above 1.5 V: step 9 of 64, 2250 cycles after the output was enabled") {
+            const auto report = runOf(document);
+            REQUIRE(report.verdict == scenario::Verdict::Pass);
+            REQUIRE(report.steps.size() == 4);
+            CHECK(report.steps[3].outcome == Outcome::Done);
+            CHECK(report.steps[3].end - report.steps[2].applied.value() == 2250);
+        }
+    }
+    GIVEN("the same wave and a threshold it never reaches") {
+        const auto document = generatorScenario(R"([
+            {"set": {"component": "gbf", "state": "amplitude", "value": 2}},
+            {"set": {"component": "gbf", "state": "offset", "value": 0}},
+            {"set": {"component": "gbf", "state": "enabled", "value": true}},
+            {"waitFor": {"component": "gbf", "state": "outputVoltage", "above": 2.5}, "timeout": "2ms"}
+        ])");
+        THEN("the wait reaches its timeout") {
+            CHECK(runOf(document).verdict == scenario::Verdict::Fail);
+        }
+    }
+}

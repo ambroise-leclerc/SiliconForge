@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <numbers>
 #include <numeric>
 #include <queue>
 #include <set>
+#include <utility>
 
 namespace siliconforge::circuit {
 namespace {
@@ -20,6 +22,13 @@ constexpr double absorbedCurrent   = 1e-9;      // A supply cannot take in more 
 constexpr double conflictTolerance = 1e-9;      // A supply whose output is held at another voltage than its setpoint, however little.
 constexpr double shortTolerance    = 0.05;      // Two sources closer than this agree.
 constexpr std::size_t maxRemembered = 4096;
+constexpr std::uint64_t generatorSteps    = 64;      // Steps in a period of a sine or a triangle.
+constexpr double        minimumStepCycles = 16;      // A generator never steps faster: a solve costs far more than a few instructions.
+constexpr std::size_t   maxSamples        = 4096;    // Samples of an arbitrary wave.
+constexpr double        generatorVolts    = 20.0;    // Output compliance of a generator: its output stays within +-20 V.
+constexpr double        minimumPeriod     = 1e-4;
+constexpr double        maximumPeriod     = 10.0;
+constexpr double        maximumFrequency  = 100'000.0;
 
 /// Disjoint sets of small integers.
 struct Sets {
@@ -99,6 +108,9 @@ struct Circuit::Model {
         int         enabledIndex{-1};  ///< Supply: output enabled.
         int         voltageIndex{-1};  ///< Supply: voltage obtained; load: voltage across.
         int         modeIndex{-1};     ///< Supply: 0 off, 1 constant voltage, 2 constant current.
+        bool        generator{false};  ///< A supply whose setpoint (stateIndex) follows a wave scheduled on the MCU clock.
+        int         waveformIndex{-1}, frequencyIndex{-1}, amplitudeIndex{-1}, offsetIndex{-1}, dutyIndex{-1}, periodIndex{-1}, countIndex{-1};
+        int         run{-1};           ///< Generator: index in Model::runs.
         double      resistance{0};
         double      forwardVoltage{0};
         double      nominalCurrent{1};
@@ -127,6 +139,14 @@ struct Circuit::Model {
         std::vector<std::string> shorts;
     };
 
+    /// A generator running: where its wave started, the call scheduled for its next step, its arbitrary samples.
+    struct Run {
+        Cycles             origin{0};
+        Scheduler::EventId event{0};
+        std::vector<double> samples;
+    };
+    Circuit*                         owner{nullptr};
+    std::vector<Run>                 runs;
     unsigned                         columns{0};
     unsigned                         chipColumn{0};
     std::vector<Component>           components;
@@ -208,6 +228,73 @@ struct Circuit::Model {
         return index < 0 ? nullptr : &components[element.component].state[static_cast<std::size_t>(index)];
     }
 
+    [[nodiscard]] double number(const Element& element, int index) const {
+        return components[element.component].state[static_cast<std::size_t>(index)].value;
+    }
+
+    /// Why a generator cannot step as asked, for the clock of the MCU: the steps would be closer than the minimum.
+    [[nodiscard]] std::optional<std::string> spacing(std::string_view id, int waveform, double frequency, double duty, double period, std::size_t count, const Mcu* on = nullptr) const {
+        const Mcu* target = on ? on : mcu;  // The MCU to be attached, when it is not yet.
+        if (!target)
+            return std::nullopt;
+        const auto clock = static_cast<double>(target->clockHz());
+        if (waveform == 3) {
+            if (count < 2)
+                return std::format("{} has no arbitrary wave: program its samples first", id);
+            const auto step = period * clock / static_cast<double>(count);
+            if (step < minimumStepCycles)
+                return std::format("{} samples over {} s step every {:.3g} cycles of the {} Hz clock, below the minimum of {} cycles: use fewer samples or a longer period",
+                                   count, period, step, target->clockHz(), minimumStepCycles);
+            return std::nullopt;
+        }
+        const auto share = waveform == 1 ? std::min(duty, 100.0 - duty) / 100.0 : 1.0 / static_cast<double>(generatorSteps);
+        const auto step  = clock / frequency * share;
+        if (step < minimumStepCycles)
+            return std::format("{} Hz {} steps every {:.3g} cycles of the {} Hz clock, below the minimum of {} cycles: the highest frequency is {:.6g} Hz",
+                               frequency, waveform == 1 ? "square wave" : waveform == 0 ? "sine" : "triangle", step, target->clockHz(), minimumStepCycles,
+                               std::min(maximumFrequency, clock * share / minimumStepCycles));
+        return std::nullopt;
+    }
+
+    /// Voltage of step `k` of a wave.
+    [[nodiscard]] double waveValue(const Element& element, const Run& run, std::uint64_t k) const {
+        const auto form      = static_cast<int>(number(element, element.waveformIndex));
+        const auto amplitude = number(element, element.amplitudeIndex);
+        const auto offset    = number(element, element.offsetIndex);
+        switch (form) {
+            case 0: return offset + amplitude * std::sin(2.0 * std::numbers::pi * static_cast<double>(k % generatorSteps) / static_cast<double>(generatorSteps));
+            case 1: return offset + (k % 2 == 0 ? amplitude : -amplitude);
+            case 2: {
+                const auto phase = static_cast<double>(k % generatorSteps) / static_cast<double>(generatorSteps);
+                return offset + amplitude * (phase < 0.5 ? -1.0 + 4.0 * phase : 3.0 - 4.0 * phase);
+            }
+            default: return run.samples.empty() ? 0.0 : run.samples[k % run.samples.size()];
+        }
+    }
+
+    /// The cycle step `k` takes effect at, from where the wave started: each step is placed from the origin, not from the
+    /// previous step, so that rounding to a cycle never accumulates.
+    [[nodiscard]] Cycles stepCycle(const Element& element, const Run& run, std::uint64_t k) const {
+        const auto clock = static_cast<double>(mcu->clockHz());
+        const auto form  = static_cast<int>(number(element, element.waveformIndex));
+        double     periodCycles = 0;
+        std::uint64_t perPeriod = generatorSteps;
+        double     fraction     = 0;
+        if (form == 3) {
+            periodCycles = number(element, element.periodIndex) * clock;
+            perPeriod    = std::max<std::size_t>(run.samples.size(), 1);
+            fraction     = static_cast<double>(k % perPeriod) / static_cast<double>(perPeriod);
+        } else if (form == 1) {
+            periodCycles = clock / number(element, element.frequencyIndex);
+            perPeriod    = 2;
+            fraction     = k % 2 == 0 ? 0.0 : number(element, element.dutyIndex) / 100.0;
+        } else {
+            periodCycles = clock / number(element, element.frequencyIndex);
+            fraction     = static_cast<double>(k % perPeriod) / static_cast<double>(perPeriod);
+        }
+        return run.origin + static_cast<Cycles>(std::llround((static_cast<double>(k / perPeriod) + fraction) * periodCycles));
+    }
+
     /// Solves the circuit with the supplies in the modes they take as the load asks for current: a supply starts in
     /// constant voltage, goes to constant current when it would deliver more than its limit, and returns to constant
     /// voltage when the voltage it can hold in constant current exceeds its setpoint.
@@ -216,7 +303,7 @@ struct Circuit::Model {
         for (std::size_t i = 0; i < elements.size(); ++i)
             if (elements[i].kind == Kind::Supply && entryOf(elements[i], elements[i].enabledIndex)->value != 0.0)
                 // Terminals shorted: it can only limit, unless it is asked for 0 V, which is what a short gives.
-                mode[i] = net(elements[i].nodes[0]) == net(elements[i].nodes[1]) && entryOf(elements[i], elements[i].stateIndex)->value > 0.0 ? 2 : 1;
+                mode[i] = !elements[i].generator && net(elements[i].nodes[0]) == net(elements[i].nodes[1]) && entryOf(elements[i], elements[i].stateIndex)->value > 0.0 ? 2 : 1;
         std::vector<char>        fought(elements.size(), 0);
         std::vector<char>        opened(elements.size(), 0);
         std::vector<std::string> fights(elements.size());
@@ -231,8 +318,8 @@ struct Circuit::Model {
             bool changed     = false;
             const bool oneWay = round >= free;
             for (std::size_t i = 0; i < elements.size(); ++i) {
-                if (elements[i].kind != Kind::Supply)
-                    continue;
+                if (elements[i].kind != Kind::Supply || elements[i].generator)
+                    continue;  // A generator is an ideal source that sources and sinks current: it keeps its mode.
                 const auto setpoint = entryOf(elements[i], elements[i].stateIndex)->value;
                 const auto limit    = entryOf(elements[i], elements[i].limitIndex)->value;
                 if (opened[i]) {
@@ -368,9 +455,10 @@ struct Circuit::Model {
                 // Held below its setpoint, it is overloaded and can only limit its current; held above, it is driven by
                 // the other source and delivers nothing: it stays in constant voltage.
                 const auto& held = fixed[net(element.nodes[0])];
-                if (held && *held < wanted - conflictTolerance)
+                // A generator has no such leniency: another source at another voltage on its output is a short.
+                if (!element.generator && held && *held < wanted - conflictTolerance)
                     result.fought[i] = 1;
-                else if (held && *held > wanted + conflictTolerance)
+                else if (!element.generator && held && *held > wanted + conflictTolerance)
                     result.held[i] = 1;
                 // Driven above its setpoint it merely delivers nothing, as a supply behind a diode would: that is no short.
                 if (!result.held[i])
@@ -629,6 +717,11 @@ struct Circuit::Model {
                 continue;
             result.mode[i]  = supplyMode[i];
             result.extra[i] = std::abs(delivered[i]) < 1e-12 ? 0.0 : delivered[i];
+            if (element.generator && std::abs(delivered[i]) > entryOf(element, element.limitIndex)->value * (1 + 1e-9)) {
+                result.mode[i] = 2;
+                result.shorts.push_back(std::format("Overload: generator {} would deliver {:.3g} A, above its rating of {:.3g} A",
+                                                    components[element.component].id, std::abs(delivered[i]), entryOf(element, element.limitIndex)->value));
+            }
             if (net(element.nodes[0]) == net(element.nodes[1]) && supplyMode[i] == 2)
                 result.shorts.push_back(std::format("Short circuit: the terminals of supply {} are connected together; it limits the current to {:.3g} A",
                                                     components[element.component].id, delivered[i]));
@@ -640,6 +733,7 @@ struct Circuit::Model {
         const auto now = mcu ? mcu->cycles() : Cycles{0};
         if (now < lastAt) {  // The MCU clock restarted without restart().
             resetAverages(now);
+            owner->reprogramAll();
             return;
         }
         const auto elapsed = static_cast<double>(now - lastAt);
@@ -701,7 +795,12 @@ struct Circuit::Model {
     }
 };
 
-Circuit::~Circuit() = default;
+Circuit::~Circuit() {
+    if (model && model->mcu)
+        for (auto& run : model->runs)
+            if (run.event)
+                model->mcu->cancel(run.event);
+}
 
 std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json description, const Library& library) {
     if (auto valid = validateCircuit(description, library); !valid)
@@ -709,6 +808,7 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
     std::unique_ptr<Circuit> circuit{new Circuit};
     circuit->model  = std::make_unique<Model>();
     auto& model     = *circuit->model;
+    model.owner     = circuit.get();
     model.columns    = description.at("board").at("columns").get<unsigned>();
     model.chipColumn = description.at("chip").at("column").get<unsigned>();
     const auto node  = [&](const Json& hole) { return model.node(*parseHole(hole.get<std::string>())); };
@@ -792,9 +892,21 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
             } else if (kind == "meter") {
                 element.kind         = Model::Kind::Meter;
                 element.voltageIndex = stateIndex(prefix + "voltage");
-            } else if (kind == "supply") {
+            } else if (kind == "supply" || kind == "generator") {
                 element.kind         = Model::Kind::Supply;
-                element.stateIndex   = stateIndex(prefix + "voltage");
+                element.generator    = kind == "generator";
+                if (element.generator) {
+                    element.waveformIndex  = stateIndex(prefix + "waveform");
+                    element.frequencyIndex = stateIndex(prefix + "frequency");
+                    element.amplitudeIndex = stateIndex(prefix + "amplitude");
+                    element.offsetIndex    = stateIndex(prefix + "offset");
+                    element.dutyIndex      = stateIndex(prefix + "duty");
+                    element.periodIndex    = stateIndex(prefix + "period");
+                    element.countIndex     = stateIndex(prefix + "sampleCount");
+                    element.run            = static_cast<int>(model.runs.size());
+                    model.runs.emplace_back();
+                }
+                element.stateIndex   = stateIndex(prefix + (element.generator ? "setpoint" : "voltage"));
                 element.limitIndex   = stateIndex(prefix + "currentLimit");
                 element.enabledIndex = stateIndex(prefix + "enabled");
                 element.voltageIndex = stateIndex(prefix + "outputVoltage");
@@ -821,6 +933,16 @@ std::expected<void, LoadError> Circuit::attach(Mcu& mcu) {
     const auto half  = count / 2;
     if (model->chipColumn + half - 1 > model->columns)
         return std::unexpected(LoadError{"/chip/column", std::format("A {}-pin package does not fit on the board from column {}", count, model->chipColumn)});
+    // A generator set before there was a clock may ask for steps this one cannot keep: refused before anything is attached.
+    for (const auto& element : model->elements) {
+        if (!element.generator)
+            continue;
+        const auto& run = model->runs[static_cast<std::size_t>(element.run)];
+        if (auto problem = model->spacing(model->components[element.component].id, static_cast<int>(model->number(element, element.waveformIndex)),
+                                          model->number(element, element.frequencyIndex), model->number(element, element.dutyIndex),
+                                          model->number(element, element.periodIndex), run.samples.size(), &mcu))
+            return std::unexpected(LoadError{std::format("/components/{}", element.component), *problem});
+    }
     for (const auto& described : package.at("pins")) {
         Model::ChipPin entry;
         entry.number      = described.at("n").get<unsigned>();
@@ -836,6 +958,7 @@ std::expected<void, LoadError> Circuit::attach(Mcu& mcu) {
     model->mcu = &mcu;
     model->resetAverages(mcu.cycles());
     model->topologyDirty = true;
+    reprogramAll();
     update();
 
     // The pin a component is wired to: the nearest MCU signal pin, through wires and resistors, never through a rail.
@@ -876,6 +999,9 @@ std::expected<void, LoadError> Circuit::attach(Mcu& mcu) {
 void Circuit::detach() {
     if (!model->mcu)
         return;
+    for (auto& run : model->runs)
+        if (run.event)
+            model->mcu->cancel(std::exchange(run.event, 0));
     for (auto& entry : model->chip)
         if (entry.pin && entry.applied == 2 && !entry.pin->isOutput())
             entry.pin->setExternal(std::nullopt);
@@ -910,6 +1036,56 @@ void Circuit::update() {
 
 void Circuit::restart() {
     model->resetAverages(model->mcu ? model->mcu->cycles() : Cycles{0});
+    if (!model->runs.empty()) {  // The MCU forgot every scheduled call when it reset: the waves start again.
+        reprogramAll();
+        model->remembered.clear();
+        update();
+    }
+}
+
+void Circuit::reprogramAll() {
+    for (std::size_t i = 0; i < model->elements.size(); ++i)
+        reprogram(i);
+}
+
+void Circuit::reprogram(std::size_t index) {
+    auto& element = model->elements[index];
+    if (!element.generator)
+        return;
+    auto& run = model->runs[static_cast<std::size_t>(element.run)];
+    if (run.event && model->mcu)
+        model->mcu->cancel(run.event);
+    run.event      = 0;
+    run.origin     = model->mcu ? model->mcu->cycles() : Cycles{0};
+    auto& setpoint = *model->entryOf(element, element.stateIndex);
+    if (model->number(element, element.enabledIndex) == 0.0) {
+        setpoint.value = 0.0;
+        return;
+    }
+    setpoint.value = model->waveValue(element, run, 0);
+    scheduleStep(index, 0, run.origin);
+}
+
+void Circuit::scheduleStep(std::size_t index, std::uint64_t step, Cycles now) {
+    if (!model->mcu)
+        return;
+    const auto& element = model->elements[index];
+    auto&       run     = model->runs[static_cast<std::size_t>(element.run)];
+    const auto  next    = std::max(model->stepCycle(element, run, step + 1), now + 1);
+    run.event           = model->mcu->schedule(next, [this, index, following = step + 1](Cycles) { stepGenerator(index, following); });
+}
+
+void Circuit::stepGenerator(std::size_t index, std::uint64_t step) {
+    const auto& element = model->elements[index];
+    auto&       run     = model->runs[static_cast<std::size_t>(element.run)];
+    run.event           = 0;
+    model->entryOf(element, element.stateIndex)->value = model->waveValue(element, run, step);
+    model->remembered.clear();  // The setpoint is continuous: a remembered solution is for another instant.
+    update();
+    const auto now = model->mcu->cycles();
+    if (observed)
+        observed(now);
+    scheduleStep(index, step, now);
 }
 
 std::vector<std::string> Circuit::componentIds() const {
@@ -953,11 +1129,112 @@ std::expected<void, SetError> Circuit::set(std::string_view id, std::string_view
         return std::unexpected(SetError::OutOfRange);
     if (entry->value == value)
         return {};
+    if (refusal(id, name, value))
+        return std::unexpected(SetError::OutOfRange);
     model->accumulate();
     entry->value         = value;
     model->topologyDirty = true;  // A switch changes the nets; everything else only needs the memory cleared, which this does too.
+    for (std::size_t i = 0; i < model->elements.size(); ++i)
+        if (model->elements[i].generator && model->elements[i].component == static_cast<std::size_t>(component - model->components.begin()))
+            reprogram(i);  // A wave that was changed starts again from its first sample.
     update();
     return {};
+}
+
+std::optional<std::string> Circuit::refusal(std::string_view id, std::string_view name, double value) const {
+    const auto component = std::ranges::find(model->components, id, &Model::Component::id);
+    if (component == model->components.end())
+        return std::format("The circuit has no component {}", id);
+    const auto entry = std::ranges::find(component->state, name, &Model::StateEntry::name);
+    if (entry == component->state.end())
+        return std::format("Component {} has no state {}", id, name);
+    if (!std::isfinite(value))
+        return std::format("{}.{} must be a finite number", id, name);
+    if (entry->boolean ? value != 0.0 && value != 1.0 : (entry->minimum && value < *entry->minimum) || (entry->maximum && value > *entry->maximum))
+        return std::format("{} is outside the range of {}.{}: [{}, {}]", value, id, name,
+                           entry->minimum ? std::format("{}", *entry->minimum) : "-inf", entry->maximum ? std::format("{}", *entry->maximum) : "+inf");
+    for (const auto& element : model->elements) {
+        if (!element.generator || &model->components[element.component] != &*component)
+            continue;
+        const auto plan = [&](int index, double current) { return component->state[static_cast<std::size_t>(index)].name == name ? value : current; };
+        const auto waveform = plan(element.waveformIndex, model->number(element, element.waveformIndex));
+        if (name == "waveform" && waveform != std::floor(waveform))
+            return std::format("{}.waveform is 0 (sine), 1 (square), 2 (triangle) or 3 (arbitrary), not {}", id, value);
+        if (name != "waveform" && name != "frequency" && name != "duty" && name != "period")
+            continue;
+        const auto& run = model->runs[static_cast<std::size_t>(element.run)];
+        return model->spacing(id, static_cast<int>(waveform), plan(element.frequencyIndex, model->number(element, element.frequencyIndex)),
+                              plan(element.dutyIndex, model->number(element, element.dutyIndex)), plan(element.periodIndex, model->number(element, element.periodIndex)),
+                              run.samples.size());
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> Circuit::program(std::string_view id, std::span<const double> samples, double period) {
+    const auto component = std::ranges::find(model->components, id, &Model::Component::id);
+    if (component == model->components.end())
+        return std::format("The circuit has no component {}", id);
+    const auto found = std::ranges::find_if(model->elements, [&](const Model::Element& element) {
+        return element.generator && &model->components[element.component] == &*component;
+    });
+    if (found == model->elements.end())
+        return std::format("Component {} is not a signal generator", id);
+    if (samples.size() < 2 || samples.size() > maxSamples)
+        return std::format("An arbitrary wave has 2 to {} samples, not {}", maxSamples, samples.size());
+    for (std::size_t i = 0; i < samples.size(); ++i)
+        if (!std::isfinite(samples[i]) || std::abs(samples[i]) > generatorVolts)
+            return std::format("Sample {} is {} V: the output stays within +-{} V", i, samples[i], generatorVolts);
+    if (!std::isfinite(period) || period < minimumPeriod || period > maximumPeriod)
+        return std::format("The period of an arbitrary wave is {} to {} s, not {} s", minimumPeriod, maximumPeriod, period);
+    if (auto problem = model->spacing(id, 3, 0, 0, period, samples.size()))
+        return problem;
+    const auto index = static_cast<std::size_t>(found - model->elements.begin());
+    model->accumulate();
+    model->runs[static_cast<std::size_t>(found->run)].samples.assign(samples.begin(), samples.end());
+    component->state[static_cast<std::size_t>(found->periodIndex)].value   = period;
+    component->state[static_cast<std::size_t>(found->countIndex)].value    = static_cast<double>(samples.size());
+    component->state[static_cast<std::size_t>(found->waveformIndex)].value = 3;
+    model->topologyDirty = true;
+    reprogram(index);
+    update();
+    return std::nullopt;
+}
+
+std::optional<Json> Circuit::limits(std::string_view id) const {
+    const auto component = std::ranges::find(model->components, id, &Model::Component::id);
+    if (component == model->components.end())
+        return std::nullopt;
+    const auto found = std::ranges::find_if(model->elements, [&](const Model::Element& element) {
+        return element.generator && &model->components[element.component] == &*component;
+    });
+    if (found == model->elements.end())
+        return std::nullopt;
+    const auto range = [&](int index) {
+        const auto& entry = component->state[static_cast<std::size_t>(index)];
+        return Json{{"min", *entry.minimum}, {"max", *entry.maximum}};
+    };
+    Json result = {
+        {"voltage", {{"min", -generatorVolts}, {"max", generatorVolts}, {"unit", "V"}}},
+        {"amplitude", range(found->amplitudeIndex)},
+        {"offset", range(found->offsetIndex)},
+        {"frequency", range(found->frequencyIndex)},
+        {"duty", range(found->dutyIndex)},
+        {"period", range(found->periodIndex)},
+        {"samples", {{"min", 2}, {"max", maxSamples}, {"unit", "V"}}},
+        {"currentLimit", model->number(*found, found->limitIndex)},
+        {"stepsPerPeriod", {{"sine", generatorSteps}, {"triangle", generatorSteps}, {"square", 2}}},
+        {"minimumStepCycles", minimumStepCycles},
+    };
+    if (model->mcu) {
+        const auto clock = static_cast<double>(model->mcu->clockHz());
+        result["clockHz"]        = model->mcu->clockHz();
+        result["timeResolution"] = {{"cycles", 1}, {"seconds", 1.0 / clock}};
+        const auto duty          = std::min(model->number(*found, found->dutyIndex), 100.0 - model->number(*found, found->dutyIndex)) / 100.0;
+        result["maxFrequency"]   = {{"sine", std::min(maximumFrequency, clock / (static_cast<double>(generatorSteps) * minimumStepCycles))},
+                                    {"triangle", std::min(maximumFrequency, clock / (static_cast<double>(generatorSteps) * minimumStepCycles))},
+                                    {"square", std::min(maximumFrequency, clock * duty / minimumStepCycles)}};
+    }
+    return result;
 }
 
 bool Circuit::force(std::string_view pin, std::optional<double> volts) {
@@ -1025,6 +1302,7 @@ Json Circuit::view() const {
         Json        states    = Json::object();
         for (const auto& entry : component.state)
             states[entry.name] = {{"boolean", entry.boolean}, {"interactive", entry.interactive}};
+        const auto described = limits(component.id);
         result["components"].push_back({
             {"id", component.id},
             {"type", component.type},
@@ -1034,6 +1312,8 @@ Json Circuit::view() const {
             {"pin", component.pin},
             {"state", std::move(states)}
         });
+        if (described)
+            result["components"].back()["limits"] = *described;
     }
     result["types"] = model->types;
     return result;

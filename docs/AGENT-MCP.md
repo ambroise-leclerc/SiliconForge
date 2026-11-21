@@ -23,6 +23,7 @@ l’[ADR 0011](adr/0011-agent-mcp.md).
 | `load_firmware` | `path`, `run` (vrai par défaut) | Charge un fichier Intel HEX ou ELF du projet (chemin relatif), depuis le reset, puis le lance |
 | `run`, `pause`, `reset` | | Comme les boutons de la fenêtre ; `reset` relance la capture et la sortie série |
 | `set_component` | `component`, `state`, `value` | `{"component": "button-d2", "state": "pressed", "value": 1}` maintient le bouton, `0` le relâche ; un potentiomètre va de 0 à 1 |
+| `set_waveform` | `component`, `samples`, `period` (s) | Programme l’onde arbitraire d’un générateur de signaux et la sélectionne : 2 à 4096 échantillons en volts (±20 V), chacun tenu `period / nombre`. Un sinus, un carré ou un triangle se règlent avec `set_component` (`waveform`, `frequency`, `amplitude`, `offset`, `duty`, `enabled`). Une demande que l’horloge du MCU ne peut pas suivre est refusée avec la raison, avant tout changement ([CIRCUITS.md](CIRCUITS.md#générateur-de-signaux)) |
 | `set_voltage` | `pin`, `volts` | Applique une tension par le potentiomètre qui alimente la broche, sinon par une sonde |
 | `serial_send` | `text` | Envoie du texte à l’USART0 |
 | `serial_read` | `from` (0 par défaut) | Texte émis par l’USART0 depuis le reset ; `next` indique où reprendre |

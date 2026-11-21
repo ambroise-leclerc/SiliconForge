@@ -2,6 +2,7 @@
 
 #include <siliconforge/core/Debugger.hpp>
 #include <siliconforge/core/Pin.hpp>
+#include <siliconforge/core/Scheduler.hpp>
 #include <siliconforge/core/SerialPort.hpp>
 #include <siliconforge/core/Types.hpp>
 #include <siliconforge/core/loader/ProgramImage.hpp>
@@ -47,6 +48,13 @@ public:
     virtual RunResult run(Cycles budget) = 0;
     /// Executes a single instruction (or services one pending interrupt).
     virtual RunResult step() = 0;
+
+    /// Calls `callback` when the MCU clock reaches the absolute cycle `at`, between two instructions, with `cycles()`
+    /// reading `at` meanwhile (ADR 0002): what simulated sources such as a signal generator use to change a voltage at
+    /// an exact instant. A reset() or load() forgets the pending calls; whoever scheduled them schedules again.
+    virtual Scheduler::EventId schedule(Cycles at, Scheduler::Callback callback) = 0;
+    /// Forgets a call that has not happened yet; an identifier already fired or forgotten is ignored.
+    virtual void cancel(Scheduler::EventId id) = 0;
 
     [[nodiscard]] virtual Cycles  cycles() const noexcept         = 0;
     [[nodiscard]] virtual Address programCounter() const noexcept = 0;  ///< Byte address.

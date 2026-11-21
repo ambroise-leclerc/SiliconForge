@@ -5,9 +5,11 @@
 #include <siliconforge/core/Mcu.hpp>
 
 #include <expected>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -39,12 +41,21 @@ public:
 
     /// Plugs the chip of `mcu` at `chip.column`: its package pins are connected to their holes. The MCU must outlive
     /// the circuit or be detached. Fails ("/chip/column") when the package does not fit on the board.
+    ///
+    /// A signal generator set while there was no clock (set() cannot check its steps then) is checked here: one that
+    /// this MCU cannot step (steps closer than 16 cycles, an arbitrary wave without samples) fails with
+    /// "/components/<index>", and nothing is attached.
     std::expected<void, LoadError> attach(Mcu& mcu);
     /// Releases the inputs the circuit was driving and forgets the MCU.
     void detach();
 
     /// Solves the circuit for the current pin drives and applies the result to the MCU inputs.
     void update();
+    /// Called with the MCU cycle after every change the circuit makes by itself, once it is solved: a signal generator
+    /// stepping. Pin changes and what a caller does through set() are not reported here, the caller knows them. What
+    /// watches the states of the components (a bounded wait of a scenario) listens here, or it would not see a voltage
+    /// that crosses a threshold between two pin changes.
+    void onChange(std::function<void(Cycles at)> observer) { observed = std::move(observer); }
     /// The MCU was reset: its clock restarted, so the averages start again from now.
     void restart();
 
@@ -61,6 +72,22 @@ public:
     [[nodiscard]] bool averaged(std::string_view id, std::string_view name) const;
     /// Changes an interactive state entry (a button press, a potentiometer position) and solves the circuit again.
     std::expected<void, SetError> set(std::string_view id, std::string_view name, double value);
+
+    /// Why a state entry cannot take `value` now, or nullopt when it can: the reasons Circuit::set would refuse, with the
+    /// words to tell the person. Besides the bounds of the type, a signal generator also needs its steps to stay at
+    /// least 16 clock cycles apart, which depends on the clock of the MCU the circuit is attached to. The bench engine
+    /// calls this before a run, so that a request beyond the capacity fails before anything executes.
+    [[nodiscard]] std::optional<std::string> refusal(std::string_view id, std::string_view name, double value) const;
+
+    /// Programs the arbitrary wave of a signal generator and selects it: `samples` in volts, each held for
+    /// `period / samples.size()` seconds, then repeated. Returns why it cannot (unknown component, not a generator, too
+    /// many samples, a sample or a period out of range, steps closer than 16 cycles), or nullopt.
+    std::optional<std::string> program(std::string_view id, std::span<const double> samples, double period);
+
+    /// What a signal generator can do, as numbers: electrical bounds, frequency and period ranges, steps per period,
+    /// the time resolution of one clock cycle, and, with an MCU attached, the highest frequency of each wave at its
+    /// clock. nullopt for a component that is not a generator.
+    [[nodiscard]] std::optional<nlohmann::json> limits(std::string_view id) const;
 
     /// A probe applies `volts` to the net of an MCU pin, like an ideal source; nullopt removes it. Returns false for a
     /// pin that is not on the board.
@@ -84,11 +111,17 @@ public:
 
 private:
     Circuit() = default;
+    /// The wave of a generator starts again at the present cycle, from its first sample, and its steps are scheduled.
+    void reprogram(std::size_t element);
+    void reprogramAll();
+    void scheduleStep(std::size_t element, std::uint64_t step, Cycles now);
+    void stepGenerator(std::size_t element, std::uint64_t step);
     struct Model;
     std::unique_ptr<Model>   model;
     nlohmann::json           source;
     double                   supply{5.0};
     std::vector<std::string> shortCircuits;
+    std::function<void(Cycles)> observed;
 };
 
 }  // namespace siliconforge::circuit

@@ -10,7 +10,7 @@ installation ne dépend pas du répertoire source. La décision est décrite dan
 l'[ADR 0005](adr/0005-composants-et-circuits.md).
 
 Le circuit est calculé en C++ par un modèle électrique (`circuit::Circuit`) : l'interface et le banc de test
-voient le même. Quatre circuits sont fournis : `arduino-demo` (par défaut), `seven-segment`, `led-buttons` et `bench-demo` (alimentation, charge et multimètre).
+voient le même. Cinq circuits sont fournis : `arduino-demo` (par défaut), `seven-segment`, `led-buttons`, `bench-demo` (alimentation, charge et multimètre) et `generator-demo` (générateur de signaux sur A0).
 
 ```sh
 siliconforge --circuit seven-segment firmware/prebuilt/counter.hex   # un circuit embarqué, par son nom
@@ -121,6 +121,7 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
   | `bench-supply` | `fixed` | bornes à 2 colonnes | Une voie d’alimentation de banc (#62) |
   | `variable-load` | `span` | 2 à 12 trous | Résistance que l’essai change en cours de route (#62) |
   | `multimeter` | `fixed` | bornes à 2 colonnes | Voltmètre continu, sans courant prélevé |
+  | `signal-generator` | `fixed` | bornes à 2 colonnes | Une voie de générateur de signaux (#63) |
 
 - **`model`** : le comportement électrique, comme une liste d'éléments reliant des bornes. Un
   composant simple a un élément ; un afficheur 7 segments en aura huit de type `led`, nommés.
@@ -255,3 +256,67 @@ trois composants sont dans le panneau Instruments ([INSTRUMENTS.md](INSTRUMENTS.
 Qualification : [`tests/unit/BenchSupplyTests.cpp`](../tests/unit/BenchSupplyTests.cpp) compare le modèle à la loi
 d’Ohm sur des valeurs de référence (5 V, 100 mA : 100 Ω donne 50 mA en régulation, 25 Ω donne 100 mA et 2,5 V en
 limitation, 50 Ω est la résistance critique).
+
+## Générateur de signaux
+
+`signal-generator` est la ressource « GBF et générateur d’ondes » de l’[ADR 0010](adr/0010-banc-programmable.md) : une
+source de tension idéale entre `output` et `common`, dont la tension change à des instants planifiés sur l’horloge du
+MCU (`Mcu::schedule`). `common` doit être relié à une référence (le rail de masse ou une autre source) ; sans elle la
+voie ne délivre rien.
+
+| État | Rôle |
+| --- | --- |
+| `waveform` | 0 sinus, 1 carré, 2 triangle, 3 arbitraire |
+| `frequency` | 0,1 à 100 000 Hz (sinus, carré, triangle) |
+| `amplitude`, `offset` | Amplitude crête 0 à 10 V, décalage ±10 V : la sortie reste dans ±20 V |
+| `duty` | Part haute d’un carré, 1 à 99 % |
+| `period` | Durée sur laquelle se répètent les échantillons d’une onde arbitraire, 0,1 ms à 10 s |
+| `enabled` | Sortie. Coupée, les bornes sont ouvertes ; l’activer démarre l’onde à son premier échantillon |
+| `setpoint`, `outputVoltage`, `outputCurrent`, `mode` | Tension tenue à cet instant, tension et courant obtenus (négatif quand la voie absorbe du courant), 0 coupée, 1 tenue, 2 surcharge |
+
+Un changement de forme, de fréquence, d’amplitude, de décalage, de rapport cyclique ou de période relance l’onde à partir
+de son premier échantillon, au cycle courant, de même qu’une réinitialisation du MCU.
+
+**Résolution temporelle.** Chaque pas tombe sur un cycle d’horloge du MCU, placé depuis l’origine de l’onde sans cumul
+d’arrondi : à 16 MHz, 62,5 ns. Un sinus ou un triangle est un escalier de 64 pas par période, chacun tenu jusqu’au
+suivant (l’écart à l’onde idéale est au plus `amplitude × 2π / 64` pour un sinus, `amplitude × 4 / 64` pour un
+triangle) ; un carré change à ses deux fronts, exactement à `fréquence` et `duty` ; une onde arbitraire tient chaque
+échantillon `period / nombre`.
+
+**Bornes et refus.** Deux pas ne peuvent être séparés de moins de 16 cycles d’horloge (une résolution du modèle
+résistif qui coûte un calcul par pas). La fréquence maximale dépend donc de l’horloge et de la forme : à 16 MHz,
+15 625 Hz pour un sinus ou un triangle, 100 000 Hz pour un carré à 50 %. `Circuit::limits(id)` publie ces bornes et la
+résolution, `view()` les joint à chaque générateur, et la face avant les affiche. `Circuit::refusal(id, état, valeur)`
+dit pourquoi un réglage est refusé, avant qu’il s’applique : `Circuit::set` le refuse, la fenêtre et l’outil MCP
+`set_component` rapportent la raison, et le moteur de scénarios refuse l’étape (`capacity`) avant d’exécuter la moindre
+instruction, en rejouant les étapes dans l’ordre sur le circuit qui vérifie le scénario.
+
+```cpp
+bench.attach(circuit::builtinDescription("generator-demo"));
+bench.set("gbf", "waveform", 1);   // carré
+bench.set("gbf", "frequency", 1000);
+bench.set("gbf", "amplitude", 2.5);
+bench.set("gbf", "offset", 2.5);
+bench.set("gbf", "enabled", 1);
+const std::vector<double> samples{0.5, 4.0, 1.0, 3.0, 2.0};
+bench.circuit().program("gbf", samples, 0.005);   // onde arbitraire de 5 ms, rend la raison d’un refus
+```
+
+Chaque pas du générateur prévient les observateurs du circuit (`Circuit::onChange`) une fois le circuit résolu : le moteur
+de scénarios enregistre alors les états au cycle du pas et évalue ses `waitFor`, de sorte qu’une attente sur
+`gbf.outputVoltage` voit le pas qui franchit son seuil même sans aucun front sur une broche.
+
+Sans MCU il n’y a pas d’horloge : `Circuit::set` n’a alors que les bornes du type à vérifier. `Circuit::attach` revérifie
+chaque générateur et refuse (`/components/<indice>`) celui que le MCU ne peut pas suivre, par exemple un sinus de 100 kHz
+réglé avant l’attachement, ou une onde arbitraire sans échantillons. Dans un scénario, l’état initial d’un composant
+est un état, pas une suite : `waveform` est appliquée avant les autres clés, quel que soit l’ordre du JSON.
+
+La voie est une source idéale de ±20 V : elle fournit et absorbe du courant. Au-delà de `currentLimit` (100 mA), elle
+tient sa tension mais le signale comme une surcharge (`mode` 2 et un message dans `shorts()`), sans impédance de
+sortie de 50 Ω ni limitation de courant. Une autre source à une autre tension sur sa sortie est un court-circuit.
+
+Qualification : [`tests/unit/GeneratorTests.cpp`](../tests/unit/GeneratorTests.cpp) compare les captures à des
+références qui découlent de la définition de chaque onde (le cycle exact de chaque pas, le niveau et les fronts d’un
+carré, la distance au sinus et au triangle idéaux, les échantillons arbitraires), et une conversion ADC sur A0 au niveau
+que l’onde a à cet instant. `ScenarioTests.cpp` mesure la fréquence et le rapport cyclique d’une onde programmée par
+un scénario et vérifie les refus.

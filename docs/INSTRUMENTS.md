@@ -66,6 +66,7 @@ Le choix est conservé d’une session à l’autre.
 | --- | --- |
 | Analyseur logique, oscilloscope | Les pistes décrites plus haut |
 | Supply (`bench-supply`) | Afficheurs tension et courant, voyants CV / CC, consigne, limite, bouton **Output** |
+| Generator (`signal-generator`) | Afficheurs tension et courant, voyants ON / OVL, forme d’onde, fréquence, amplitude, décalage, rapport cyclique, période des échantillons, bouton **Output**, bornes publiées |
 | Load (`variable-load`) | Afficheurs V, A et W, résistance et valeurs prédéfinies |
 | Multimeter (`multimeter`) | Tension continue entre `V` et `COM`, sans courant prélevé |
 
@@ -76,8 +77,8 @@ avant, qui indiquent aussi le trou :
 | --- | --- | --- |
 | **+** | rouge | sortie positive de l’alimentation |
 | **−** | noir | sortie négative |
-| **V** | jaune | entrée tension du multimètre |
-| masse (trois traits) | gris | `COM` du multimètre |
+| **V** | jaune | entrée tension du multimètre, sortie du générateur |
+| masse (trois traits) | gris | `COM` du multimètre, `common` du générateur |
 | **Ω** | bleu | bornes de la charge |
 
 Un fil de la couleur de la borne relie chaque repère à l’étiquette de l’appareil (son nom et sa mesure en direct) ;
@@ -87,5 +88,9 @@ la puce par un anneau de la couleur de leur trace, numéroté comme la piste.
 Le circuit `bench-demo` réunit la démonstration Arduino, l’alimentation, la charge et le multimètre :
 `siliconforge --circuit bench-demo firmware/prebuilt/demo.hex`.
 
-Pas encore : générateur basse fréquence, générateur de signaux et analyseur de signaux. Ils demandent une source
-périodique planifiée sur l’horloge du MCU (ADR 0010), que le modèle résistif actuel ne fournit pas.
+Le circuit `generator-demo` remplace le potentiomètre de A0 par un générateur de signaux :
+`siliconforge --circuit generator-demo firmware/prebuilt/demo.hex`. Le firmware de démonstration ne lit pas A0 : la
+broche porte l’onde pour l’ADC d’un firmware qui la lit, et pour l’oscilloscope.
+
+Pas encore : analyseur de signaux (il faut une capture de tensions et plus seulement de fronts) et générateur
+d’impulsions déclenché par un événement du MCU.
