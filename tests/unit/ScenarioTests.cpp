@@ -904,3 +904,24 @@ SCENARIO("A scenario that asks a generator for more than it can do is refused be
         }
     }
 }
+
+SCENARIO("The initial state of a generator is one state, whatever the order of its keys", "[scenario][generator]") {
+    GIVEN("a square wave of 20 kHz set in the initial state, where frequency sorts before waveform") {
+        auto document       = generatorScenario(R"([
+            {"measure": {"id": "frequency", "pin": "PC5", "quantity": "frequency", "window": "1ms", "expect": {"value": 20000, "tolerance": 20}}}
+        ])");
+        document["initial"] = Json::parse(R"({"components": {"gbf": {"frequency": 20000, "waveform": 1, "amplitude": 2.5, "offset": 2.5, "enabled": true}}})");
+        THEN("it is accepted, and the run applies it: the pin toggles at 20 kHz") {
+            const auto report = runOf(document);
+            CHECK(report.verdict == scenario::Verdict::Pass);
+            CHECK(measurement(report, "frequency").value.value() == Approx(20000.0).margin(20.0));
+        }
+    }
+    GIVEN("the same frequency with the default sine") {
+        auto document       = generatorScenario(R"([{"wait": "1ms"}])");
+        document["initial"] = Json::parse(R"({"components": {"gbf": {"frequency": 20000}}})");
+        THEN("it is still refused before the run") {
+            expectProblem(document, scenario::Problem::Cause::Capacity, "/initial/components/gbf/frequency", "15625");
+        }
+    }
+}

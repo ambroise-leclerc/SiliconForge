@@ -688,12 +688,21 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
 
     if (document.contains("initial")) {
         const auto& initial = document.at("initial");
-        for (const auto& [id, entries] : initial.value("components", Json::object()).items())
-            for (const auto& [entry, value] : entries.items()) {
+        for (const auto& [id, entries] : initial.value("components", Json::object()).items()) {
+            // The settings of a component are one state, not a sequence: a JSON object has no order (its keys come back
+            // sorted), so a generator's frequency must not be checked against the sine it is before the waveform is
+            // set. The waveform goes first; the other settings only get less demanding than the defaults they replace
+            // (a generator's steps are never closer with a lower frequency or a duty cycle nearer to 50 %).
+            std::vector<std::pair<std::string, const Json*>> ordered;
+            for (const auto& [entry, value] : entries.items())
+                ordered.emplace_back(entry, &value);
+            std::ranges::stable_partition(ordered, [](const auto& item) { return item.first == "waveform"; });
+            for (const auto& [entry, value] : ordered) {
                 const auto path = child(child("/initial/components", id), entry);
-                check.setting(id, entry, value, path);
-                initialComponents.emplace_back(id, entry, numericValue(value));
+                check.setting(id, entry, *value, path);
+                initialComponents.emplace_back(id, entry, numericValue(*value));
             }
+        }
         for (const auto& [pin, volts] : initial.value("probes", Json::object()).items()) {
             const auto path = child("/initial/probes", pin);
             check.probe(pin, volts.get<double>(), path, path);

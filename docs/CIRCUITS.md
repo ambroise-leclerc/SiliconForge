@@ -302,6 +302,11 @@ const std::vector<double> samples{0.5, 4.0, 1.0, 3.0, 2.0};
 bench.circuit().program("gbf", samples, 0.005);   // onde arbitraire de 5 ms, rend la raison d’un refus
 ```
 
+Sans MCU il n’y a pas d’horloge : `Circuit::set` n’a alors que les bornes du type à vérifier. `Circuit::attach` revérifie
+chaque générateur et refuse (`/components/<indice>`) celui que le MCU ne peut pas suivre, par exemple un sinus de 100 kHz
+réglé avant l’attachement, ou une onde arbitraire sans échantillons. Dans un scénario, l’état initial d’un composant
+est un état, pas une suite : `waveform` est appliquée avant les autres clés, quel que soit l’ordre du JSON.
+
 La voie est une source idéale de ±20 V : elle fournit et absorbe du courant. Au-delà de `currentLimit` (100 mA), elle
 tient sa tension mais le signale comme une surcharge (`mode` 2 et un message dans `shorts()`), sans impédance de
 sortie de 50 Ω ni limitation de courant. Une autre source à une autre tension sur sa sortie est un court-circuit.

@@ -233,24 +233,25 @@ struct Circuit::Model {
     }
 
     /// Why a generator cannot step as asked, for the clock of the MCU: the steps would be closer than the minimum.
-    [[nodiscard]] std::optional<std::string> spacing(std::string_view id, int waveform, double frequency, double duty, double period, std::size_t count) const {
-        if (!mcu)
+    [[nodiscard]] std::optional<std::string> spacing(std::string_view id, int waveform, double frequency, double duty, double period, std::size_t count, const Mcu* on = nullptr) const {
+        const Mcu* target = on ? on : mcu;  // The MCU to be attached, when it is not yet.
+        if (!target)
             return std::nullopt;
-        const auto clock = static_cast<double>(mcu->clockHz());
+        const auto clock = static_cast<double>(target->clockHz());
         if (waveform == 3) {
             if (count < 2)
                 return std::format("{} has no arbitrary wave: program its samples first", id);
             const auto step = period * clock / static_cast<double>(count);
             if (step < minimumStepCycles)
                 return std::format("{} samples over {} s step every {:.3g} cycles of the {} Hz clock, below the minimum of {} cycles: use fewer samples or a longer period",
-                                   count, period, step, mcu->clockHz(), minimumStepCycles);
+                                   count, period, step, target->clockHz(), minimumStepCycles);
             return std::nullopt;
         }
         const auto share = waveform == 1 ? std::min(duty, 100.0 - duty) / 100.0 : 1.0 / static_cast<double>(generatorSteps);
         const auto step  = clock / frequency * share;
         if (step < minimumStepCycles)
             return std::format("{} Hz {} steps every {:.3g} cycles of the {} Hz clock, below the minimum of {} cycles: the highest frequency is {:.6g} Hz",
-                               frequency, waveform == 1 ? "square wave" : waveform == 0 ? "sine" : "triangle", step, mcu->clockHz(), minimumStepCycles,
+                               frequency, waveform == 1 ? "square wave" : waveform == 0 ? "sine" : "triangle", step, target->clockHz(), minimumStepCycles,
                                std::min(maximumFrequency, clock * share / minimumStepCycles));
         return std::nullopt;
     }
@@ -932,6 +933,16 @@ std::expected<void, LoadError> Circuit::attach(Mcu& mcu) {
     const auto half  = count / 2;
     if (model->chipColumn + half - 1 > model->columns)
         return std::unexpected(LoadError{"/chip/column", std::format("A {}-pin package does not fit on the board from column {}", count, model->chipColumn)});
+    // A generator set before there was a clock may ask for steps this one cannot keep: refused before anything is attached.
+    for (const auto& element : model->elements) {
+        if (!element.generator)
+            continue;
+        const auto& run = model->runs[static_cast<std::size_t>(element.run)];
+        if (auto problem = model->spacing(model->components[element.component].id, static_cast<int>(model->number(element, element.waveformIndex)),
+                                          model->number(element, element.frequencyIndex), model->number(element, element.dutyIndex),
+                                          model->number(element, element.periodIndex), run.samples.size(), &mcu))
+            return std::unexpected(LoadError{std::format("/components/{}", element.component), *problem});
+    }
     for (const auto& described : package.at("pins")) {
         Model::ChipPin entry;
         entry.number      = described.at("n").get<unsigned>();

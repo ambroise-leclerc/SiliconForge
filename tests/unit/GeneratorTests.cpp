@@ -348,3 +348,42 @@ SCENARIO("the ADC converts the generator on A0 to the level the wave has at that
         }
     }
 }
+
+SCENARIO("a generator set before there was a clock is checked when the MCU is attached", "[circuit][generator]") {
+    GIVEN("a circuit with no MCU, where a 100 kHz sine is accepted: there is no clock to check it against") {
+        auto created = circuit::Circuit::create(generatorCircuit());
+        REQUIRE(created);
+        auto& circuit = **created;
+        REQUIRE(circuit.set("gbf", "frequency", 100000.0));
+        auto device = mcu::create("atmega328p");
+
+        WHEN("it is attached to a 16 MHz MCU") {
+            const auto attached = circuit.attach(*device);
+            THEN("it is refused, names the generator and the highest frequency, and nothing is attached") {
+                REQUIRE_FALSE(attached);
+                CHECK(attached.error().path == "/components/0");
+                CHECK(attached.error().message.find("15625") != std::string::npos);
+                CHECK_FALSE(circuit.limits("gbf")->contains("clockHz"));
+            }
+            AND_WHEN("the frequency is brought within what the clock can step") {
+                REQUIRE(circuit.set("gbf", "frequency", 10000.0));
+                THEN("the same MCU is accepted") {
+                    CHECK(circuit.attach(*device));
+                    CHECK(circuit.limits("gbf")->contains("clockHz"));
+                }
+            }
+        }
+    }
+    GIVEN("a circuit with no MCU where the arbitrary wave is selected without samples") {
+        auto created = circuit::Circuit::create(generatorCircuit());
+        REQUIRE(created);
+        auto& circuit = **created;
+        REQUIRE(circuit.set("gbf", "waveform", 3.0));
+        auto device = mcu::create("atmega328p");
+        THEN("attaching is refused: there is nothing to step") {
+            const auto attached = circuit.attach(*device);
+            REQUIRE_FALSE(attached);
+            CHECK(attached.error().message.find("program its samples first") != std::string::npos);
+        }
+    }
+}

@@ -40,6 +40,10 @@ public:
 
     /// Plugs the chip of `mcu` at `chip.column`: its package pins are connected to their holes. The MCU must outlive
     /// the circuit or be detached. Fails ("/chip/column") when the package does not fit on the board.
+    ///
+    /// A signal generator set while there was no clock (set() cannot check its steps then) is checked here: one that
+    /// this MCU cannot step (steps closer than 16 cycles, an arbitrary wave without samples) fails with
+    /// "/components/<index>", and nothing is attached.
     std::expected<void, LoadError> attach(Mcu& mcu);
     /// Releases the inputs the circuit was driving and forgets the MCU.
     void detach();
