@@ -71,7 +71,7 @@ inline constexpr Example examples[] = {
     {"uart_echo", "UART echo", "arduino-demo", "uart_echo.hex", "Echoes the lines of the serial monitor in upper case, 9600 baud"},
     {"pwm", "PWM 62.5 kHz", "arduino-demo", "pwm.hex", "Timer0 Fast PWM: 25 % on D6 and 75 % on D5"},
     {"pwm_setpoint", "PWM setpoint", "arduino-demo", "pwm_setpoint.hex", "D6 at 25 %, 75 % while the D2 button is held; D13 acknowledges"},
-    {"blink", "Blink", "arduino-demo", "blink.hex", "The LED on D13 at 1 Hz"},
+    {"tft_spi", "SPI display ILI9341", "tft-spi-demo", "tft_spi.hex", "KMRTM28028 module (ILI9341, 240 x 320) on the hardware SPI: initialisation, then four colour quadrants painted in a window"},
     {"timer0_isr", "Timer interrupt", "arduino-demo", "timer0_isr.hex", "A Timer0 interrupt service routine toggling a pin"},
 };
 
@@ -894,6 +894,11 @@ private:
                 throw webfront::BridgeError{std::string{error_code::invalidPlacement}, std::string{"Invalid holes: "} + e.what()};
             }
             simulation.access([&](Mcu& mcu) { moveComponent(mcu, id, parsed); });
+        });
+        // The pixels of a display of the circuit ({width, height, revision, rgb565}, "null" for another component): the
+        // page asks for them when the `revision` state of the display changes.
+        app.cppFunction("sf.screen", [this](std::string id) {
+            return simulation.access([&](Mcu&) { return circuit ? circuit->screenImage(id).dump() : std::string{"null"}; });
         });
         app.cppFunction("sf.examples", [] {
             auto list = nlohmann::json::array();

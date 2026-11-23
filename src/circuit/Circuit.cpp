@@ -149,7 +149,6 @@ struct Circuit::Model {
         std::map<std::string, int> node;   ///< Terminal name -> node.
         std::map<std::string, int> state;  ///< State entry name -> index in the component.
         Tft                        tft;
-        std::size_t                sent{static_cast<std::size_t>(-1)};  ///< Revision of the memory last sent by frame().
     };
 
     /// A generator running: where its wave started, the call scheduled for its next step, its arbitrary samples.
@@ -1187,6 +1186,33 @@ const Tft* Circuit::display(std::string_view id) const {
     return nullptr;
 }
 
+nlohmann::json Circuit::screenImage(std::string_view id) const {
+    const auto* tft = display(id);
+    if (tft == nullptr)
+        return nullptr;
+    // What the panel shows, as RGB565 in base64.
+    static constexpr std::string_view alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const auto                        shown    = tft->shown();
+    std::string                       bytes;
+    bytes.reserve(shown.size() * 2 + 2);
+    for (const auto pixel : shown) {
+        const auto word = static_cast<unsigned>(((pixel >> 19) & 0x1F) << 11 | ((pixel >> 10) & 0x3F) << 5 | ((pixel >> 3) & 0x1F));
+        bytes += static_cast<char>(word >> 8);
+        bytes += static_cast<char>(word & 0xFF);
+    }
+    std::string text;
+    for (std::size_t i = 0; i < bytes.size(); i += 3) {
+        const auto chunk = static_cast<unsigned>(static_cast<unsigned char>(bytes[i])) << 16
+                           | (i + 1 < bytes.size() ? static_cast<unsigned>(static_cast<unsigned char>(bytes[i + 1])) << 8 : 0u)
+                           | (i + 2 < bytes.size() ? static_cast<unsigned>(static_cast<unsigned char>(bytes[i + 2])) : 0u);
+        text += alphabet[(chunk >> 18) & 63];
+        text += alphabet[(chunk >> 12) & 63];
+        text += i + 1 < bytes.size() ? alphabet[(chunk >> 6) & 63] : '=';
+        text += i + 2 < bytes.size() ? alphabet[chunk & 63] : '=';
+    }
+    return {{"width", tft->width()}, {"height", tft->height()}, {"revision", tft->revision()}, {"rgb565", std::move(text)}};
+}
+
 std::optional<double> Circuit::state(std::string_view id, std::string_view name) const {
     const auto component = std::ranges::find(model->components, id, &Model::Component::id);
     if (component == model->components.end())
@@ -1422,31 +1448,6 @@ Json Circuit::frame() {
             states[entry.name] = std::round(value * 10000.0) / 10000.0;
             entry.integral     = 0;
         }
-        for (auto& screen : model->screens)
-            if (&model->components[screen.component] == &component && screen.sent != screen.tft.revision()) {
-                // What the panel shows, as RGB565 in base64: sent when it changed since the previous frame only.
-                static constexpr std::string_view alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-                const auto                        shown    = screen.tft.shown();
-                std::string                       bytes;
-                bytes.reserve(shown.size() * 2 + 2);
-                for (const auto pixel : shown) {
-                    const auto word = static_cast<unsigned>(((pixel >> 19) & 0x1F) << 11 | ((pixel >> 10) & 0x3F) << 5 | ((pixel >> 3) & 0x1F));
-                    bytes += static_cast<char>(word >> 8);
-                    bytes += static_cast<char>(word & 0xFF);
-                }
-                std::string text;
-                for (std::size_t i = 0; i < bytes.size(); i += 3) {
-                    const auto chunk = static_cast<unsigned>(static_cast<unsigned char>(bytes[i])) << 16
-                                       | (i + 1 < bytes.size() ? static_cast<unsigned>(static_cast<unsigned char>(bytes[i + 1])) << 8 : 0u)
-                                       | (i + 2 < bytes.size() ? static_cast<unsigned>(static_cast<unsigned char>(bytes[i + 2])) : 0u);
-                    text += alphabet[(chunk >> 18) & 63];
-                    text += alphabet[(chunk >> 12) & 63];
-                    text += i + 1 < bytes.size() ? alphabet[(chunk >> 6) & 63] : '=';
-                    text += i + 2 < bytes.size() ? alphabet[chunk & 63] : '=';
-                }
-                states["screen"] = {{"width", screen.tft.width()}, {"height", screen.tft.height()}, {"rgb565", std::move(text)}};
-                screen.sent       = screen.tft.revision();
-            }
         if (!states.empty())
             result[component.id] = std::move(states);
     }

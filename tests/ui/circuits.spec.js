@@ -186,7 +186,7 @@ describe("Circuits", () => {
   });
 
   it("signals a short circuit between an output and a rail", async () => {
-    await sf().loadExample("blink");
+    await sf().loadExample("demo");
     expect(element("shorts").hidden).toBe(true);
     const shorted = structuredClone(fixtures.demo);
     shorted.wires.push({from: "g15", to: "T-15", color: "white"});  // D13 straight to ground
@@ -209,5 +209,35 @@ describe("Circuits", () => {
     expect(document.querySelectorAll("#breadboard .bb-leg.bb-io").length).toBeGreaterThan(20);
     await sf().selectMcu("atmega328p");
     await until(() => document.querySelector('#breadboard .bb-led[data-pin="D13"]') !== null, "the circuit to come back with its MCU");
+  }, 40000);
+  it("draws the screen of the SPI display example", async () => {
+    await sf().loadExample("tft_spi");
+    await sf().waitFor((state) => state.components?.tft?.pixelsWritten === 9600, 20000);
+    const read = async () => {
+      const href = document.querySelector("#breadboard .bb-tft image")?.getAttribute("href");
+      if (!href?.startsWith("data:image/png")) return null;
+      const image = new Image();
+      image.src = href;
+      await image.decode();
+      const canvas = document.createElement("canvas");
+      canvas.width = image.width; canvas.height = image.height;
+      const context = canvas.getContext("2d");
+      context.drawImage(image, 0, 0);
+      return (x, y) => Array.from(context.getImageData(x, y, 1, 1).data.slice(0, 3));
+    };
+    let at;
+    const deadline = performance.now() + 15000;
+    for (;;) {
+      at = await read();
+      if (at && at(70, 130)[0] > 200) break;
+      if (performance.now() > deadline) throw new Error("timeout waiting for the painted window in the panel image");
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    const [, viewTop] = document.querySelector("#breadboard svg.breadboard").getAttribute("viewBox").split(" ").map(Number);
+    expect(Number(document.querySelector("#breadboard .bb-tft image").getAttribute("y"))).toBeGreaterThanOrEqual(viewTop);  // Not cut off above the board
+    expect(at(10, 10)).toEqual([0, 0, 0]);          // Outside the painted window
+    const red = at(70, 130), white = at(170, 190);  // Top-left and bottom-right quadrants
+    expect(red[0]).toBeGreaterThan(200); expect(red[1]).toBeLessThan(40); expect(red[2]).toBeLessThan(40);
+    expect(Math.min(...white)).toBeGreaterThan(200);
   }, 40000);
 });

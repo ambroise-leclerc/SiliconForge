@@ -399,11 +399,11 @@ TEST_CASE("An example loads its circuit and its firmware, and the capture restar
     CHECK(rejection([&] { web.loadExample("no-such-example"); }).code() == app::error_code::unknownExample);
 
     const auto before = std::get<0>(web.signals(-1, 0));
-    web.loadExample("blink");
+    web.loadExample("demo");
     simulation.pause();
     CHECK(nlohmann::json::parse(web.circuit()).at("id") == "arduino-demo");
 
-    // 1.6 simulated seconds of blink: D13 rises at once, falls after 0.5 s, rises after 1 s, falls after 1.5 s.
+    // 1.6 simulated seconds of the demo: D13 rises at once, falls after 0.5 s, rises after 1 s, falls after 1.5 s.
     simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1600}) - mcu.cycles()); });
     const auto [epoch, first, next, now, at, channel, volts, state] = web.signals(-1, 0);
     CHECK(epoch > before);
@@ -434,4 +434,15 @@ TEST_CASE("An example loads its circuit and its firmware, and the capture restar
         CHECK(std::get<3>(restarted) == 0);
         CHECK(std::get<4>(restarted).size() == simulation.access([](Mcu& mcu) { return mcu.pins().size(); }));  // One starting point per pin
     }
+}
+
+TEST_CASE("The SPI display example loads the ILI9341 module and paints its window", "[app][bridge][tft]") {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+    web.loadExample("tft_spi");
+    simulation.pause();
+    CHECK(nlohmann::json::parse(web.circuit()).at("id") == "tft-spi-demo");
+    simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1500}) - mcu.cycles()); });
+    CHECK(simulation.access([](Mcu& mcu) { return mcu.pin("D12")->level(); }));  // The firmware raises D12 once the window is painted
 }

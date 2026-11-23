@@ -1,5 +1,5 @@
 // MCUFRIEND TFT (ILI9481): a row of header pins under a miniature of the panel, which shows what the controller received. The
-// frame of the circuit carries the pixels as RGB565 (base64) only when they changed.
+// pixels come from sf.screen when the revision state of the panel changes.
 "use strict";
 
 SiliconForge.components.define("tft-mcufriend", {
@@ -8,7 +8,7 @@ SiliconForge.components.define("tft-mcufriend", {
     const left = Math.min(...points.map((p) => p.x));
     const right = Math.max(...points.map((p) => p.x));
     const top = Math.min(...points.map((p) => p.y));
-    const width = Math.max(right - left + 16, 120);
+    const width = Math.min(Math.max(right - left + 16, 120), 170);
     ctx.layer.classList.add("bb-tft");
     const scale = width / 320;
     const height = 480 * scale;
@@ -34,9 +34,30 @@ SiliconForge.components.define("tft-mcufriend", {
       context.putImageData(pixels, 0, 0);
       image.setAttribute("href", canvas.toDataURL());
     };
+    // The pixels are too large for the frames: the page fetches them when the revision of the panel changes.
+    let shownRevision, fetching = false, wanted;
+    const refresh = async () => {
+      if (fetching) return;
+      fetching = true;
+      try {
+        while (shownRevision !== wanted) {
+          const target = wanted;
+          const shown = await ctx.screen();
+          if (shown) draw(shown);
+          shownRevision = shown ? shown.revision : target;
+        }
+      } catch (error) {
+        console.warn(error.message);
+      } finally {
+        fetching = false;
+      }
+    };
     return {
       update(state) {
-        if (state.screen) draw(state.screen);
+        if (state.revision !== undefined && state.revision !== wanted) {
+          wanted = state.revision;
+          if (wanted !== shownRevision) refresh();
+        }
         title.textContent = `${component.id}: ${state.displayOn ? "on" : "off"}, ${Math.round(state.pixelsWritten ?? 0)} pixels written`;
       },
     };

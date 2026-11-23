@@ -63,6 +63,8 @@
     component: (id) => state?.components?.[id],
     /** What the user does to a component: setComponent("button-d2", "pressed", 1), ("pot-a0", "position", 0.5). */
     setComponent: (id, name, value) => call("sf.component.set", id, name, Number(value)),
+    /** The pixels of a display: {width, height, revision, rgb565 (base64)}, null for another component. */
+    screen: async (id) => JSON.parse(await call("sf.screen", id)),
     /**
      * Moves terminals of a component, or of a wire ("wire-3"), to other holes: moveComponent("r-d13", {b: "h20"}).
      * The terminals not named stay. Rejects with siliconforge.invalidPlacement and the rule broken (length, hole taken...).
@@ -212,6 +214,7 @@
     channels: () => (devices?.analyserVisible ? instruments?.channels() : []),
     channelName: () => (instruments?.view.mode === "scope" ? "Oscilloscope" : "Logic analyser"),
     setComponent: (id, name, value) => api.setComponent(id, name, value).catch((error) => console.warn(error.message)),
+    screen: (id) => api.screen(id),
     moveComponent: (id, holes) => api.moveComponent(id, holes).then(() => showCircuitError(null), (error) => {
       showCircuitError(new Error(`Cannot move ${id}: ${error.message}`));
       throw error;

@@ -148,13 +148,16 @@ SCENARIO("a firmware paints a KMRTM28028 over SPI and the bus carries what it se
             CHECK(*run.bench.circuit().state("tft", "commands") == 8.0);
         }
 
-        THEN("the frame of the circuit carries the pixels once, as RGB565 in base64, then only the counters") {
-            auto first = run.bench.circuit().frame();
-            REQUIRE(first["tft"].contains("screen"));
-            CHECK(first["tft"]["screen"]["width"] == 240);
-            CHECK(first["tft"]["screen"]["rgb565"].get<std::string>().size() == (240 * 320 * 2 + 2) / 3 * 4);
-            CHECK(first["tft"]["pixelsWritten"] == 9600);
-            CHECK_FALSE(run.bench.circuit().frame()["tft"].contains("screen"));
+        THEN("the frame carries the counters and the revision, and the pixels are fetched apart as RGB565 in base64") {
+            const auto frame = run.bench.circuit().frame();
+            CHECK_FALSE(frame["tft"].contains("screen"));
+            CHECK(frame["tft"]["pixelsWritten"] == 9600);
+            const auto image = run.bench.circuit().screenImage("tft");
+            CHECK(image["width"] == 240);
+            CHECK(image["revision"] == frame["tft"]["revision"]);
+            CHECK(image["rgb565"].get<std::string>().size() == (240 * 320 * 2 + 2) / 3 * 4);
+            CHECK(run.bench.circuit().screenImage("xtal").is_null());
+            CHECK(run.bench.circuit().screenImage("no-such").is_null());
         }
 
         WHEN("the pixels are compared with the image the firmware means to draw") {

@@ -157,6 +157,13 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
     group.reading = el("text", {x: centre.x, y: centre.y + 27, class: "bb-tag-reading", "text-anchor": "middle"}, group, "");
     return group;
   };
+  /** A component drawn above the board (the panel of a display) makes the view taller instead of being cut off. */
+  const growToFit = () => {
+    try {
+      const top = Math.floor(svg.getBBox().y) - 4;
+      if (top < 0) svg.setAttribute("viewBox", `0 ${top} ${width} ${height - top}`);
+    } catch { /* Not rendered yet: the board keeps its size */ }
+  };
   /** Draws a component with its terminals in `holes`, in place of its previous drawing when there is one. */
   const draw = (entry, holes) => {
     const {component, renderer} = entry;
@@ -174,8 +181,10 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
       probe: (point, tag, options) => probe(layer, point, tag, options),
       instrumentTag: (centre, text) => instrumentTag(layer, centre, text),
       set: (name, value) => ctx.setComponent(component.id, name, value),
+      screen: () => ctx.screen(component.id),
     }, {...component, at: holes}) || {};
     if (isDipole(entry)) layer.classList.add("bb-movable");
+    growToFit();
     if (instance.update) {
       drawn.set(component.id, instance.update);
       if (lastState?.components?.[component.id]) instance.update(lastState.components[component.id]);

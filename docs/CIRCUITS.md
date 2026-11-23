@@ -361,8 +361,9 @@ et le contrôleur compense quand le bit BGR de `MADCTL` est à 1 : à 0, le roug
 éteinte ou en veille), `memory()`, `transactions()` (une entrée par commande : cycle, cadence de l’horloge en cycles par bit,
 octets de données, somme FNV-1a et premiers octets, pour vérifier un long flux sans le garder) et les compteurs. Les
 états du composant (`commands`, `dataBytes`, `pixelsWritten`, `unknown`, `unsupported`, `framing`, `displayOn`,
-`sleeping`, `backlight`, `powered`, `revision`) sont lisibles comme ceux des autres composants, et `frame()` joint
-l’image en RGB565 base64 sous `screen` quand elle a changé. Circuits : `circuits/tft-spi-demo.json` (avec
+`sleeping`, `backlight`, `powered`, `revision`) sont lisibles comme ceux des autres composants, et l’image
+(RGB565 en base64) se lit à part avec `Circuit::screenImage(id)`, ou `sf.screen(id)` côté page : trop lourde pour
+chaque trame, la page la demande quand `revision` change. Circuits : `circuits/tft-spi-demo.json` (avec
 `firmware/src/tft_spi.c`) et `circuits/tft-parallel-demo.json` (avec `firmware/src/tft_parallel.c`).
 
 Qualification : [`tests/unit/TftTests.cpp`](../tests/unit/TftTests.cpp) vérifie d’abord le bus avec un firmware
