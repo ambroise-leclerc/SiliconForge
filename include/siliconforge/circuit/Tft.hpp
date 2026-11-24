@@ -51,10 +51,10 @@ public:
     [[nodiscard]] unsigned   height() const noexcept { return panelHeight; }
 
     /// Supply on or off. Off, the controller forgets everything and the memory is black.
-    void power(bool on);
+    void power(bool powerOn);
     /// The state of the LED pin of the module: with the backlight off the panel is black whatever the memory holds. On by
     /// default (a module without the pin, or a controller used alone).
-    void backlight(bool on);
+    void backlight(bool lightOn);
     [[nodiscard]] bool backlit() const noexcept { return lit; }
     /// SPI: the levels of the wires now, at cycle `at`; each edge since the previous call is acted on, in the order CS,
     /// RESET, SCK. Call it every time a wire may have changed.

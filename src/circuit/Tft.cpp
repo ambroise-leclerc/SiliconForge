@@ -56,10 +56,10 @@ void Tft::resetController() {
     ++changes;
 }
 
-void Tft::backlight(bool on) {
-    if (on == lit)
+void Tft::backlight(bool lightOn) {
+    if (lightOn == lit)
         return;
-    lit = on;
+    lit = lightOn;
     ++changes;  // What the panel shows changed
 }
 

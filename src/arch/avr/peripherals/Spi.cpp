@@ -150,7 +150,7 @@ void Spi::start(u8 value, Cycles now) {
     shiftIn            = 0;
     // The edges in time order, each at its own cycle; edges that fall on the same cycle keep this order, which is the
     // order the real hardware gives them: the trailing edge of a bit, then the data of the next.
-    const auto at = [&](Cycles when, auto action) { events.push_back(scheduler.schedule(when, [this, action](Cycles) { action(); })); };
+    const auto at = [&](Cycles when, auto action) { events.push_back(scheduler.schedule(when, [action](Cycles) { action(); })); };
     const bool lsbFirst = (control & dord) != 0;
     const auto leading  = [this, idle] { pins.port->overrideLevel(pins.sck, !idle); };
     const auto trailing = [this, idle] { pins.port->overrideLevel(pins.sck, idle); };
