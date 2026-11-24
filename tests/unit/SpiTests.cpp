@@ -170,6 +170,33 @@ SCENARIO("a byte is shifted out in SPI mode 0, most significant bit first", "[sp
                 CHECK(spi.wires.clock.size() == before);
             }
         }
+        WHEN("SPSR then SPDR are accessed after SS took the master mode away") {
+            spi.send(0xFF);
+            spi.run(10);
+            spi.avr.mcu.pin("PB2")->setExternal(false);
+            REQUIRE((spi.status() & spif) != 0);  // Read: the next access to SPDR completes the sequence
+            spi.send(0x00);                         // A write, now that MSTR is clear
+            THEN("the flag is cleared by that write and no interrupt stays pending") {
+                CHECK((spi.status() & spif) == 0);
+            }
+        }
+        WHEN("SPIE is switched while a transfer is under way and SPIF of the last one is still up") {
+            auto& interrupts = spi.avr.core.interrupts;
+            constexpr unsigned vector = 17;  // SPI_STC
+            spi.send(0x00);
+            spi.run(40);
+            REQUIRE((spi.avr.mcu.dataSpace().raw(spsr) & spif) != 0);
+            spi.send(0xFF);  // SPSR was not read: SPIF stays up as the next transfer starts
+            spi.run(4);
+            REQUIRE((spi.avr.mcu.dataSpace().raw(spsr) & spif) != 0);
+            CHECK_FALSE(interrupts.isPending(vector));
+            THEN("the request follows SPIE at once, in both directions") {
+                spi.avr.mcu.dataSpace().write(spcr, 0x50 | 0x80);
+                CHECK(interrupts.isPending(vector));
+                spi.avr.mcu.dataSpace().write(spcr, 0x50);
+                CHECK_FALSE(interrupts.isPending(vector));
+            }
+        }
         WHEN("SS is an output driven low") {
             spi.avr.mcu.dataSpace().write(ddrb, 0x2C);  // SS, MOSI and SCK are outputs
             spi.send(0xFF);

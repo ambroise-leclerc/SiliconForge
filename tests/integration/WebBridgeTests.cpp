@@ -521,9 +521,17 @@ TEST_CASE("The session has a folder made at the start, where the examples are co
         CHECK(listed() == std::vector<std::string>{"blink.c", "bounce.c"});
         CHECK(web.filesRead("blink.c").find("// edited") != std::string::npos);
 
+        // What the person staged meanwhile is not swept into the commit of the next example
+        const bool git = std::filesystem::exists(folder / ".git");
+        if (git)
+            REQUIRE(std::system(("git -C \"" + folder.string() + "\" add bounce.c").c_str()) == 0);
         web.loadExample("pwm");  // Another example goes to the same folder
         simulation.pause();
         CHECK(listed() == std::vector<std::string>{"blink.c", "bounce.c", "pwm.c"});
+        if (git)
+            for (const auto& file : nlohmann::json::parse(web.filesList()).at("files"))
+                if (file.at("path") == "bounce.c")
+                    CHECK(file.at("status") == "A");  // Still staged, not committed with pwm.c
 
         // A firmware of the person's own changes nothing to what the editor sees
         const std::string hex = ":02000000FFCF30\n:00000001FF\n";  // rjmp .-2

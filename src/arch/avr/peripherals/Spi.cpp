@@ -39,10 +39,10 @@ Spi::Spi(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts,
                              return received;
                          },
                          [this](u8 value, u8) {
+                             clearSeenFlags();  // The access that follows a read of SPSR clears what it showed, whatever the mode
                              const auto control = this->data.raw(regs.spcr);
                              if (!(control & spe) || !(control & mstr))
                                  return;
-                             clearSeenFlags();  // The access that follows a read of SPSR clears what it showed, collision or not
                              if (busy) {
                                  this->data.raw(regs.spsr) |= wcol;
                                  return;
@@ -120,8 +120,10 @@ void Spi::checkSelect() {
 void Spi::controlChanged() {
     const auto control = data.raw(regs.spcr);
     if (busy) {
-        if ((control & spe) && (control & mstr))
-            return;  // The mode of a transfer under way does not change
+        if ((control & spe) && (control & mstr)) {
+            updateInterrupt();  // SPIE may have changed while the flag of the last transfer is still up
+            return;             // The mode of a transfer under way does not change
+        }
         // Disabling the peripheral (or leaving master mode) aborts the byte: no more edge, no SPIF, the pins are released.
         abortTransfer();
         updateInterrupt();

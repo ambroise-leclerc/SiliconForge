@@ -349,7 +349,8 @@ public:
         if (!quotedMessage || !git("add --" + names, 4096))
             return false;
         static constexpr std::string_view identity = "-c user.name=SiliconForge -c user.email=siliconforge@localhost -c commit.gpgsign=false ";
-        return git(std::string{identity} + "commit -q -m " + *quotedMessage, 4096).has_value();
+        // Only these files go in the commit: what the person or the agent staged meanwhile stays in the index, uncommitted.
+        return git(std::string{identity} + "commit -q -m " + *quotedMessage + " --" + names, 4096).has_value();
     }
 
     /// Called by write() once the new content is ready and the file was found at the expected version, just before the
