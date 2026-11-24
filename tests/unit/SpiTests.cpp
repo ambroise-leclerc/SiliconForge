@@ -16,7 +16,7 @@ using siliconforge::test::AvrAssembler;
 using siliconforge::test::AvrFixture;
 
 namespace {
-constexpr Address ddrb = 0x24, portb = 0x25, spcr = 0x4C, spsr = 0x4D, spdr = 0x4E;
+constexpr Address ddrb = 0x24, spcr = 0x4C, spsr = 0x4D, spdr = 0x4E;
 constexpr u8      spif = 0x80, wcol = 0x40;
 
 struct Waveform {
