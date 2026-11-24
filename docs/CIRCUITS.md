@@ -363,7 +363,19 @@ octets de données, somme FNV-1a et premiers octets, pour vérifier un long flux
 états du composant (`commands`, `dataBytes`, `pixelsWritten`, `unknown`, `unsupported`, `framing`, `displayOn`,
 `sleeping`, `backlight`, `powered`, `revision`) sont lisibles comme ceux des autres composants, et l’image
 (RGB565 en base64) se lit à part avec `Circuit::screenImage(id)`, ou `sf.screen(id)` côté page : trop lourde pour
-chaque trame, la page la demande quand `revision` change. Circuits : `circuits/tft-spi-demo.json` (avec
+chaque trame, la page la demande quand `revision` change.
+La dalle est une plaque flottante : on la glisse à la souris sur la planche ou en dehors, et sa position est
+retenue par le navigateur. Tant qu’elle dépasse de la planche, la vue grandit pour la montrer ; posée sur la planche,
+elle la laisse à sa taille pleine.
+La dalle est montrée en paysage (la mémoire en portrait est tournée d’un quart de tour, sauf si le firmware choisit
+lui-même une orientation paysage) et ses connecteurs, au bas de la plaque, prennent la couleur du fil branché dans la
+même rangée de trous que la broche du module sur la planche, pour faire le lien du regard.
+Un fil de la couleur du connecteur le relie à sa broche sur la planche, et chaque connecteur porte le nom de la
+broche de l’ATmega à laquelle il est câblé (`CS D10`), suivie à travers les fils de liaison. La plaque est dessinée
+au-dessus de la puce et des sondes, même déplacée. L’exemple « SPI display ILI9341 » règle aussi l’analyseur
+logique : SCK, SDI, CS, DC et RESET, déclenchement unique sur le front montant de DC (le premier octet de paramètre
+de l’initialisation), 1,2 µs par division ; « Single » le réarme, et la capture complète du rafraîchissement
+(environ 300 000 fronts de SCK) reste disponible pour un zoom arrière. Circuits : `circuits/tft-spi-demo.json` (avec
 `firmware/src/tft_spi.c`) et `circuits/tft-parallel-demo.json` (avec `firmware/src/tft_parallel.c`).
 
 Qualification : [`tests/unit/TftTests.cpp`](../tests/unit/TftTests.cpp) vérifie d’abord le bus avec un firmware

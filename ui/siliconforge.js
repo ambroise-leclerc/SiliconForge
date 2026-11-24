@@ -58,6 +58,7 @@
       await call("sf.loadExample", id);
       serial = "";
       $("serial-output").textContent = "";
+      await watchWithAnalyser(id);
     },
     /** State of a component of the circuit in the last frame: {brightness}, {pressed}, {position, voltage}... */
     component: (id) => state?.components?.[id],
@@ -203,6 +204,25 @@
     if (next === undefined) forced.delete(name);
     else forced.set(name, next);
     api.setPin(name, next);
+  }
+
+  /** Sets the logic analyser of an example that says what to watch: its channels, a single trigger and a time base. */
+  async function watchWithAnalyser(id) {
+    try {
+      const example = (await api.examples()).find((entry) => entry.id === id);
+      const wanted = example?.analyser;
+      if (!wanted || !instruments) return;
+      // The state of the new chip and circuit comes with a later frame: its pins are the ones to look up.
+      for (let wait = 0; wait < 60 && state?.firmware !== example.firmware; ++wait) await new Promise((resolve) => setTimeout(resolve, 50));
+      const pins = state?.pins;
+      if (!pins) return;
+      const index = (name) => pins.findIndex((pin) => pin.name === name || pin.label === name);  // "D9" or "PB1"
+      const channels = wanted.pins.map(index).filter((i) => i >= 0).sort((a, b) => a - b);
+      instruments.set({mode: "logic", auto: false, channels, span: wanted.span, live: true, triggered: null, cursors: [null, null],
+                       trigger: {source: index(wanted.trigger), rising: wanted.rising !== false, single: true}});
+    } catch (error) {
+      console.warn(error.message ?? error);
+    }
   }
 
   // Board views (breadboard, pinout) built from the chip description and the circuit, once a state names them -----

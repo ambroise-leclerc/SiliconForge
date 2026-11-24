@@ -63,6 +63,7 @@ struct Example {
     std::string_view circuit;
     std::string_view firmware;
     std::string_view description;
+    std::string_view analyser = {};  ///< JSON: how to set the logic analyser to watch what the firmware does ({"pins", "trigger", "rising", "span"}).
 };
 inline constexpr Example examples[] = {
     {"demo", "Blink + breathing LED", "arduino-demo", "demo.hex", "Red LED at 1 Hz on D13, green LED breathing with a 7.8 kHz PWM on D6"},
@@ -71,7 +72,8 @@ inline constexpr Example examples[] = {
     {"uart_echo", "UART echo", "arduino-demo", "uart_echo.hex", "Echoes the lines of the serial monitor in upper case, 9600 baud"},
     {"pwm", "PWM 62.5 kHz", "arduino-demo", "pwm.hex", "Timer0 Fast PWM: 25 % on D6 and 75 % on D5"},
     {"pwm_setpoint", "PWM setpoint", "arduino-demo", "pwm_setpoint.hex", "D6 at 25 %, 75 % while the D2 button is held; D13 acknowledges"},
-    {"tft_spi", "SPI display ILI9341", "tft-spi-demo", "tft_spi.hex", "KMRTM28028 module (ILI9341, 240 x 320) on the hardware SPI: initialisation, then four colour quadrants painted in a window"},
+    {"tft_spi", "SPI display ILI9341", "tft-spi-demo", "tft_spi.hex", "KMRTM28028 module (ILI9341, 240 x 320) on the hardware SPI: initialisation, then four colour quadrants painted in a window",
+     R"({"pins": ["D8", "D9", "D10", "D11", "D13"], "trigger": "D9", "rising": true, "span": 0.000012})"},
     {"timer0_isr", "Timer interrupt", "arduino-demo", "timer0_isr.hex", "A Timer0 interrupt service routine toggling a pin"},
 };
 
@@ -902,8 +904,11 @@ private:
         });
         app.cppFunction("sf.examples", [] {
             auto list = nlohmann::json::array();
-            for (const auto& example : examples)
-                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"description", example.description}});
+            for (const auto& example : examples) {
+                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"firmware", example.firmware}, {"description", example.description}});
+                if (!example.analyser.empty())
+                    list.back()["analyser"] = nlohmann::json::parse(example.analyser);
+            }
             return list.dump();
         });
         app.cppFunction("sf.loadExample", [this](std::string id) {

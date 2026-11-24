@@ -157,12 +157,98 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
     group.reading = el("text", {x: centre.x, y: centre.y + 27, class: "bb-tag-reading", "text-anchor": "middle"}, group, "");
     return group;
   };
-  /** A component drawn above the board (the panel of a display) makes the view taller instead of being cut off. */
+  /** The layer above everything, for the plates (displays): a plate dragged over the chip or the probes stays in front. */
+  const plateLayer = el("g", {class: "bb-plates"});
+  /** The group of the plate of component `key` in that layer, replacing the one a redrawing left. */
+  const plate = (key) => {
+    plateLayer.querySelector(`[data-plate="${CSS.escape(key)}"]`)?.remove();
+    return el("g", {"data-plate": key}, plateLayer);
+  };
+  /** A component drawn beyond the board (the panel of a display) makes the view taller instead of being cut off. */
   const growToFit = () => {
     try {
-      const top = Math.floor(svg.getBBox().y) - 4;
+      svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      const box = svg.getBBox();
+      const top = Math.floor(box.y) - 4;
       if (top < 0) svg.setAttribute("viewBox", `0 ${top} ${width} ${height - top}`);
     } catch { /* Not rendered yet: the board keeps its size */ }
+  };
+  /**
+   * Makes `plate` (a group) draggable anywhere, over the board or off it, and remembers where the user left it, per
+   * component, in this browser. The view grows only as much as the plate sticks out of the board.
+   */
+  const floating = (plate, key, moved) => {
+    const storage = `siliconforge.plate.${key}`;
+    let dx = 0, dy = 0;
+    try {
+      const saved = JSON.parse(localStorage.getItem(storage) ?? "null");
+      if (saved && Number.isFinite(saved.dx) && Number.isFinite(saved.dy)) ({dx, dy} = saved);
+    } catch { /* Storage may be unavailable */ }
+    const apply = () => { plate.setAttribute("transform", `translate(${dx} ${dy})`); moved?.(dx, dy); };
+    apply();
+    plate.style.cursor = "grab";
+    plate.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0) return;
+      const toBoard = svg.getScreenCTM()?.inverse();
+      if (!toBoard) return;
+      const point = (e) => new DOMPoint(e.clientX, e.clientY).matrixTransform(toBoard);
+      const start = point(event), origin = {dx, dy};
+      try { plate.setPointerCapture(event.pointerId); } catch { /* A synthetic pointer cannot be captured */ }
+      plate.style.cursor = "grabbing";
+      const move = (e) => {
+        const now = point(e);
+        dx = origin.dx + now.x - start.x;
+        dy = origin.dy + now.y - start.y;
+        apply();
+      };
+      const stop = () => {
+        plate.removeEventListener("pointermove", move);
+        plate.removeEventListener("pointerup", stop);
+        plate.removeEventListener("pointercancel", stop);
+        plate.style.cursor = "grab";
+        growToFit();
+        try { localStorage.setItem(storage, JSON.stringify({dx, dy})); } catch { /* Storage may be unavailable */ }
+      };
+      plate.addEventListener("pointermove", move);
+      plate.addEventListener("pointerup", stop);
+      plate.addEventListener("pointercancel", stop);
+      event.preventDefault();
+    });
+  };
+  /** The pins of the chip by strip of holes ("bottom7": the holes a to e of column 7), for netLabel. */
+  const legStrips = new Map();
+  for (const pin of chip.pins) {
+    if (!pin.port) continue;
+    const bottom = pin.n <= half;
+    const names = pin.labels.filter(Boolean).map((label) => label.split(":")[0]);
+    legStrips.set(`${bottom ? "bottom" : "top"}${bottom ? first + pin.n - 1 : first + pinCount - pin.n}`, names.find((name) => /^[DA]\d+$/.test(name)) ?? names[0]);
+  }
+  /** The name of the chip pin wired to the hole `spec` through the jumper wires ("D10"), null when none is. */
+  const netLabel = (spec) => {
+    const strip = (hole) => {
+      const match = /^([a-j])(\d+)$/.exec(hole);
+      return match ? `${"jihgf".includes(match[1]) ? "top" : "bottom"}${match[2]}` : hole.replace(/\d+$/, "");  // A rail is one strip
+    };
+    const seen = new Set([strip(spec)]);
+    for (const wires = circuit?.wires ?? [], queue = [...seen]; queue.length;) {
+      const here = queue.pop();
+      if (legStrips.has(here)) return legStrips.get(here);
+      for (const wire of wires)
+        for (const [a, b] of [[wire.from, wire.to], [wire.to, wire.from]])
+          if (strip(a) === here && !seen.has(strip(b))) { seen.add(strip(b)); queue.push(strip(b)); }
+    }
+    return null;
+  };
+  /** The colour of a jumper wire, as the wire component draws it. */
+  const wireColours = {red: "#d8312b", black: "#2b2b2b", yellow: "#e8c51c", green: "#2fa84f", blue: "#2f6fd8", orange: "#ec7a1c", white: "#e8e8e8"};
+  /** The colour of the wire plugged in the same strip of holes as `spec` ("j21" and "h21" share one), null when there is none. */
+  const wireColor = (spec) => {
+    const strip = (hole) => {
+      const match = /^([a-j])(\d+)$/.exec(hole);
+      return match ? `${"jihgf".includes(match[1]) ? "top" : "bottom"}${match[2]}` : hole;
+    };
+    const wire = (circuit?.wires ?? []).find((w) => strip(w.from) === strip(spec) || strip(w.to) === strip(spec));
+    return wire ? (wireColours[wire.color ?? "red"] ?? wire.color) : null;
   };
   /** Draws a component with its terminals in `holes`, in place of its previous drawing when there is one. */
   const draw = (entry, holes) => {
@@ -182,6 +268,11 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
       instrumentTag: (centre, text) => instrumentTag(layer, centre, text),
       set: (name, value) => ctx.setComponent(component.id, name, value),
       screen: () => ctx.screen(component.id),
+      floating,
+      refit: growToFit,
+      wireColor,
+      netLabel,
+      plate,
     }, {...component, at: holes}) || {};
     if (isDipole(entry)) layer.classList.add("bb-movable");
     growToFit();
@@ -454,6 +545,7 @@ window.SiliconForgeViews.breadboard = (container, chip, ctx, circuit) => {
     });
   };
   svg.append(channelLayer);
+  svg.append(plateLayer);
 
   return {
     update(state) {

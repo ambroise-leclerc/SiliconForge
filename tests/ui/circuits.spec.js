@@ -16,7 +16,7 @@ describe("Circuits", () => {
   const until = async (predicate, what, timeoutMs = 10000) => {
     const deadline = performance.now() + timeoutMs;
     while (!predicate()) {
-      if (performance.now() > deadline) throw new Error(`timeout waiting for ${what}`);
+      if (performance.now() > deadline) throw new Error(`timeout waiting for ${typeof what === "function" ? what() : what}`);
       await new Promise((resolve) => setTimeout(resolve, 20));
     }
   };
@@ -213,31 +213,87 @@ describe("Circuits", () => {
   it("draws the screen of the SPI display example", async () => {
     await sf().loadExample("tft_spi");
     await sf().waitFor((state) => state.components?.tft?.pixelsWritten === 9600, 20000);
+    const visible = () => document.querySelector('#breadboard .bb-tft-panel image[visibility="visible"]');
     const read = async () => {
-      const href = document.querySelector("#breadboard .bb-tft image")?.getAttribute("href");
-      if (!href?.startsWith("data:image/png")) return null;
-      const image = new Image();
-      image.src = href;
-      await image.decode();
+      const href = visible()?.getAttribute("href");
+      if (!href) return null;
+      const bitmap = await createImageBitmap(await (await fetch(href)).blob());
       const canvas = document.createElement("canvas");
-      canvas.width = image.width; canvas.height = image.height;
+      canvas.width = bitmap.width; canvas.height = bitmap.height;
       const context = canvas.getContext("2d");
-      context.drawImage(image, 0, 0);
+      context.drawImage(bitmap, 0, 0);
       return (x, y) => Array.from(context.getImageData(x, y, 1, 1).data.slice(0, 3));
     };
     let at;
     const deadline = performance.now() + 15000;
     for (;;) {
       at = await read();
-      if (at && at(70, 130)[0] > 200) break;
+      if (at && at(180, 90)[0] > 200 && Math.min(...at(140, 150)) > 200) break;  // The first and the last quadrants painted
       if (performance.now() > deadline) throw new Error("timeout waiting for the painted window in the panel image");
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
+    const connectors = Array.from(document.querySelectorAll("#breadboard .bb-tft-pad"));
+    expect(connectors.length).toBe(9);
+    const fill = (name) => connectors.find((c) => c.dataset.terminal === name).getAttribute("fill");
+    // The colours of the wires plugged in the strips of the header holes: VCC and LED to the +5 V rail, GND to ground, then the signals
+    expect(fill("vcc")).toBe("#d8312b"); expect(fill("gnd")).toBe("#2b2b2b");
+    expect(fill("cs")).toBe("#ec7a1c"); expect(fill("reset")).toBe("#e8c51c"); expect(fill("dc")).toBe("#2fa84f");
+    expect(fill("sdi")).toBe("#2f6fd8"); expect(fill("sck")).toBe("#e8e8e8"); expect(fill("led")).toBe("#d8312b");
+    const pinOf = (name) => connectors.find((c) => c.dataset.terminal === name).dataset.pin;
+    // What each terminal is wired to on the chip, followed through the jumper wires
+    expect([pinOf("cs"), pinOf("reset"), pinOf("dc"), pinOf("sdi"), pinOf("sck")]).toEqual(["D10", "D8", "D9", "D11", "D13"]);
+    expect(pinOf("vcc")).toBe("");
+    expect(document.querySelector("#breadboard svg.breadboard").lastElementChild.classList.contains("bb-plates")).toBe(true);  // In front of the chip and the probes
+    expect(document.querySelectorAll("#breadboard .bb-plates .bb-tft-leads path").length).toBe(18);  // A lead (outline and core) per terminal
+    const frame = visible().getBoundingClientRect();
+    expect(frame.width).toBeGreaterThan(frame.height);  // Landscape
     const [, viewTop] = document.querySelector("#breadboard svg.breadboard").getAttribute("viewBox").split(" ").map(Number);
-    expect(Number(document.querySelector("#breadboard .bb-tft image").getAttribute("y"))).toBeGreaterThanOrEqual(viewTop);  // Not cut off above the board
+    expect(Number(visible().getAttribute("y"))).toBeGreaterThanOrEqual(viewTop);  // Not cut off above the board
     expect(at(10, 10)).toEqual([0, 0, 0]);          // Outside the painted window
-    const red = at(70, 130), white = at(170, 190);  // Top-left and bottom-right quadrants
+    // The 240 x 320 memory is shown in landscape (a quarter turn): its top-left quadrant is at the top right, its bottom-right one at the bottom left
+    const red = at(180, 90), white = at(140, 150);
     expect(red[0]).toBeGreaterThan(200); expect(red[1]).toBeLessThan(40); expect(red[2]).toBeLessThan(40);
     expect(Math.min(...white)).toBeGreaterThan(200);
+  }, 40000);
+  it("sets the logic analyser to watch the display bus when the example loads", async () => {
+    await sf().loadExample("tft_spi");
+    const view = () => window.siliconForge.instruments.view;
+    const names = () => window.siliconForge.instruments.channels().map((channel) => channel.pin);
+    await until(() => view().trigger.single && !view().live && view().triggered !== null,
+                () => `the single trigger on the display bus (${JSON.stringify({...view(), cursors: undefined})}, now ${window.siliconForge.instruments.now})`, 20000);
+    expect(names().sort()).toEqual(["PB0", "PB1", "PB2", "PB3", "PB5"]);  // D8, D9, D10, D11, D13
+    expect(view().span).toBeLessThan(0.0001);
+    const dc = window.siliconForge.instruments.samples("PB1");
+    expect(dc.t.some((t) => Math.abs(t - view().triggered) < 1e-9)).toBe(true);
+  }, 40000);
+
+  it("lets the user drag the display panel onto the board to keep the board at full size", async () => {
+    try { localStorage.removeItem("siliconforge.plate.tft"); } catch { /* Storage may be unavailable */ }
+    await sf().loadExample("tft_spi");
+    await until(() => document.querySelector("#breadboard .bb-tft-panel") !== null, "the panel");
+    const svgElement = () => document.querySelector("#breadboard svg.breadboard");
+    const viewBox = () => svgElement().getAttribute("viewBox").split(" ").map(Number);
+    expect(viewBox()[1]).toBeLessThan(0);  // Above the board: the view grew
+    const panel = document.querySelector("#breadboard .bb-tft-panel");
+    const box = panel.getBoundingClientRect();
+    const from = {x: box.x + box.width / 2, y: box.y + box.height / 2};
+    const unit = svgElement().getScreenCTM().a;
+    const fire = (type, point) => panel.dispatchEvent(new PointerEvent(type, {bubbles: true, clientX: point.x, clientY: point.y, pointerId: 1, button: 0}));
+    fire("pointerdown", from);
+    fire("pointermove", {x: from.x + 10 * unit, y: from.y + 120 * unit});
+    fire("pointerup", {x: from.x + 10 * unit, y: from.y + 120 * unit});
+    expect(panel.getAttribute("transform")).toMatch(/^translate\(/);
+    // The picture goes with the plate: it stays inside the frame the plate draws
+    await until(() => panel.querySelector('image[visibility="visible"]') !== null, "the picture of the panel");
+    const picture = panel.querySelector('image[visibility="visible"]').getBoundingClientRect();
+    const outline = panel.querySelector("rect").getBoundingClientRect();
+    expect(picture.left).toBeGreaterThanOrEqual(outline.left - 1); expect(picture.right).toBeLessThanOrEqual(outline.right + 1);
+    expect(picture.top).toBeGreaterThanOrEqual(outline.top - 1); expect(picture.bottom).toBeLessThanOrEqual(outline.bottom + 1);
+    expect(viewBox()[1]).toBeGreaterThan(-60);  // Mostly over the board now: the view shrinks back
+    expect(JSON.parse(localStorage.getItem("siliconforge.plate.tft")).dy).toBeGreaterThan(100);
+    // A new load remembers the position
+    await sf().loadExample("tft_spi");
+    await until(() => document.querySelector("#breadboard .bb-tft-panel")?.getAttribute("transform")?.startsWith("translate("), "the remembered position");
+    try { localStorage.removeItem("siliconforge.plate.tft"); } catch { /* Storage may be unavailable */ }
   }, 40000);
 });

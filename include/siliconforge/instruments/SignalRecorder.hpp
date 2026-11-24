@@ -27,7 +27,7 @@ struct Sample {
 /// reading (the application does both under the simulation lock).
 class SignalRecorder {
 public:
-    explicit SignalRecorder(std::size_t capacity = std::size_t{1} << 18) : ring(std::bit_ceil(std::max<std::size_t>(capacity, 2))) {}
+    explicit SignalRecorder(std::size_t capacity = std::size_t{1} << 20) : ring(std::bit_ceil(std::max<std::size_t>(capacity, 2))) {}
 
     [[nodiscard]] std::size_t capacity() const noexcept { return ring.size(); }
     /// Changes each time the capture restarts: sample numbers of another epoch mean nothing.
