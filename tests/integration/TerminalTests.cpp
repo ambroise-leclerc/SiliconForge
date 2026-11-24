@@ -123,6 +123,10 @@ TEST_CASE("A client does not inherit the session of the terminal or the agent th
                                                        {"VIBE_HOME", "/home/user/.vibe"}, {"CODEX_HOME", "/home/user/.codex"}});
     // A GIT_ASKPASS the user set themselves is theirs to keep.
     CHECK(terminal::clientEnvironment({{"GIT_ASKPASS", "/opt/mine.sh"}}).contains("GIT_ASKPASS"));
+    // The UI tests give the browser a throwaway XDG profile; the client gets the user's own values instead, or the defaults.
+    CHECK(terminal::clientEnvironment({{"HOME", "/home/user"}, {"XDG_DATA_HOME", "/build/profile/data"}, {"XDG_CACHE_HOME", "/build/profile/cache"},
+                                       {"SILICONFORGE_CLIENT_ENV_XDG_DATA_HOME", "/data/mine"}, {"SILICONFORGE_CLIENT_ENV_XDG_CACHE_HOME", ""}})
+          == std::map<std::string, std::string>{{"HOME", "/home/user"}, {"XDG_DATA_HOME", "/data/mine"}});
 }
 
 SCENARIO("Each client is told of the MCP server of the window in its own terms, the token by the environment", "[app][terminal][mcp]") {
