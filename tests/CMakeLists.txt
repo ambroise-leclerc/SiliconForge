@@ -144,10 +144,11 @@ if(SILICONFORGE_BUILD_APP)
         # Opt-in qualification of the clients installed on the machine (docs/TERMINAL.md): no test of the suite needs one.
         webfront_add_jasmine_test(NAME UI-TerminalClients TARGET siliconforge_ui_test FRONTEND ${frontend}
             SPECS ui/terminal-clients.spec.js ARGS --port 0 TIMEOUT 400)
-        # The helper gives the browser a throwaway XDG profile under build/; the clients must keep the real one, or they install
-        # themselves there and repoint ~/.local/bin/claude into the build tree.
+        # The helper gives the browser a throwaway XDG profile under build/; the clients must keep the one of the user (read
+        # when configuring, before the helper replaces it; empty means the defaults under HOME), or they install themselves
+        # in the build tree and repoint ~/.local/bin/claude there.
         set_tests_properties(UI-TerminalClients PROPERTIES WORKING_DIRECTORY ${bench_project}
-            ENVIRONMENT "SILICONFORGE_CLIENT_UNSET_XDG_DATA_HOME=1;SILICONFORGE_CLIENT_UNSET_XDG_CACHE_HOME=1")
+            ENVIRONMENT "SILICONFORGE_CLIENT_ENV_XDG_DATA_HOME=$ENV{XDG_DATA_HOME};SILICONFORGE_CLIENT_ENV_XDG_CACHE_HOME=$ENV{XDG_CACHE_HOME}")
         set_property(TEST UI-Terminal UI-Editor UI-Editor-Project UI-TerminalClients APPEND PROPERTY LABELS ui)
     endmacro()
 
