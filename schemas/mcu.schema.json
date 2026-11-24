@@ -1795,6 +1795,7 @@
               "avr.gpio",
               "avr.timer8",
               "avr.usart",
+              "avr.spi",
               "avr.eeprom",
               "avr.adc"
             ]
@@ -2124,6 +2125,98 @@
                 "tx",
                 "clockDividers",
                 "receiveFifoDepth"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.spi"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.spi"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "spcr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "spsr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "spdr": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "spcr",
+                    "spsr",
+                    "spdr"
+                  ],
+                  "additionalProperties": false
+                },
+                "vectors": {
+                  "type": "object",
+                  "properties": {
+                    "transferComplete": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "transferComplete"
+                  ],
+                  "additionalProperties": false
+                },
+                "port": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "mosi": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "miso": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "sck": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "ss": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "vectors",
+                "port",
+                "mosi",
+                "miso",
+                "sck"
               ],
               "additionalProperties": false
             }

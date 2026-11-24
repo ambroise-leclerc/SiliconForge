@@ -243,7 +243,15 @@ window.SiliconForgeEditor = (root, host) => {
     const json = await host.call("sf.files.list");
     if (json === listingJson) return;
     listingJson = json;
-    listing = parse(json);
+    const next = parse(json);
+    if (listing.root && next.root !== listing.root) {  // Another project (an example's folder): what was open belongs to the old one
+      buffers.clear();
+      current = null;
+      conflict = null;
+      mode = "edit";
+      render();
+    }
+    listing = next;
     renderList();
   }
 

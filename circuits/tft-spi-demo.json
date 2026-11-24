@@ -1,0 +1,103 @@
+{
+  "formatVersion": 1,
+  "name": "TFT SPI demo",
+  "description": "A KMRTM28028 module (ILI9341, 240 x 320) on the hardware SPI of the Uno: D8 RESET, D9 D/C, D10 CS, D11 SDI, D13 SCK. With tft_spi.hex the controller is initialised and a window of four colour quadrants is painted; the screen is read from the module in the Breadboard view or compared with an expected image by a bench scenario.",
+  "board": {
+    "type": "breadboard",
+    "columns": 30
+  },
+  "chip": {
+    "mcu": "atmega328p",
+    "column": 6
+  },
+  "components": [
+    {
+      "id": "xtal",
+      "type": "crystal",
+      "at": {
+        "a": "d14",
+        "b": "d15"
+      },
+      "properties": {
+        "frequency": 16000000
+      }
+    },
+    {
+      "id": "tft",
+      "type": "tft-kmrtm28028",
+      "at": {
+        "vcc": "j21",
+        "gnd": "j22",
+        "cs": "j23",
+        "reset": "j24",
+        "dc": "j25",
+        "sdi": "j26",
+        "sck": "j27",
+        "led": "j28",
+        "sdo": "j29"
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "b12",
+      "to": "B+12",
+      "color": "red"
+    },
+    {
+      "from": "a13",
+      "to": "B-13",
+      "color": "black"
+    },
+    {
+      "from": "i14",
+      "to": "T+14",
+      "color": "red"
+    },
+    {
+      "from": "j12",
+      "to": "T-12",
+      "color": "black"
+    },
+    {
+      "from": "h21",
+      "to": "T+21",
+      "color": "red"
+    },
+    {
+      "from": "h22",
+      "to": "T-22",
+      "color": "black"
+    },
+    {
+      "from": "g18",
+      "to": "g23",
+      "color": "orange"
+    },
+    {
+      "from": "a19",
+      "to": "h24",
+      "color": "yellow"
+    },
+    {
+      "from": "h19",
+      "to": "h25",
+      "color": "green"
+    },
+    {
+      "from": "h17",
+      "to": "h26",
+      "color": "blue"
+    },
+    {
+      "from": "h15",
+      "to": "h27",
+      "color": "white"
+    },
+    {
+      "from": "h28",
+      "to": "T+28",
+      "color": "red"
+    }
+  ]
+}

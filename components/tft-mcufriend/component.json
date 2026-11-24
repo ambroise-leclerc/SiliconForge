@@ -1,0 +1,203 @@
+{
+  "formatVersion": 1,
+  "type": "tft-mcufriend",
+  "name": "MCUFRIEND 3.5\" TFT (ILI9481, parallel)",
+  "description": "A 3.5-inch 320 x 480 TFT shield with an ILI9481 controller on an 8-bit parallel (8080) bus: CS, RS (command or data), WR, RD, RESET and D0 to D7. The byte on D0-D7 is taken at the rising edge of WR while CS is low; a read cycle is counted and not answered. The pixels written with RAMWR (16 or 18 bits per pixel, windowed by CASET and PASET, oriented by MADCTL) are kept in a memory the bench can read and compare with an expected image. It draws no current. An unconnected RESET or RD is held high by the module.",
+  "terminals": [
+    {
+      "name": "gnd"
+    },
+    {
+      "name": "vcc"
+    },
+    {
+      "name": "cs"
+    },
+    {
+      "name": "rs"
+    },
+    {
+      "name": "wr"
+    },
+    {
+      "name": "rd"
+    },
+    {
+      "name": "reset"
+    },
+    {
+      "name": "d0"
+    },
+    {
+      "name": "d1"
+    },
+    {
+      "name": "d2"
+    },
+    {
+      "name": "d3"
+    },
+    {
+      "name": "d4"
+    },
+    {
+      "name": "d5"
+    },
+    {
+      "name": "d6"
+    },
+    {
+      "name": "d7"
+    }
+  ],
+  "properties": {
+    "controller": {
+      "type": "string",
+      "default": "ili9481",
+      "enum": [
+        "ili9481"
+      ]
+    }
+  },
+  "footprint": {
+    "kind": "fixed",
+    "offsets": {
+      "gnd": [
+        0,
+        0
+      ],
+      "vcc": [
+        1,
+        0
+      ],
+      "cs": [
+        2,
+        0
+      ],
+      "rs": [
+        3,
+        0
+      ],
+      "wr": [
+        4,
+        0
+      ],
+      "rd": [
+        5,
+        0
+      ],
+      "reset": [
+        6,
+        0
+      ],
+      "d0": [
+        7,
+        0
+      ],
+      "d1": [
+        8,
+        0
+      ],
+      "d2": [
+        9,
+        0
+      ],
+      "d3": [
+        10,
+        0
+      ],
+      "d4": [
+        11,
+        0
+      ],
+      "d5": [
+        12,
+        0
+      ],
+      "d6": [
+        13,
+        0
+      ],
+      "d7": [
+        14,
+        0
+      ]
+    }
+  },
+  "model": {
+    "elements": [
+      {
+        "type": "tft-parallel",
+        "between": [
+          "gnd",
+          "vcc",
+          "cs",
+          "rs",
+          "wr",
+          "rd",
+          "reset",
+          "d0",
+          "d1",
+          "d2",
+          "d3",
+          "d4",
+          "d5",
+          "d6",
+          "d7"
+        ]
+      }
+    ]
+  },
+  "state": {
+    "powered": {
+      "type": "boolean",
+      "default": false,
+      "description": "The supply is within the range of the controller (at least 2.5 V between VCC and GND)."
+    },
+    "backlight": {
+      "type": "boolean",
+      "default": false,
+      "description": "The backlight input is high."
+    },
+    "displayOn": {
+      "type": "boolean",
+      "default": false,
+      "description": "The controller shows its memory: out of sleep (SLPOUT) and display on (DISPON)."
+    },
+    "sleeping": {
+      "type": "boolean",
+      "default": true,
+      "description": "The controller is in sleep mode, as after a reset."
+    },
+    "commands": {
+      "type": "number",
+      "default": 0,
+      "description": "Commands received on the bus since power on."
+    },
+    "dataBytes": {
+      "type": "number",
+      "default": 0,
+      "description": "Parameter and pixel bytes received on the bus since power on."
+    },
+    "pixelsWritten": {
+      "type": "number",
+      "default": 0,
+      "description": "Pixels written to the memory since power on."
+    },
+    "unknown": {
+      "type": "number",
+      "default": 0,
+      "description": "Commands this controller does not have."
+    },
+    "unsupported": {
+      "type": "number",
+      "default": 0,
+      "description": "Reads of the controller, which the model cannot answer."
+    },
+    "revision": {
+      "type": "number",
+      "default": 0,
+      "description": "Increases whenever the pixels change."
+    }
+  }
+}

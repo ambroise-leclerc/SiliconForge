@@ -78,6 +78,19 @@ struct Measurement {
     std::string           detail;
 };
 
+/// A screen compared with the picture a scenario expects: the pixels of a display module at the time of the step.
+struct ScreenCheck {
+    std::string component;
+    std::string label;
+    std::string image;  ///< The expected picture, as the scenario names it.
+    unsigned    width{0}, height{0};
+    std::size_t differing{0};  ///< Pixels of another colour (compared as the controller stores them: 5-6-5 bits).
+    std::size_t tolerance{0};  ///< Pixels allowed to differ.
+    std::size_t firstX{0}, firstY{0};
+    Cycles      at{0};
+    bool        passed{true};
+};
+
 /// A logged change of a pin: the cycle and the state it took.
 struct PinChange {
     Cycles   at;
@@ -94,7 +107,7 @@ void measurePin(Measurement& result, const std::vector<PinChange>& changes, PinS
 struct StepRecord {
     enum class Outcome { Done, Failed, Skipped };
     std::size_t index{0};
-    std::string kind;  ///< "wait", "set", "waitFor" or "measure".
+    std::string kind;  ///< "wait", "set", "waitFor", "measure" or "screen".
     std::string label;
     Outcome     outcome{Outcome::Skipped};
     /// On the scheduled timeline: `at`, or the end of the previous step. A run is not delayed by the cycles the core
@@ -120,6 +133,7 @@ struct Report {
     Cycles                   duration{0};
     std::vector<StepRecord>  steps;
     std::vector<Measurement> measurements;
+    std::vector<ScreenCheck> screens;  ///< The comparisons of the `screen` steps.
     std::vector<std::string> serial;  ///< The bytes the MCU transmitted on each serial port, as they are: not text.
     std::string              trace;   ///< Value Change Dump of every pin, one time unit per clock cycle; empty when nothing ran.
 };

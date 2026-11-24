@@ -1149,6 +1149,23 @@
       "receiveFifoDepth": 2
     },
     {
+      "type": "avr.spi",
+      "name": "SPI",
+      "registers": {
+        "spcr": "SPCR",
+        "spsr": "SPSR",
+        "spdr": "SPDR"
+      },
+      "vectors": {
+        "transferComplete": "SPI_STC"
+      },
+      "port": "PORTB",
+      "mosi": 3,
+      "miso": 4,
+      "sck": 5,
+      "ss": 2
+    },
+    {
       "type": "avr.eeprom",
       "name": "EEPROM",
       "registers": {

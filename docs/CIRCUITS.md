@@ -122,6 +122,8 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
   | `variable-load` | `span` | 2 à 12 trous | Résistance que l’essai change en cours de route (#62) |
   | `multimeter` | `fixed` | bornes à 2 colonnes | Voltmètre continu, sans courant prélevé |
   | `signal-generator` | `fixed` | bornes à 2 colonnes | Une voie de générateur de signaux (#63) |
+  | `tft-kmrtm28028` | `fixed` | 9 colonnes | Module TFT 2,8" 240 × 320, ILI9341, SPI (#64) |
+  | `tft-mcufriend` | `fixed` | 15 colonnes | Shield TFT 3,5" 320 × 480, ILI9481, bus parallèle 8 bits (#64) |
 
 - **`model`** : le comportement électrique, comme une liste d'éléments reliant des bornes. Un
   composant simple a un élément ; un afficheur 7 segments en aura huit de type `led`, nommés.
@@ -153,6 +155,7 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
   de 35 kΩ d'une entrée qui l'active.
 - La luminosité d'une LED est son courant rapporté à `nominalCurrent`, bornée à 1 ; l'interface en reçoit la moyenne
   sur la trame, ce qui rend une PWM comme l'œil la voit.
+- Un écran TFT (éléments `tft-spi` et `tft-parallel`) ne tire aucun courant : il lit les niveaux de ses nets (voir [Écrans TFT](#écrans-tft)).
 - Deux sources de tensions différentes sur un même net sont un **court-circuit**, signalé dans un bandeau et par
   `circuit.shorts()`.
 - Le modèle est résistif et logique : pas de condensateur, pas de transitoire, pas de courant maximal de sortie.
@@ -320,3 +323,68 @@ références qui découlent de la définition de chaque onde (le cycle exact de 
 carré, la distance au sinus et au triangle idéaux, les échantillons arbitraires), et une conversion ADC sur A0 au niveau
 que l’onde a à cet instant. `ScenarioTests.cpp` mesure la fréquence et le rapport cyclique d’une onde programmée par
 un scénario et vérifie les refus.
+
+## Écrans TFT
+
+Deux écrans de référence (#64, [ADR 0010](adr/0010-banc-programmable.md)) :
+
+| Composant | Écran | Contrôleur | Bus |
+| --- | --- | --- | --- |
+| `tft-kmrtm28028` | KMRTM28028, 2,8" 240 × 320 | ILI9341 | SPI 4 fils : VCC, GND, CS, RESET, DC, SDI, SCK, LED, SDO |
+| `tft-mcufriend` | MCUFRIEND 3,5" 320 × 480 | ILI9481 | Parallèle 8080 : CS, RS, WR, RD, RESET, D0 à D7 |
+
+Le modèle ne tire aucun courant et ne pilote rien : il lit les niveaux des nets de ses bornes, au cycle du MCU où ils
+changent (`Circuit::update`), et les donne à un décodeur (`circuit::Tft`). Au-dessus de la moitié de VCC, un niveau est
+haut. Hors tension (moins de 2,5 V entre VCC et GND), le contrôleur oublie tout et la mémoire est noire. Un RESET non
+relié est maintenu haut par le module, comme un RD non relié sur le shield ; un CS non relié se lit bas (sélectionné).
+
+- **SPI** : mode 0. SDI est échantillonné à chaque front montant de SCK, CS bas, bit de poids fort d’abord ; D/C est lu au
+  huitième front (bas : commande, haut : paramètre ou pixel). Un CS relâché au milieu d’un octet perd l’octet et est
+  compté (`framing`). Le périphérique SPI du MCU (`avr.spi`, maître seulement) date chaque front d’horloge et chaque
+  changement de MOSI à son cycle : un firmware en SPI matériel et un firmware qui agite les broches sont décodés de la
+  même façon.
+- **Parallèle** : l’octet de D0-D7 est pris au front montant de WR, CS bas ; RS bas : commande. Un cycle de lecture (RD)
+  est compté dans `unsupported`, sans réponse : le module ne pilote pas le bus.
+
+Ce que la dalle **montre** (`shown()`, l’image de l’interface, l’étape `screen` d’un scénario) est noir quand
+l’affichage est éteint ou en veille, quand le module n’est pas alimenté et quand son rétroéclairage est éteint
+(broche LED du KMRTM28028 débranchée ou à zéro ; le shield MCUFRIEND n’a pas de broche LED) : un écran qui reste noir
+physiquement ne peut pas réussir une comparaison d’image. La mémoire (`memory()`) reste celle que le firmware a écrite.
+
+Les deux contrôleurs partagent le modèle des commandes qui comptent pour les pixels : `CASET`/`PASET` (la fenêtre),
+`RAMWR`/`RAMWRC` (l’écriture, qui avance dans la fenêtre en ordre de lecture), `MADCTL` (MY, MX, MV et BGR),
+`COLMOD` (16 bits RGB565 ou 18 bits), veille (`SLPIN`/`SLPOUT`), affichage (`DISPON`/`DISPOFF`), inversion, reset
+logiciel (la mémoire est conservée) et matériel (broche RESET). Les commandes des séquences d’initialisation usuelles
+(alimentation, cadence, gamma) sont acceptées et comptées sans effet sur les pixels. Une commande que le contrôleur n’a
+pas est comptée dans `unknown`, une commande de lecture dans `unsupported`.
+
+Limites : le sens de balayage de la dalle (ML, MH), les modes partiel et défilement, la lecture de la mémoire et de
+l’identifiant ne sont pas modélisés ; l’image est la mémoire. Les dalles de ces modules ont leurs filtres en ordre BGR
+et le contrôleur compense quand le bit BGR de `MADCTL` est à 1 : à 0, le rouge et le bleu sont échangés.
+
+`Circuit::display(id)` donne le contrôleur : `shown()` (ce que la dalle montre : la mémoire, inversée si demandé, noire
+éteinte ou en veille), `memory()`, `transactions()` (une entrée par commande : cycle, cadence de l’horloge en cycles par bit,
+octets de données, somme FNV-1a et premiers octets, pour vérifier un long flux sans le garder) et les compteurs. Les
+états du composant (`commands`, `dataBytes`, `pixelsWritten`, `unknown`, `unsupported`, `framing`, `displayOn`,
+`sleeping`, `backlight`, `powered`, `revision`) sont lisibles comme ceux des autres composants, et l’image
+(RGB565 en base64) se lit à part avec `Circuit::screenImage(id)`, ou `sf.screen(id)` côté page : trop lourde pour
+chaque trame, la page la demande quand `revision` change.
+La dalle est une plaque flottante : on la glisse à la souris sur la planche ou en dehors, et sa position est
+retenue par le navigateur. Tant qu’elle dépasse de la planche, la vue grandit pour la montrer ; posée sur la planche,
+elle la laisse à sa taille pleine.
+La dalle est montrée en paysage (la mémoire en portrait est tournée d’un quart de tour, sauf si le firmware choisit
+lui-même une orientation paysage) et ses connecteurs, au bas de la plaque, prennent la couleur du fil branché dans la
+même rangée de trous que la broche du module sur la planche, pour faire le lien du regard.
+Un fil de la couleur du connecteur le relie à sa broche sur la planche, et chaque connecteur porte le nom de la
+broche de l’ATmega à laquelle il est câblé (`CS D10`), suivie à travers les fils de liaison. La plaque est dessinée
+au-dessus de la puce et des sondes, même déplacée. L’exemple « SPI display ILI9341 » règle aussi l’analyseur
+logique : SCK, SDI, CS, DC et RESET, déclenchement unique sur le front montant de DC (le premier octet de paramètre
+de l’initialisation), 1,2 µs par division ; « Single » le réarme, et la capture complète du rafraîchissement
+(environ 300 000 fronts de SCK) reste disponible pour un zoom arrière. Circuits : `circuits/tft-spi-demo.json` (avec
+`firmware/src/tft_spi.c`) et `circuits/tft-parallel-demo.json` (avec `firmware/src/tft_parallel.c`).
+
+Qualification : [`tests/unit/TftTests.cpp`](../tests/unit/TftTests.cpp) vérifie d’abord le bus avec un firmware
+connu (commandes, paramètres, fenêtre, somme des octets de pixels, cadence de l’horloge : deux cycles par bit), puis
+compare les pixels à une image qui découle de la définition du dessin du firmware, avec des essais concordants et
+divergents (deux quadrants échangés, une image décalée d’un pixel) ; [`tests/unit/SpiTests.cpp`](../tests/unit/SpiTests.cpp)
+vérifie les fronts du périphérique SPI, ses modes, l’ordre des bits, SPIF et WCOL.
