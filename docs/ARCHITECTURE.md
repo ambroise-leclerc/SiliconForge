@@ -8,7 +8,7 @@ SiliconForge is organised in layers that only depend on the layers below them.
  ├──────────────────────────────────────────────────────────────┤
  │ scenario/           Bench scenarios, reports, traces          │  SiliconForge::scenario
  ├──────────────────────────────────────────────────────────────┤
- │ testing/Bench       Test bench (Catch2 or any framework)      │
+ │ testing/Bench       Test bench (any test framework)          │
  ├──────────────────────────────────────────────────────────────┤
  │ mcu/<chip>          Chip = core + memory map + peripherals    │  SiliconForge::mcu
  ├──────────────────────────────────────────────────────────────┤

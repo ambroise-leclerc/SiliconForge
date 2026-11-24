@@ -25,6 +25,8 @@ describe("Bench devices", () => {
     await webFront.ready;
     await sf().waitFor((state) => state.mcu === "ATmega328P", 20000);
     await until(() => devices() && plate("psu") && plate("load") && plate("dmm"), "the faceplates of the circuit", 20000);
+    // The breadboard draws a component once the module that renders its type is loaded, a moment after the faceplate.
+    await until(() => ["psu", "dmm"].every((id) => document.querySelectorAll(`[data-id=${id}] .bb-probe`).length === 2), "the markers of the instruments on the breadboard", 20000);
   }, 40000);
 
   it("starts on the logic analyser and switches from one device to another", () => {

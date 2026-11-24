@@ -2,15 +2,15 @@
 // a signal, two packages. Each case edits the document the way the ATDF variants it covers do.
 #include <Atdf.hpp>
 
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/matchers/catch_matchers_string.hpp>
+#include <webfront/testing/Bdd.hpp>
 
 #include <string>
+
+using namespace webfront::bdd;
 
 using siliconforge::atdf::convert;
 using siliconforge::atdf::Json;
 using siliconforge::atdf::number;
-using Catch::Matchers::ContainsSubstring;
 
 namespace {
 
@@ -60,50 +60,48 @@ const Json& firstPin(const Json& d) { return d["package"]["pins"][0]; }
 
 }  // namespace
 
-TEST_CASE("ATDF imports offsets, split registers, vectors, memories and functions", "[atdf]") {
+const Scenario atdfImportsOffsetsSplitRegistersVectorsMemories{"ATDF imports offsets, split registers, vectors, memories and functions", {"atdf"}, [] {
     const Json d = convert(document(), std::string("DIP2"));
-    CHECK(d["name"] == "TestAVR");
-    CHECK(d["memories"]["flash"] == Json{{"start", 0}, {"size", 16384}, {"pageSize", 128}});
-    CHECK(d["registers"]["BAUDL"] == Json{{"address", 36}, {"reset", 52}, {"bits", {{"VALUE", 255}}}});
-    CHECK(d["registers"]["BAUDH"] == Json{{"address", 37}, {"reset", 18}, {"bits", {{"VALUE", 15}}}});
-    CHECK(d["vectors"]["USART_TX"] == 20);
-    CHECK(firstPin(d)["functions"] == Json::array({"TXD"}));
-    CHECK(d["clockHz"].is_null());  // No fabricated timing defaults.
-}
+    check(d["name"] == "TestAVR");
+    check(d["memories"]["flash"] == Json{{"start", 0}, {"size", 16384}, {"pageSize", 128}});
+    check(d["registers"]["BAUDL"] == Json{{"address", 36}, {"reset", 52}, {"bits", {{"VALUE", 255}}}});
+    check(d["registers"]["BAUDH"] == Json{{"address", 37}, {"reset", 18}, {"bits", {{"VALUE", 15}}}});
+    check(d["vectors"]["USART_TX"] == 20);
+    check(firstPin(d)["functions"] == Json::array({"TXD"}));
+    check(d["clockHz"].is_null());  // No fabricated timing defaults.
+}};
 
-TEST_CASE("ATDF names the CPU clock output CLKO, not CLK0", "[atdf]") {
+const Scenario atdfNamesTheCpuClockOutputClko{"ATDF names the CPU clock output CLKO, not CLK0", {"atdf"}, [] {
     auto d = document();
     auto signals = append(append(append(path(d, "/avr-tools-device-file/devices/device/peripherals"), "module", {{"name", "CPU"}}),
                                  "instance", {{"name", "CPU"}}),
                           "signals", {});
     append(signals, "signal", {{"group", "CLK"}, {"index", "0"}, {"pad", "PD1"}});
     append(signals, "signal", {{"group", "CLK"}, {"index", "1"}, {"pad", "PD0"}});
-    CHECK(firstPin(convert(d, std::string("DIP2")))["functions"] == Json::array({"CLKO", "TXD"}));
-    CHECK(firstPin(convert(d, std::string("OTHER")))["functions"] == Json::array({"CLK1"}));
-}
+    check(firstPin(convert(d, std::string("DIP2")))["functions"] == Json::array({"CLKO", "TXD"}));
+    check(firstPin(convert(d, std::string("OTHER")))["functions"] == Json::array({"CLK1"}));
+}};
 
-TEST_CASE("ATDF with a base keeps the fields ATDF does not carry", "[atdf]") {
+const Scenario atdfWithABaseKeepsTheFields{"ATDF with a base keeps the fields ATDF does not carry", {"atdf"}, [] {
     Json base = convert(document(), std::string("DIP2"));
     base["timing"] = {{"nop", {{"cycles", 9}}}};
     base["package"]["pins"][0]["label"] = "D1";
     base["memories"]["flash"]["size"] = 2;
     const Json original = base;
     const Json d = convert(document(), std::string("DIP2"), &base);
-    CHECK(base == original);
-    CHECK(d["timing"] == base["timing"]);
-    CHECK(firstPin(d)["label"] == "D1");
-    CHECK(d["memories"]["flash"]["size"] == 16384);
-    CHECK(firstPin(convert(document(), std::string("OTHER"), &base))["label"] == "");
-}
+    check(base == original);
+    check(d["timing"] == base["timing"]);
+    check(firstPin(d)["label"] == "D1");
+    check(d["memories"]["flash"]["size"] == 16384);
+    check(firstPin(convert(document(), std::string("OTHER"), &base))["label"] == "");
+}};
 
-TEST_CASE("ATDF reports the missing required attributes", "[atdf]") {
-    CHECK_THAT(conversionError(document(replaced(atdf, R"(<register name="BAUD" offset="4")", R"(<register name="BAUD")"))),
-               ContainsSubstring("'offset'"));
-    CHECK_THAT(conversionError(document(replaced(atdf, R"(<pin position="1" pad="PD1"/>)", R"(<pin position="1"/>)"))),
-               ContainsSubstring("'pad'"));
-}
+const Scenario atdfReportsTheMissingRequiredAttributes{"ATDF reports the missing required attributes", {"atdf"}, [] {
+    check(conversionError(document(replaced(atdf, R"(<register name="BAUD" offset="4")", R"(<register name="BAUD")"))), contains("'offset'"));
+    check(conversionError(document(replaced(atdf, R"(<pin position="1" pad="PD1"/>)", R"(<pin position="1"/>)"))), contains("'pad'"));
+}};
 
-TEST_CASE("ATDF merges the bits of a register split across modules", "[atdf]") {
+const Scenario atdfMergesTheBitsOfARegister{"ATDF merges the bits of a register split across modules", {"atdf"}, [] {
     auto d = document();
     auto module = append(path(d, "/avr-tools-device-file/devices/device/peripherals"), "module", {{"name", "EXTRA"}});
     append(append(module, "instance", {{"name", "EXTRA"}}), "register-group",
@@ -113,38 +111,38 @@ TEST_CASE("ATDF merges the bits of a register split across modules", "[atdf]") {
     append(append(group, "register", {{"name", "BAUD"}, {"offset", "4"}, {"size", "2"}}), "bitfield",
            {{"name", "OTHER"}, {"mask", "0x1000"}});
     const Json result = convert(d, std::string("DIP2"));
-    CHECK(result["registers"]["BAUDH"]["bits"] == Json{{"VALUE", 15}, {"OTHER", 16}});
-    CHECK(result["registers"]["BAUDH"]["reset"] == 18);
-}
+    check(result["registers"]["BAUDH"]["bits"] == Json{{"VALUE", 15}, {"OTHER", 16}});
+    check(result["registers"]["BAUDH"]["reset"] == 18);
+}};
 
-TEST_CASE("ATDF numbers every timer compare output", "[atdf]") {
+const Scenario atdfNumbersEveryTimerCompareOutput{"ATDF numbers every timer compare output", {"atdf"}, [] {
     auto d = document();
     auto module = append(path(d, "/avr-tools-device-file/devices/device/peripherals"), "module", {{"name", "TC16"}});
     append(append(append(module, "instance", {{"name", "TC3"}}), "signals", {}), "signal", {{"group", "OCC"}, {"pad", "PD1"}});
-    CHECK(firstPin(convert(d, std::string("DIP2")))["functions"] == Json::array({"OC3C", "TXD"}));
-}
+    check(firstPin(convert(d, std::string("DIP2")))["functions"] == Json::array({"OC3C", "TXD"}));
+}};
 
-TEST_CASE("ATDF rejects conflicting register definitions", "[atdf]") {
+const Scenario atdfRejectsConflictingRegisterDefinitions{"ATDF rejects conflicting register definitions", {"atdf"}, [] {
     auto d = document();
     append(path(d, "/avr-tools-device-file/devices/device/peripherals/module/instance"), "register-group",
            {{"name-in-module", "USART"}, {"offset", "0x40"}, {"address-space", "data"}});
-    CHECK_THAT(conversionError(d), ContainsSubstring("several addresses"));
-}
+    check(conversionError(d), contains("several addresses"));
+}};
 
-TEST_CASE("ATDF names the available packages when one is unknown", "[atdf]") {
-    CHECK(conversionError(document(), "missing") == "Unknown package missing; available: DIP2, OTHER");
-}
+const Scenario atdfNamesTheAvailablePackagesWhenOne{"ATDF names the available packages when one is unknown", {"atdf"}, [] {
+    check(conversionError(document(), "missing") == "Unknown package missing; available: DIP2, OTHER");
+}};
 
-TEST_CASE("ATDF reads integers as Python's int(text, 0) does", "[atdf]") {
-    CHECK(number("0x1F") == 31);
-    CHECK(number("0X1f") == 31);
-    CHECK(number(" 42 ") == 42);
-    CHECK(number("0b101") == 5);
-    CHECK(number("0o17") == 15);
-    CHECK(number("-0x10") == -16);
-    CHECK(number("1_000") == 1000);
-    CHECK(number("0") == 0);
-    CHECK(number("000") == 0);
+const Scenario atdfReadsIntegersAsPythonSInt{"ATDF reads integers as Python's int(text, 0) does", {"atdf"}, [] {
+    check(number("0x1F") == 31);
+    check(number("0X1f") == 31);
+    check(number(" 42 ") == 42);
+    check(number("0b101") == 5);
+    check(number("0o17") == 15);
+    check(number("-0x10") == -16);
+    check(number("1_000") == 1000);
+    check(number("0") == 0);
+    check(number("000") == 0);
     for (const char* invalid : {"010", "", "0x", "1__0", "_1", "1_", "0xG", "12a"})
-        CHECK_THROWS_WITH(number(invalid), ContainsSubstring("invalid literal"));
-}
+        checkThrows([&] { number(invalid); }, contains("invalid literal"));
+}};

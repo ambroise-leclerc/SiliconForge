@@ -23,6 +23,8 @@ describe("Signal generator", () => {
     await webFront.ready;
     await sf().waitFor((state) => state.mcu === "ATmega328P", 20000);
     await until(() => devices() && plate(), "the faceplate of the generator", 20000);
+    // The breadboard draws a component once the module that renders its type is loaded, a moment after the faceplate.
+    await until(() => document.querySelectorAll("[data-id=gbf] .bb-probe").length === 2, "the markers of the generator on the breadboard", 20000);
   }, 40000);
 
   it("is a device of the bar, with its jacks and the markers of its leads on the breadboard", () => {

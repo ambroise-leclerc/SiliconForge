@@ -128,18 +128,33 @@ describe("The agent terminal in the window", () => {
 
   it("gives the program the size of the panel and follows its changes", async () => {
     const size = () => sizeText(terminal().terminal.rows, terminal().terminal.cols);
-    showSize();
-    await waitForScreen(size(), 30000);
+    /** The size once the layout has stopped moving: the terminal is fitted again as the page settles, a scrollbar appears... */
+    const settledSize = async () => {
+      let last = size();
+      let since = Date.now();
+      while (Date.now() - since < 500) {
+        await sleep(50);
+        if (size() !== last) {
+          last = size();
+          since = Date.now();
+        }
+      }
+      return last;
+    };
+    const expectSize = async (wanted) => {
+      showSize();
+      await waitForScreen(wanted, 30000);
+      expect(screen().split("\n").filter((line) => line === wanted).length).toBeGreaterThanOrEqual(1);
+    };
+    await expectSize(await settledSize());
     // The terminal fills the side column: a narrower column is a smaller terminal.
-    document.querySelector(".workspace").style.setProperty("--side-wide", "35%");
     const before = size();
+    document.querySelector(".workspace").style.setProperty("--side-wide", "35%");
     const end = Date.now() + 10000;
     while (size() === before && Date.now() < end) await sleep(50);
     expect(size()).not.toBe(before);
     await sleep(300);  // The new size reaches the pseudoterminal through the bridge.
-    showSize();
-    await waitForScreen(size(), 30000);
-    expect(screen().split("\n").filter((line) => line === size()).length).toBeGreaterThanOrEqual(1);
+    await expectSize(await settledSize());
   });
 
   it("interrupts the program in the foreground with Ctrl+C", async () => {

@@ -12,7 +12,7 @@ option(SILICONFORGE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 if(PROJECT_IS_TOP_LEVEL)
     # CMake 4.3 does not know CXX26 for MSVC: cmake/Cxx26.cmake passes /std:c++latest instead.
     if(MSVC)
-        # Dependencies (Catch2 exports StringMaker<string_view> only from C++17) must see the same standard as our code.
+        # Dependencies must see the same standard as our code.
         string(APPEND CMAKE_CXX_FLAGS " /std:c++latest /bigobj")  # /bigobj: the WebFront/stdexec translation units are large
     else()
         set(CMAKE_CXX_STANDARD 26)
@@ -42,6 +42,9 @@ if(PROJECT_IS_TOP_LEVEL OR SILICONFORGE_BUILD_TESTS)
     add_subdirectory(tools)
 endif()
 
+# WebFront 1.2.0. The tests use its BDD framework (WebFront::Bdd), which needs nothing else of WebFront (tests/CMakeLists.txt).
+set(SILICONFORGE_WEBFRONT_TAG 215758021c62a76b632c7d8c70409231990dba9e)
+
 if(SILICONFORGE_BUILD_APP)
     # The application opens a native window (WebKitGTK, WebView2 or WKWebView) when WebFront finds the platform's
     # engine, and the system browser otherwise. -DWEBFRONT_EMBED_WEBKITGTK=OFF (or the platform's option) forces the
@@ -51,7 +54,7 @@ if(SILICONFORGE_BUILD_APP)
     CPMAddPackage(
         NAME WebFront
         GITHUB_REPOSITORY ambroise-leclerc/WebFront
-        GIT_TAG 215758021c62a76b632c7d8c70409231990dba9e) # WebFront 1.2.0
+        GIT_TAG ${SILICONFORGE_WEBFRONT_TAG})
     add_subdirectory(apps/siliconforge)
 elseif(PROJECT_IS_TOP_LEVEL OR SILICONFORGE_BUILD_TESTS)
     # Keep the bench available without WebFront or a window.
