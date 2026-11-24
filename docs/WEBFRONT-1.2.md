@@ -50,7 +50,18 @@ Mesure par fichier, un par un (CPU, sans concurrence entre étapes) : 238 s avan
 tests, 138 s de plus pour Catch2 avant. Les fichiers de test ne compilent donc pas plus vite ; le gain vient de la
 bibliothèque Catch2 qu'il n'y a plus à compiler. Chaque fichier inclut `Bdd.hpp`, un peu plus lourd que l'en-tête
 des macros de Catch2 : les petits fichiers gagnent environ une seconde, les gros perdent peu ou gagnent.
-La comparaison en CI (Linux, macOS, Windows) est faite par `.github/workflows/TestBuildTime.yml`.
+
+En CI (`.github/workflows/TestBuildTime.yml` : `develop` puis la branche, sur le même exécuteur, compilation complète) :
+
+| Plateforme | Sources des tests (CPU) | Catch2 (CPU) | Compilation complète (CPU) | Temps réel |
+| --- | ---: | ---: | ---: | ---: |
+| Linux, GCC 16 | 336 s → 340 s (+1 %) | 169 s → 0 | 1085 s → 868 s (−20 %) | 219 s → 185 s (−15 %) |
+| macOS, AppleClang (sans l'application) | 188 s → 229 s (+22 %) | 228 s → 0 | 702 s → 492 s (−30 %) | 147 s → 107 s (−27 %) |
+| Windows, MSVC | 261 s → 286 s (+10 %) | 285 s → 0 | 975 s → 659 s (−32 %) | 194 s → 142 s (−27 %) |
+
+Une seule mesure par plateforme : l'ordre (base puis tête) et la charge des exécuteurs font varier les chiffres de quelques
+pour cent. Le sens est le même partout : les sources des tests coûtent autant ou un peu plus, et la suppression de
+Catch2 fait gagner 15 à 27 % de temps réel.
 
 ## Évalué et non retenu
 
