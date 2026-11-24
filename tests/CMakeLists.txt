@@ -277,17 +277,3 @@ if(SILICONFORGE_BUILD_APP)
         message(STATUS "Native UI tests skipped: they need WebFront's WebKitGTK (Linux), WKWebView (macOS) or WebView2 (Windows) frontend")
     endif()
 endif()
-
-# The folder of the session (WebBridge::makeSessionFolder) is the one the editor and the terminals work in. The tests of the
-# window use the directory a test already runs in (the fixture project of the editor, the project of the terminal) or one of
-# the build tree, rather than a folder of the home directory.
-get_directory_property(_all_tests TESTS)
-foreach(_test IN LISTS _all_tests)
-    if(_test MATCHES "^UI-")
-        get_test_property(${_test} WORKING_DIRECTORY _session)
-        if(NOT _session)
-            set(_session ${CMAKE_CURRENT_BINARY_DIR}/ui-sessions/${_test})
-        endif()
-        set_property(TEST ${_test} APPEND PROPERTY ENVIRONMENT "SILICONFORGE_SESSION=${_session}" "SILICONFORGE_HOME=${CMAKE_CURRENT_BINARY_DIR}/ui-home")
-    endif()
-endforeach()

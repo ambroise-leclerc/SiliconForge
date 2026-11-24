@@ -348,61 +348,6 @@ private:
             (void)circuit->set(component, name, value);
     }
 
-    /// The folder of the session, made when SiliconForge starts: SILICONFORGE_SESSION when it is set (the tests), else
-    /// SiliconForge/sessions/<date>-<time> in the home directory of the person (SILICONFORGE_HOME replaces the home
-    /// directory, which is what the tests of the bridge do), else in the temporary directory. A session never reuses or
-    /// removes the folder of another: what the person and the agent wrote stays when the session ends.
-    [[nodiscard]] static std::filesystem::path makeSessionFolder() {
-        const auto variable = [](const char* name) -> std::optional<std::filesystem::path> {
-            const char* value = std::getenv(name);
-            return value && *value ? std::optional{std::filesystem::path{value}} : std::nullopt;
-        };
-        std::error_code error;
-        if (const auto chosen = variable("SILICONFORGE_SESSION")) {
-            std::filesystem::create_directories(*chosen, error);
-            return *chosen;
-        }
-        std::filesystem::path base;
-        if (const auto home = variable("SILICONFORGE_HOME"))
-            base = *home / "sessions";
-#if defined(_WIN32)
-        else if (const auto profile = variable("USERPROFILE"))
-#else
-        else if (const auto profile = variable("HOME"))
-#endif
-            base = *profile / "SiliconForge" / "sessions";
-        else
-            base = std::filesystem::temp_directory_path(error) / "SiliconForge" / "sessions";
-        std::string stamp;
-        try {
-            stamp = std::format("{:%Y%m%d-%H%M%S}", std::chrono::floor<std::chrono::seconds>(std::chrono::zoned_time{std::chrono::current_zone(), std::chrono::system_clock::now()}.get_local_time()));
-        } catch (const std::exception&) {
-            stamp = std::format("{:%Y%m%d-%H%M%S}", std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now()));
-        }
-        std::filesystem::create_directories(base, error);
-        for (unsigned attempt = 1;; ++attempt) {  // Two sessions started in the same second do not share a folder
-            const auto folder = base / (attempt == 1 ? stamp : std::format("{}-{}", stamp, attempt));
-            if (std::filesystem::create_directory(folder, error))
-                return folder;
-            if (attempt > 1000 || (error && !std::filesystem::exists(folder)))
-                return base;  // Cannot make one: work in the base folder rather than nowhere
-        }
-    }
-
-    /// Copies the source of an example into the folder of the session (a copy that is already there, edited or not, is
-    /// kept) and records it in the Git repository of the folder, so that the editor shows what changes from then on.
-    /// Nothing happens when the folder cannot be written: the emulation is not affected.
-    void copyExampleSource(const Example& example) {
-        const auto name = std::string{example.id} + ".c";
-        const auto text = embedded::source(name);
-        const auto file = session.directory() / name;
-        std::error_code error;
-        if (text.empty() || std::filesystem::exists(file, error))
-            return;
-        std::ofstream{file, std::ios::binary}.write(text.data(), static_cast<std::streamsize>(text.size()));
-        session.record({name}, "The source of the " + std::string{example.id} + " example");
-    }
-
     void installFirmware(std::string name, const ProgramImage& image) {
         simulation.pause();
         try {
@@ -454,9 +399,7 @@ private:
         "SiliconForge emulates a microcontroller (an ATmega328P on an Arduino Uno breadboard by default) in a window that a "
         "person watches: every tool acts on the emulation shown there, and each call appears in the window's Agent activity "
         "journal. The working directory is the project: build the firmware with its own chain, then load_firmware the HEX or "
-        "ELF it produced. The terminal of the window starts in the folder of the session (status gives sessionFolder), and the "
-        "C source of each example the person loads is copied there: work there, since that folder is all the editor of the "
-        "window shows, and load_firmware looks up its relative paths there first, then in the project. run, pause and reset drive the emulation; set_component presses a "
+        "ELF it produced (a path relative to the project). run, pause and reset drive the emulation; set_component presses a "
         "button or turns a potentiometer of the circuit (see status for their ids and states) and sets a signal generator (set_waveform "
         "programs its arbitrary wave); set_voltage applies a voltage "
         "to a pin; serial_send and serial_read use USART0. measure gives the duty cycle (%), frequency (Hz) or period (s) of "
@@ -529,7 +472,6 @@ private:
                                   {"running", simulation.isRunning()},
                                   {"firmware", firmwareName},
                                   {"circuit", circuit ? nlohmann::json(circuitName) : nlohmann::json(nullptr)},
-                                  {"sessionFolder", session.directory().string()},
                                   {"components", std::move(components)},
                                   {"agentMayChangeEmulation", agentDrives.load()}};
         });
@@ -677,14 +619,7 @@ private:
                        // Every argument is checked before the emulation changes.
                        const auto path  = mcp::text(arguments, "path");
                        const auto run   = mcp::flag(arguments, "run", true);
-                       // The agent works in the folder of the session: its relative paths are looked up there first, then in the project.
-                       std::expected<std::string, project::Failure> bytes = std::unexpected{project::Failure{}};
-                       const auto relative = std::filesystem::path{path}.is_absolute() ? std::filesystem::path{path}.lexically_relative(session.directory())
-                                                                                        : std::filesystem::path{path};
-                       if (!relative.empty() && *relative.begin() != "..")
-                           bytes = session.readBytes(relative.generic_string(), 8u << 20);
-                       if (!bytes)
-                           bytes = sources.readBytes(path, 8u << 20);
+                       const auto bytes = sources.readBytes(path, 8u << 20);
                        if (!bytes)
                            throw mcp::ToolError{bytes.error().message};
                        return rethrow([&] {
@@ -974,8 +909,7 @@ private:
         app.cppFunction("sf.examples", [] {
             auto list = nlohmann::json::array();
             for (const auto& example : examples) {
-                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"firmware", example.firmware}, {"description", example.description},
-                                 {"source", std::string{example.id} + ".c"}});  // In the folder the example gets
+                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"firmware", example.firmware}, {"description", example.description}});
                 if (!example.analyser.empty())
                     list.back()["analyser"] = nlohmann::json::parse(example.analyser);
             }
@@ -988,7 +922,6 @@ private:
                 throw webfront::BridgeError{std::string{error_code::unknownExample}, "Unknown example: " + id};
             useCircuit(circuit::builtinDescription(example->circuit), std::string{example->circuit});
             installFirmware(std::string{example->firmware}, parseIntelHex(hex).value());
-            copyExampleSource(*example);
             simulation.run();
         });
         // The capture of the instruments after sample `cursor` of capture `epoch`: [epoch, first sample held, next
@@ -1028,7 +961,7 @@ private:
         });
         // The agent terminal (ADR 0009): the programs the page may open in a pseudoterminal, as JSON text. The sessions
         // themselves are the callbacks of WebFront's PTY page, registered here under sf.terminal.<client>.
-        terminals = terminal::registerClients(app, session.directory(), agentServer).dump();
+        terminals = terminal::registerClients(app, std::filesystem::current_path(), agentServer).dump();
         app.cppFunction("sf.terminal.clients", [this] { return terminals; });
         // The MCP server of the agent (ADR 0011): whether there is one, and whether the agent may change the emulation.
         app.cppFunction("sf.agent.state", [this] {
@@ -1044,13 +977,12 @@ private:
                 throw webfront::BridgeError{result.error().code, result.error().message};
             return json(*result);
         };
-        // The folder of the session for the editor (ADR 0009, #56): nothing outside it is reachable from the page.
-        app.cppFunction("sf.files.list", [this, json] { return json(session.list()); });
-        app.cppFunction("sf.files.read", [this, reply](std::string path) { return reply(session.read(path)); });
-        app.cppFunction("sf.files.version", [this, reply](std::string path) { return reply(session.version(path)); });
-        app.cppFunction("sf.files.diff", [this, reply](std::string path) { return reply(session.diff(path)); });
+        app.cppFunction("sf.files.list", [this, json] { return json(sources.list()); });
+        app.cppFunction("sf.files.read", [this, reply](std::string path) { return reply(sources.read(path)); });
+        app.cppFunction("sf.files.version", [this, reply](std::string path) { return reply(sources.version(path)); });
+        app.cppFunction("sf.files.diff", [this, reply](std::string path) { return reply(sources.diff(path)); });
         app.cppFunction("sf.files.write", [this, reply](std::string path, std::string content, std::string version) {
-            return reply(session.write(path, content, version));
+            return reply(sources.write(path, content, version));
         });
         app.cppFunction("sf.run", [this] { simulation.run(); });
         app.cppFunction("sf.pause", [this] { simulation.pause(); });
@@ -1195,8 +1127,7 @@ private:
     std::string                        circuitName;
     std::unique_ptr<circuit::Circuit>  circuit;      // The selected circuit when the present MCU is the one it names.
     std::string                        terminals;       // sf.terminal.clients
-    project::Project                   sources{std::filesystem::current_path()};  // The project directory, read by the bench and the MCP tools
-    project::Project                   session{makeSessionFolder()};              // The folder of the session: the editor, the terminals, the examples
+    project::Project                   sources{std::filesystem::current_path()};  // The project directory of the editor (sf.files.*)
     std::string                        circuitView{"null"};
     unsigned                           circuitRevision{0};
     instruments::SignalRecorder        recorder;

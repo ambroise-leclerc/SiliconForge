@@ -1,9 +1,8 @@
 # Terminal agentique
 
 L’onglet **Terminal** de la colonne de droite ouvre, dans la fenêtre, le client agentique installé par
-l’utilisateur (Claude Code, Codex, OpenCode ou Mistral Vibe) dans le dossier de la session, ou le shell de
-l’utilisateur. Ce dossier (`~/SiliconForge/sessions/<date>-<heure>/`) est créé au démarrage de SiliconForge, reçoit le
-code des exemples chargés et n’est jamais effacé ; voir [l’éditeur](EDITOR.md). La colonne a trois onglets : **Bench** (le banc, le moniteur série et le CPU), **Terminal** et
+l’utilisateur (Claude Code, Codex, OpenCode ou Mistral Vibe) dans le répertoire du projet, ou le shell de
+l’utilisateur. La colonne a trois onglets : **Bench** (le banc, le moniteur série et le CPU), **Terminal** et
 **Sources** ([éditeur](EDITOR.md)). Choisir Terminal ou Sources élargit la colonne et rétrécit la carte et les
 instruments ; les flèches du clavier passent d’un onglet à l’autre, et la fenêtre retient le dernier choisi.
 

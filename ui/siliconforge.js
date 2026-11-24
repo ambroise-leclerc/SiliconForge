@@ -59,7 +59,6 @@
       serial = "";
       $("serial-output").textContent = "";
       await watchWithAnalyser(id);
-      await openExampleSource(id);
     },
     /** State of a component of the circuit in the last frame: {brightness}, {pressed}, {position, voltage}... */
     component: (id) => state?.components?.[id],
@@ -205,18 +204,6 @@
     if (next === undefined) forced.delete(name);
     else forced.set(name, next);
     api.setPin(name, next);
-  }
-
-  /** Opens the C source of an example in the editor when the project directory has it (the repository of the sources). */
-  async function openExampleSource(id) {
-    try {
-      const source = (await api.examples()).find((entry) => entry.id === id)?.source;
-      if (!source || !editor) return;
-      await editor.refresh();
-      if (editor.files.some((file) => file.path === source)) await editor.open(source);
-    } catch (error) {
-      console.warn(error.message ?? error);
-    }
   }
 
   /** Sets the logic analyser of an example that says what to watch: its channels, a single trigger and a time base. */

@@ -108,6 +108,10 @@ struct SpiWires {
         for (const auto byte : bytes)
             bits(byte, true);
     }
+    void data(std::size_t count, std::uint8_t value) {
+        for (std::size_t i = 0; i < count; ++i)
+            bits(value, true);
+    }
 };
 }  // namespace
 
@@ -276,6 +280,25 @@ const Scenario theControllerFollowsItsCommands{"the controller follows its comma
                 check(tft.framing() == 1);
                 check(tft.commands() == 1);
                 check(tft.transactions().back().command == 0x11);
+            });
+        });
+        when("more bytes follow a command than it has parameters, as after a command that is ignored", [&] {
+            wires.command(0x11);
+            wires.command(0x29);
+            wires.command(0xFF);
+            wires.data(100'000, 0xAA);  // The controller ignores them: none is kept
+            wires.command(0x2A);
+            wires.data({0, 10, 0, 11, 0, 99, 0, 99});  // Only the first four are the columns
+            wires.command(0x2B);
+            wires.data({0, 20, 0, 21});
+            wires.command(0x3A);
+            wires.data({0x55});
+            wires.command(0x2C);
+            wires.data({0xF8, 0x00, 0xF8, 0x00, 0xF8, 0x00});
+            then("the window is the one the first four bytes gave", [&] {
+                check(tft.shown()[20 * 240 + 11] != 0u);
+                check(tft.shown()[21 * 240 + 10] != 0u);  // The third pixel wrapped to the next row: the window is 2 wide
+                check(tft.shown()[20 * 240 + 12] == 0u);
             });
         });
         when("the window is 2 x 2 and four 16-bit pixels are written after sleep out and display on", [&] {

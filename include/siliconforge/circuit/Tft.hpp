@@ -105,7 +105,6 @@ private:
     unsigned      bits{0};
     std::uint8_t  shift{0};
     Cycles        firstEdge{0};
-    Cycles        previousEdge{0};
 
     // Controller.
     bool          on{false}, asleep{true}, inversion{false};
@@ -114,6 +113,7 @@ private:
     std::uint16_t column{0}, row{0};
     std::uint8_t  current{0};
     bool          writing{false};
+    static constexpr std::size_t maxParameters = 4;  // The longest parameter list of the commands that are modelled
     std::vector<std::uint8_t> parameters;
     std::uint8_t  partial[3]{};
     unsigned      partialCount{0};

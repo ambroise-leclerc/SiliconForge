@@ -264,33 +264,6 @@ describe("The editor of the project sources in the window", () => {
     expect(removed.some((line) => line.startsWith("-Notes"))).toBe(true);
   });
 
-  it("copies the source of a loaded example into the folder of the session, where the terminal and the editor work", async () => {
-    // The folder of the session is the project directory of this test: the terminal opened by the previous cases is in it
-    expect(editor().files.some((file) => file.path === "blink.c")).toBe(false);
-    await sf().loadExample("blink");
-    await until(() => editor().state.path === "blink.c", "the source of the example in the editor");
-    expect(editor().text).toContain("D13");
-    await editor().refresh();
-    expect(editor().files.some((file) => file.path === "blink.c")).toBe(true);
-    if (editor().git) expect(statusOf("blink.c")).toBe("");  // Recorded as it was copied: edits will show
-
-    await editor().open("blink.c");
-    editor().text = `${editor().text}// by hand\n`;
-    await editor().save();
-    await sf().loadExample("blink");  // Loaded again: the edited copy is kept
-    await until(() => editor().state.path === "blink.c", "the source of the example");
-    expect(editor().text).toContain("// by hand");
-    if (editor().git) {
-      await until(async () => { await editor().refresh(); return statusOf("blink.c") === "M"; }, "the edit shown as a change");
-    }
-
-    // The terminal of the session is in that folder: a file written by its bare name shows up in the editor
-    sf().terminal.terminal.input("printf 'int bounce;\\n' > bounce.c\r", true);
-    await until(async () => { await editor().refresh(); return editor().files.some((file) => file.path === "bounce.c"); }, "the file the agent added");
-    await editor().open("bounce.c");
-    expect(editor().text).toBe("int bounce;\n");
-  });
-
   afterAll(async () => {
     await sf().terminal.hangUp();
   });

@@ -17,16 +17,6 @@ using namespace webfront::bdd;
 using namespace siliconforge;
 
 namespace {
-// Loading an example copies its source into a folder of the home directory: the tests use one of the temporary directory.
-const bool examplesHome = [] {
-    const auto home = (std::filesystem::temp_directory_path() / "siliconforge-bridge-tests").string();
-#if defined(_WIN32)
-    _putenv_s("SILICONFORGE_HOME", home.c_str());
-#else
-    setenv("SILICONFORGE_HOME", home.c_str(), 1);
-#endif
-    return true;
-}();
 struct Frames {
     std::mutex mutex;
     std::condition_variable ready;
@@ -469,89 +459,4 @@ const Scenario theSpiDisplayExampleLoadsThe{"The SPI display example loads the I
     check(nlohmann::json::parse(web.circuit()).at("id") == "tft-spi-demo");
     simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1500}) - mcu.cycles()); });
     check(simulation.access([](Mcu& mcu) { return mcu.pin("D12")->level(); }));  // The firmware raises D12 once the window is painted
-}};
-
-const Scenario theSessionHasAFolderMade{"The session has a folder made at the start, where the examples are copied and the editor works", {"app", "bridge", "editor"}, [] {
-    const auto home = std::filesystem::temp_directory_path() / "siliconforge-session-test";
-    std::filesystem::remove_all(home);
-    // A file of the project directory (the current one): the editor must not reach it.
-    const auto probe = std::filesystem::current_path() / "scope-probe.txt";
-    std::ofstream{probe} << "not in the session\n";
-    struct Cleanup {
-        std::filesystem::path path, home;
-        ~Cleanup() {
-            std::error_code ignored;
-            std::filesystem::remove(path, ignored);
-            std::filesystem::remove_all(home, ignored);
-        }
-    } cleanup{probe, home};
-#if defined(_WIN32)
-    _putenv_s("SILICONFORGE_HOME", home.string().c_str());
-    _putenv_s("SILICONFORGE_SESSION", "");
-#else
-    setenv("SILICONFORGE_HOME", home.string().c_str(), 1);
-    unsetenv("SILICONFORGE_SESSION");
-#endif
-
-    app::Simulation simulation{mcu::create("atmega328p")};
-    TestApp web;
-    std::filesystem::path folder;
-    {
-        app::WebBridge bridge{web, simulation, ""};
-        const auto listed = [&] {
-            std::vector<std::string> paths;
-            for (const auto& file : nlohmann::json::parse(web.filesList()).at("files"))
-                paths.push_back(file.at("path"));
-            std::ranges::sort(paths);
-            return paths;
-        };
-        folder = nlohmann::json::parse(web.filesList()).at("root").get<std::string>();
-        check(folder.parent_path() == home / "sessions");  // Made at the start, in the home directory
-        check(std::filesystem::is_directory(folder));
-        check(listed().empty());
-        check(rejection([&] { (void)web.filesRead("scope-probe.txt"); }).code() == "siliconforge.unknownFile");  // Not the project directory
-        check(rejection([&] { (void)web.filesRead("../scope-probe.txt"); }).code() == "siliconforge.unknownFile");
-
-        web.loadExample("blink");
-        simulation.pause();
-        require(std::filesystem::is_regular_file(folder / "blink.c"));
-        check(listed() == std::vector<std::string>{"blink.c"});
-        check(web.filesRead("blink.c").find("D13") != std::string::npos);
-
-        // What the agent adds, and an edit, stay; a second load of the example does not overwrite them
-        std::ofstream{folder / "bounce.c"} << "int bounce;\n";
-        { std::ofstream edited{folder / "blink.c", std::ios::app}; edited << "// edited\n"; }
-        web.loadExample("blink");
-        simulation.pause();
-        check(listed() == std::vector<std::string>{"blink.c", "bounce.c"});
-        check(web.filesRead("blink.c").find("// edited") != std::string::npos);
-
-        // What the person staged meanwhile is not swept into the commit of the next example
-        const bool git = std::filesystem::exists(folder / ".git");
-        if (git)
-            require(std::system(("git -C \"" + folder.string() + "\" add bounce.c").c_str()) == 0);
-        web.loadExample("pwm");  // Another example goes to the same folder
-        simulation.pause();
-        check(listed() == std::vector<std::string>{"blink.c", "bounce.c", "pwm.c"});
-        if (git)
-            for (const auto& file : nlohmann::json::parse(web.filesList()).at("files"))
-                if (file.at("path") == "bounce.c")
-                    check(file.at("status") == "A");  // Still staged, not committed with pwm.c
-
-        // A firmware of the person's own changes nothing to what the editor sees
-        const std::string hex = ":02000000FFCF30\n:00000001FF\n";  // rjmp .-2
-        web.loadFirmware("mine.hex", {hex.begin(), hex.end()});
-        check(listed() == std::vector<std::string>{"blink.c", "bounce.c", "pwm.c"});
-    }
-    // The end of the session removes nothing
-    check(std::filesystem::exists(folder / "bounce.c"));
-    check(std::filesystem::exists(folder / "blink.c"));
-
-    // A new session makes a folder of its own and leaves the first alone
-    TestApp second;
-    app::Simulation other{mcu::create("atmega328p")};
-    app::WebBridge bridge{second, other, ""};
-    const std::filesystem::path next = nlohmann::json::parse(second.filesList()).at("root").get<std::string>();
-    check(next != folder);
-    check(std::filesystem::exists(folder / "bounce.c"));
 }};

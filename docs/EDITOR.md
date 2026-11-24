@@ -11,25 +11,12 @@ sans perdre ni écraser ce que l’autre vient de faire. La décision est décri
 
 ## Comportement
 
-- **Liste.** Les fichiers du dossier de la session. Dans un dépôt Git, ce sont les fichiers suivis et
+- **Liste.** Les fichiers du répertoire de travail de SiliconForge. Dans un dépôt Git, ce sont les fichiers suivis et
   les fichiers non suivis non ignorés ; ceux qui diffèrent du dernier commit viennent en premier, avec leur état :
   `M` modifié, `A` ajouté, `D` supprimé, `R` renommé, `U` en conflit, `?` non suivi. Sans Git (programme absent ou
   dossier hors dépôt), tous les fichiers sont listés sauf `.git`, `build`, `node_modules` et `.cache`, sans état.
   **Changed only** (coché par défaut) ne garde que les fichiers modifiés ; le champ **Filter files** filtre par nom.
   La liste est limitée à 5 000 fichiers.
-- **Dossier de la session.** SiliconForge crée un dossier à son démarrage,
-  `SiliconForge/sessions/<date>-<heure>/` du répertoire personnel (`$HOME`, `%USERPROFILE%` ; `SILICONFORGE_HOME` le
-  remplace, ce qu’utilisent les tests du pont ; `SILICONFORGE_SESSION` impose le dossier lui-même), et tout se passe
-  dedans, sur tous les systèmes : l’éditeur ne donne accès qu’à lui (lecture, version, différences et sauvegarde de tout
-  autre chemin sont refusées, `..` compris), et le shell comme chaque client d’agent y démarrent. Une session ne reprend
-  ni ne supprime le dossier d’une autre : ce que la personne et l’agent écrivent reste après la fin de la session.
-  Choisir un exemple y copie son code C (`blink.c`, `tft_spi.c`…) et l’ouvre dans l’éditeur ; une copie déjà présente,
-  modifiée ou non, n’est pas écrasée quand on recharge l’exemple, et plusieurs exemples se partagent le même dossier.
-  Le dossier est un dépôt Git à lui : chaque copie y est enregistrée telle quelle, de sorte que les modifications de la
-  personne s’y voient (`M`) ainsi que les fichiers que l’agent ajoute (`?`, par exemple `bounce.c`). L’agent lit le
-  chemin du dossier dans `status` (`sessionFolder`) et `load_firmware` y cherche d’abord ses chemins relatifs, puis dans
-  le répertoire de lancement. Le banc et les outils MCP lisent toujours le répertoire de lancement (les scénarios, les
-  circuits) : la limite au dossier de la session ne vaut que pour l’éditeur.
 - **Édition.** Un tampon par fichier ouvert : passer à un autre fichier ou masquer le panneau garde les modifications
   (repérées par `●` dans la liste). **Save** ou `Ctrl+S` enregistre. Un fichier CRLF reste CRLF ; un fichier qui mêle
   les fins de ligne s’affiche mais n’est pas modifiable, pour que l’enregistrement ne les altère pas. Seuls les

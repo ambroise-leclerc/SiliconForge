@@ -182,6 +182,9 @@ void Tft::command(std::uint8_t value, Cycles at, Cycles bitCycles) {
 }
 
 void Tft::parameter(std::uint8_t value) {
+    // No command takes more than four parameters: what follows is ignored, whatever the command (and not kept).
+    if (parameters.size() >= maxParameters)
+        return;
     parameters.push_back(value);
     switch (current) {
         case 0x2A:
