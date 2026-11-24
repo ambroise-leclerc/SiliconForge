@@ -346,6 +346,11 @@ relié est maintenu haut par le module, comme un RD non relié sur le shield ; u
 - **Parallèle** : l’octet de D0-D7 est pris au front montant de WR, CS bas ; RS bas : commande. Un cycle de lecture (RD)
   est compté dans `unsupported`, sans réponse : le module ne pilote pas le bus.
 
+Ce que la dalle **montre** (`shown()`, l’image de l’interface, l’étape `screen` d’un scénario) est noir quand
+l’affichage est éteint ou en veille, quand le module n’est pas alimenté et quand son rétroéclairage est éteint
+(broche LED du KMRTM28028 débranchée ou à zéro ; le shield MCUFRIEND n’a pas de broche LED) : un écran qui reste noir
+physiquement ne peut pas réussir une comparaison d’image. La mémoire (`memory()`) reste celle que le firmware a écrite.
+
 Les deux contrôleurs partagent le modèle des commandes qui comptent pour les pixels : `CASET`/`PASET` (la fenêtre),
 `RAMWR`/`RAMWRC` (l’écriture, qui avance dans la fenêtre en ordre de lecture), `MADCTL` (MY, MX, MV et BGR),
 `COLMOD` (16 bits RGB565 ou 18 bits), veille (`SLPIN`/`SLPOUT`), affichage (`DISPON`/`DISPOFF`), inversion, reset

@@ -42,13 +42,19 @@ Spi::Spi(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts,
                              const auto control = this->data.raw(regs.spcr);
                              if (!(control & spe) || !(control & mstr))
                                  return;
+                             clearSeenFlags();  // The access that follows a read of SPSR clears what it showed, collision or not
                              if (busy) {
                                  this->data.raw(regs.spsr) |= wcol;
                                  return;
                              }
-                             clearSeenFlags();
                              start(value, this->clock);
                          }});
+    // SS: an input driven low takes the master mode away, whenever it happens (the level, the direction or the register).
+    if (pins.port && pins.ss)
+        if (auto* select = pins.port->pin(*pins.ss)) {
+            select->subscribe([this](const Pin&, Cycles) { checkSelect(); });
+            select->subscribeDrive([this](const Pin&, Cycles) { checkSelect(); });
+        }
     interrupts.onAcknowledge(vector, [this] {
         this->data.raw(regs.spsr) &= static_cast<u8>(~spif);
         updateInterrupt();
@@ -90,16 +96,34 @@ void Spi::clearSeenFlags() {
     updateInterrupt();
 }
 
+void Spi::abortTransfer() {
+    for (const auto event : std::exchange(events, {}))
+        scheduler.cancel(event);
+    busy = false;
+    releasePins();
+}
+
+void Spi::checkSelect() {
+    const auto control = data.raw(regs.spcr);
+    if (!(control & spe) || !(control & mstr) || !pins.port || !pins.ss)
+        return;
+    const auto* select = pins.port->pin(*pins.ss);
+    if (!select || select->isOutput() || select->state() != PinState::Low)
+        return;
+    // Mode fault: the master becomes a slave, which this model does not drive: a byte under way is lost, SPIF tells the firmware.
+    abortTransfer();
+    data.raw(regs.spcr) = static_cast<u8>(control & ~mstr);
+    data.raw(regs.spsr) |= spif;
+    updateInterrupt();
+}
+
 void Spi::controlChanged() {
     const auto control = data.raw(regs.spcr);
     if (busy) {
         if ((control & spe) && (control & mstr))
             return;  // The mode of a transfer under way does not change
         // Disabling the peripheral (or leaving master mode) aborts the byte: no more edge, no SPIF, the pins are released.
-        for (const auto event : std::exchange(events, {}))
-            scheduler.cancel(event);
-        busy = false;
-        releasePins();
+        abortTransfer();
         updateInterrupt();
         return;
     }
@@ -111,6 +135,7 @@ void Spi::controlChanged() {
     else
         releasePins();
     updateInterrupt();
+    checkSelect();  // Enabled as a master while SS is held low
 }
 
 void Spi::start(u8 value, Cycles now) {

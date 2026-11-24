@@ -56,6 +56,13 @@ void Tft::resetController() {
     ++changes;
 }
 
+void Tft::backlight(bool on) {
+    if (on == lit)
+        return;
+    lit = on;
+    ++changes;  // What the panel shows changed
+}
+
 void Tft::power(bool powerOn) {
     if (powerOn == supplied)
         return;
@@ -245,7 +252,7 @@ void Tft::put(std::uint32_t color) {
 }
 
 std::vector<std::uint32_t> Tft::shown() const {
-    if (!displayOn())
+    if (!displayOn() || !supplied || !lit)
         return std::vector<std::uint32_t>(pixels.size(), 0u);
     if (!inversion)
         return pixels;

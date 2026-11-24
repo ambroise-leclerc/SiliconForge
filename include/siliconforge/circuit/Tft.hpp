@@ -52,6 +52,10 @@ public:
 
     /// Supply on or off. Off, the controller forgets everything and the memory is black.
     void power(bool on);
+    /// The state of the LED pin of the module: with the backlight off the panel is black whatever the memory holds. On by
+    /// default (a module without the pin, or a controller used alone).
+    void backlight(bool on);
+    [[nodiscard]] bool backlit() const noexcept { return lit; }
     /// SPI: the levels of the wires now, at cycle `at`; each edge since the previous call is acted on, in the order CS,
     /// RESET, SCK. Call it every time a wire may have changed.
     void spi(bool cs, bool dc, bool clock, bool data, bool reset, Cycles at);
@@ -61,7 +65,8 @@ public:
     /// The memory, row by row from the top-left of the panel, as 0xRRGGBB (what the controller received, with the 5 or 6
     /// bits of each channel expanded to 8).
     [[nodiscard]] const std::vector<std::uint32_t>& memory() const noexcept { return pixels; }
-    /// What the panel shows: the memory with inversion applied, black when the display is off or asleep.
+    /// What the panel shows: the memory with inversion applied, black when the display is off or asleep, when the module is
+    /// not powered or when its backlight is off.
     [[nodiscard]] std::vector<std::uint32_t> shown() const;
     [[nodiscard]] bool displayOn() const noexcept { return on && !asleep; }
     [[nodiscard]] bool sleeping() const noexcept { return asleep; }
@@ -95,6 +100,7 @@ private:
     Controller    kind;
     unsigned      panelWidth, panelHeight;
     bool          supplied{false};
+    bool          lit{true};
     bool          lastCs{true}, lastClock{false}, lastReset{true}, lastRead{true};
     unsigned      bits{0};
     std::uint8_t  shift{0};

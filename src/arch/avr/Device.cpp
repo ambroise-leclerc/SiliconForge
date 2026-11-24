@@ -152,7 +152,8 @@ void Device::makeSpi(const Json& p) {
                                      core.cycles,
                                      Spi::Registers{reg(p, "spcr"), reg(p, "spsr"), reg(p, "spdr")},
                                      vector(p.at("vectors"), "transferComplete"),
-                                     Spi::Pins{ports.at(p.at("port")).get(), p.at("mosi"), p.at("miso"), p.at("sck")});
+                                     Spi::Pins{ports.at(p.at("port")).get(), p.at("mosi"), p.at("miso"), p.at("sck"),
+                                               p.contains("ss") ? std::optional<unsigned>{p.at("ss").get<unsigned>()} : std::nullopt});
     resetters.emplace_back([ptr = spi.get()] {
         ptr->reset(true);
     });

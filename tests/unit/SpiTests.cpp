@@ -140,6 +140,45 @@ SCENARIO("a byte is shifted out in SPI mode 0, most significant bit first", "[sp
                 CHECK((spi.status() & spif) != 0);
             }
         }
+        WHEN("SPDR is written during a transfer after SPSR showed a collision") {
+            spi.send(0xFF);
+            spi.run(8);
+            spi.send(0x00);
+            REQUIRE((spi.status() & wcol) != 0);  // Read: the next access to SPDR completes the sequence
+            spi.send(0x00);                         // A write during the transfer: a new collision, after the flags were cleared
+            THEN("that access used the sequence up: a plain read of SPDR does not clear the new collision") {
+                CHECK((spi.avr.mcu.dataSpace().raw(spsr) & wcol) != 0);
+                (void)spi.avr.io(spdr);
+                CHECK((spi.avr.mcu.dataSpace().raw(spsr) & wcol) != 0);
+            }
+        }
+        WHEN("SS is an input driven low while the master is enabled") {
+            spi.send(0xFF);
+            spi.run(10);  // Two bits are out
+            const auto edges = spi.wires.clock.size();
+            spi.avr.mcu.pin("PB2")->setExternal(false);
+            spi.run(100);
+            THEN("the master mode is lost: MSTR clears, the byte is aborted and SPIF is set") {
+                CHECK((spi.avr.mcu.dataSpace().raw(spcr) & 0x10) == 0);
+                CHECK((spi.status() & spif) != 0);
+                CHECK(spi.wires.clock.size() <= edges + 1);
+            }
+            AND_THEN("a write to SPDR starts nothing") {
+                const auto before = spi.wires.clock.size();
+                spi.send(0x55);
+                spi.run(100);
+                CHECK(spi.wires.clock.size() == before);
+            }
+        }
+        WHEN("SS is an output driven low") {
+            spi.avr.mcu.dataSpace().write(ddrb, 0x2C);  // SS, MOSI and SCK are outputs
+            spi.send(0xFF);
+            spi.run(64);
+            THEN("nothing is lost: the byte completes") {
+                CHECK((spi.avr.mcu.dataSpace().raw(spcr) & 0x10) != 0);
+                CHECK((spi.status() & spif) != 0);
+            }
+        }
         WHEN("MISO is held high by the device and a byte is exchanged") {
             spi.avr.mcu.pin("PB4")->setExternal(true);
             spi.send(0x00);

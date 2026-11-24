@@ -820,7 +820,9 @@ struct Circuit::Model {
             const auto& tft = screen.tft;
             put("powered", powered ? 1 : 0);
             // The shield has no backlight pin: its backlight is on with the supply.
-            put("backlight", powered && (screen.parallel || volts("led") - gnd > (vcc - gnd) / 2) ? 1 : 0);
+            const bool lit = powered && (screen.parallel || volts("led") - gnd > (vcc - gnd) / 2);
+            screen.tft.backlight(lit);  // A dark backlight leaves the panel black, for the scenarios and the view alike
+            put("backlight", lit ? 1 : 0);
             put("displayOn", tft.displayOn() ? 1 : 0);
             put("sleeping", tft.sleeping() ? 1 : 0);
             put("commands", static_cast<double>(tft.commands()));

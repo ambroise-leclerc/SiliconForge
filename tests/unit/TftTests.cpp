@@ -393,11 +393,11 @@ struct ScreenScenario {
         }
     }
 
-    scenario::Report run(const std::string& screen, const std::string& component = "tft") const {
+    scenario::Report run(const std::string& screen, const std::string& component = "tft", const std::filesystem::path& circuit = circuitDir / "tft-spi-demo.json") const {
         const Json document = {
             {"formatVersion", 1},
             {"name", "tft"},
-            {"circuit", (circuitDir / "tft-spi-demo.json").string()},
+            {"circuit", circuit.string()},
             {"firmware", (firmwareDir / "tft_spi.hex").string()},
             {"steps", {{{"waitFor", {{"pin", "D12"}, {"state", "high"}}}, {"timeout", "500ms"}},
                        {{"screen", {{"component", component}, {"image", screen}}}}}}};
@@ -434,6 +434,28 @@ SCENARIO("a scenario compares the screen with an expected picture", "[scenario][
                 REQUIRE(image != report.inputs.end());
                 CHECK(image->path == "expected.ppm");
                 CHECK(image->sha256.size() == 64);
+            }
+        }
+    }
+    GIVEN("the picture the firmware draws, but a module whose LED pin is not wired to the supply") {
+        ScreenScenario fixture;
+        fixture.write("expected.ppm", quadrants(240, 320, 60, 120), 240, 320);
+        auto description = Json::parse(std::ifstream{circuitDir / "tft-spi-demo.json"});
+        auto wires       = Json::array();
+        for (const auto& wire : description.at("wires"))
+            if (wire.at("from") != "h28")  // The wire from the LED pin of the module to the +5 V rail
+                wires.push_back(wire);
+        REQUIRE(wires.size() + 1 == description.at("wires").size());
+        description["wires"] = wires;
+        const auto dark      = fixture.directory / "dark.json";
+        std::ofstream{dark} << description.dump();
+
+        WHEN("the scenario runs") {
+            const auto report = fixture.run("expected.ppm", "tft", dark);
+            THEN("the screen is black whatever the memory holds, so the picture does not match") {
+                REQUIRE(report.verdict == scenario::Verdict::Fail);
+                REQUIRE(report.screens.size() == 1);
+                CHECK(report.screens[0].differing == 9600);  // The painted window, black instead of its colours
             }
         }
     }

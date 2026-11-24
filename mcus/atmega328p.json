@@ -1162,7 +1162,8 @@
       "port": "PORTB",
       "mosi": 3,
       "miso": 4,
-      "sck": 5
+      "sck": 5,
+      "ss": 2
     },
     {
       "type": "avr.eeprom",

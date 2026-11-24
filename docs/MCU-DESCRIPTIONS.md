@@ -126,7 +126,7 @@ Les fabriques AVR enregistrées sont :
 | `avr.timer8` | registres, trois vecteurs, huit prescalers, deux sorties GPIO |
 | `avr.usart` | registres, trois vecteurs, GPIO RX/TX, diviseurs normal/U2X, profondeur FIFO |
 | `avr.adc` | registres, vecteur, canaux, prescalers, durées de conversion |
-| `avr.spi` | registres SPCR/SPSR/SPDR, vecteur de fin de transfert, GPIO MOSI/MISO/SCK ; maître seulement (#64) |
+| `avr.spi` | registres SPCR/SPSR/SPDR, vecteur de fin de transfert, GPIO MOSI/MISO/SCK et SS (facultatif : une broche SS en entrée à l’état bas fait perdre le mode maître, MSTR s’efface et SPIF se lève) ; maître seulement (#64) |
 | `avr.eeprom` | registres, vecteur, `writeTimeNs`, `readCycles` |
 
 Un type inconnu est refusé explicitement. Les registres des fonctions qui ne sont pas

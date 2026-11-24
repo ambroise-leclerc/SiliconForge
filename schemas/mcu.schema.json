@@ -2201,6 +2201,11 @@
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 7
+                },
+                "ss": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
                 }
               },
               "required": [
