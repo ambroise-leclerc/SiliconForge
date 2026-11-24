@@ -1,7 +1,7 @@
 // Components and circuits described in JSON (ADR 0005): the committed files are valid, and every consistency rule
 // reports the JSON Pointer of the value at fault.
 
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
 #include <siliconforge/circuit/Description.hpp>
 #include <siliconforge/mcu/Description.hpp>
 
@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+using namespace webfront::bdd;
+
 using namespace siliconforge;
 using Json = nlohmann::json;
 
@@ -20,13 +22,13 @@ const std::filesystem::path sourceDir{SILICONFORGE_SOURCE_DIR};
 
 Json read(const std::filesystem::path& path) {
     std::ifstream input{path};
-    REQUIRE(input);
+    require(input);
     return Json::parse(std::string{std::istreambuf_iterator<char>{input}, {}});
 }
 
 Json component(std::string_view type) {
     const auto* description = circuit::Library::builtin().find(type);
-    REQUIRE(description);
+    require(description);
     return *description;
 }
 
@@ -39,7 +41,7 @@ Json& part(Json& circuit, std::string_view id) {
     const auto found      = std::ranges::find_if(components, [&](const Json& candidate) {
         return candidate.at("id") == std::string(id);
     });
-    REQUIRE(found != components.end());
+    require(found != components.end());
     return *found;
 }
 
@@ -48,117 +50,117 @@ std::string partPath(const Json& circuit, std::string_view id) {
     const auto  found      = std::ranges::find_if(components, [&](const Json& candidate) {
         return candidate.at("id") == std::string(id);
     });
-    REQUIRE(found != components.end());
+    require(found != components.end());
     return "/components/" + std::to_string(std::distance(components.begin(), found));
 }
 
 void expectComponentError(const Json& description, std::string_view path, std::string_view message) {
     const auto result = circuit::validateComponent(description);
-    REQUIRE_FALSE(result);
-    CHECK(result.error().path == path);
-    CHECK(result.error().message.find(message) != std::string::npos);
+    require(!result);
+    check(result.error().path == path);
+    check(result.error().message.find(message) != std::string::npos);
 }
 
 void expectCircuitError(const Json& description, std::string_view path, std::string_view message) {
     const auto result = circuit::validateCircuit(description);
-    REQUIRE_FALSE(result);
-    CHECK(result.error().path == path);
-    CHECK(result.error().message.find(message) != std::string::npos);
+    require(!result);
+    check(result.error().path == path);
+    check(result.error().message.find(message) != std::string::npos);
 }
 }  // namespace
 
-TEST_CASE("Every committed component description is valid and built in", "[circuit][schema]") {
+const Scenario everyCommittedComponentDescriptionIsValidAnd{"Every committed component description is valid and built in", {"circuit", "schema"}, [] {
     std::vector<std::string> types;
     for (const auto& entry : std::filesystem::directory_iterator{sourceDir / "components"}) {
         const auto file = entry.path() / "component.json";
-        INFO(file.string());
-        REQUIRE(std::filesystem::exists(file));
+        const auto note1 = info(file.string());
+        require(std::filesystem::exists(file));
         const auto description = read(file);
         const auto result      = circuit::validateComponent(description);
         if (!result)
-            FAIL(result.error().path << ": " << result.error().message);
-        CHECK(description.at("type") == entry.path().filename().string());
+            fail(result.error().path, ": ", result.error().message);
+        check(description.at("type") == entry.path().filename().string());
         types.push_back(description.at("type"));
     }
     std::ranges::sort(types);
-    CHECK(types == circuit::Library::builtin().types());
+    check(types == circuit::Library::builtin().types());
     for (const auto* type : {"led", "resistor", "potentiometer", "push-button", "crystal", "wire", "seven-segment"})
-        CHECK(circuit::Library::builtin().find(type));
-}
+        check(circuit::Library::builtin().find(type));
+}};
 
-TEST_CASE("circuits/arduino-demo.json is valid and is the built-in demonstration circuit", "[circuit][schema]") {
+const Scenario circuitsArduinoDemoJsonIsValidAnd{"circuits/arduino-demo.json is valid and is the built-in demonstration circuit", {"circuit", "schema"}, [] {
     const auto loaded = circuit::loadDescription(sourceDir / "circuits" / "arduino-demo.json");
     if (!loaded)
-        FAIL(loaded.error().path << ": " << loaded.error().message);
-    CHECK(*loaded == demo());
-    CHECK(loaded->at("chip").at("mcu") == "atmega328p");
-}
+        fail(loaded.error().path, ": ", loaded.error().message);
+    check(*loaded == demo());
+    check(loaded->at("chip").at("mcu") == "atmega328p");
+}};
 
-TEST_CASE("Holes are parsed on terminal strips and power rails", "[circuit]") {
-    CHECK(circuit::parseHole("e6") == circuit::Hole{'e', 0, 6});
-    CHECK(circuit::parseHole("j30") == circuit::Hole{'j', 0, 30});
-    CHECK(circuit::parseHole("T+12") == circuit::Hole{'T', '+', 12});
-    CHECK(circuit::parseHole("B-3") == circuit::Hole{'B', '-', 3});
-    CHECK(circuit::parseHole("T+12")->isRail());
-    CHECK_FALSE(circuit::parseHole("e6")->isRail());
+const Scenario holesAreParsedOnTerminalStripsAnd{"Holes are parsed on terminal strips and power rails", {"circuit"}, [] {
+    check(circuit::parseHole("e6") == circuit::Hole{'e', 0, 6});
+    check(circuit::parseHole("j30") == circuit::Hole{'j', 0, 30});
+    check(circuit::parseHole("T+12") == circuit::Hole{'T', '+', 12});
+    check(circuit::parseHole("B-3") == circuit::Hole{'B', '-', 3});
+    check(circuit::parseHole("T+12")->isRail());
+    check(!(circuit::parseHole("e6")->isRail()));
     for (const auto* invalid : {"", "e", "k3", "e0", "e06", "T12", "B+", "e1234", "e6x", "E6"})
-        CHECK_FALSE(circuit::parseHole(invalid));
-}
+        check(!circuit::parseHole(invalid));
+}};
 
-TEST_CASE("Component descriptions are checked beyond the schema", "[circuit][schema]") {
-    SECTION("the schema locates a missing field") {
+const Scenario componentDescriptionsAreCheckedBeyondTheSchema{"Component descriptions are checked beyond the schema", {"circuit", "schema"}, [] {
+    section("the schema locates a missing field", [&] {
         auto d = component("led");
         d.erase("footprint");
         expectComponentError(d, "/footprint", "required property");
-    }
-    SECTION("terminal names are unique") {
+    });
+    section("terminal names are unique", [&] {
         auto d                    = component("resistor");
         d["terminals"][1]["name"] = "a";
         expectComponentError(d, "/terminals/1/name", "Duplicate terminal");
-    }
-    SECTION("a default value respects its bounds") {
+    });
+    section("a default value respects its bounds", [&] {
         auto d                                   = component("resistor");
         d["properties"]["resistance"]["default"] = 0;
         expectComponentError(d, "/properties/resistance/default", "out of bounds");
-    }
-    SECTION("bounds are ordered") {
+    });
+    section("bounds are ordered", [&] {
         auto d                                   = component("resistor");
         d["properties"]["resistance"]["minimum"] = 1e9;
         expectComponentError(d, "/properties/resistance/minimum", "above maximum");
-    }
-    SECTION("a default value is one of the allowed values") {
+    });
+    section("a default value is one of the allowed values", [&] {
         auto d                              = component("led");
         d["properties"]["color"]["default"] = "pink";
         expectComponentError(d, "/properties/color/default", "allowed values");
-    }
-    SECTION("a span footprint has two terminals") {
+    });
+    section("a span footprint has two terminals", [&] {
         auto d = component("resistor");
         d["terminals"].push_back({
             {"name", "c"}
         });
         expectComponentError(d, "/footprint/kind", "two terminals");
-    }
-    SECTION("a span footprint is ordered") {
+    });
+    section("a span footprint is ordered", [&] {
         auto d                    = component("resistor");
         d["footprint"]["minimum"] = 20;
         expectComponentError(d, "/footprint/minimum", "above maximum");
-    }
-    SECTION("a fixed footprint places every terminal") {
+    });
+    section("a fixed footprint places every terminal", [&] {
         auto d = component("potentiometer");
         d["footprint"]["offsets"].erase("wiper");
         expectComponentError(d, "/footprint/offsets", "Missing terminal: wiper");
-    }
-    SECTION("a fixed footprint only places known terminals") {
+    });
+    section("a fixed footprint only places known terminals", [&] {
         auto d                            = component("potentiometer");
         d["footprint"]["offsets"]["gate"] = {3, 0};
         expectComponentError(d, "/footprint/offsets/gate", "Unknown terminal");
-    }
-    SECTION("a fixed footprint uses one hole per terminal") {
+    });
+    section("a fixed footprint uses one hole per terminal", [&] {
         auto d                             = component("potentiometer");
         d["footprint"]["offsets"]["wiper"] = {0, 0};
         expectComponentError(d, "/footprint/offsets/wiper", "same hole");
-    }
-    SECTION("a maximum length is for two terminals") {
+    });
+    section("a maximum length is for two terminals", [&] {
         auto d = component("wire");
         d["terminals"].push_back({
             {"name", "tap"}
@@ -167,33 +169,33 @@ TEST_CASE("Component descriptions are checked beyond the schema", "[circuit][sch
         d                         = component("wire");
         d["footprint"]["maximum"] = 0;
         expectComponentError(d, "/footprint", "");
-    }
-    SECTION("an element connects known terminals") {
+    });
+    section("an element connects known terminals", [&] {
         auto d                                  = component("led");
         d["model"]["elements"][0]["between"][1] = "gate";
         expectComponentError(d, "/model/elements/0/between/1", "Unknown terminal: gate");
-    }
-    SECTION("an element connects distinct terminals") {
+    });
+    section("an element connects distinct terminals", [&] {
         auto d                                  = component("led");
         d["model"]["elements"][0]["between"][1] = "anode";
         expectComponentError(d, "/model/elements/0/between/1", "used twice");
-    }
-    SECTION("an element has the terminal count of its type") {
+    });
+    section("an element has the terminal count of its type", [&] {
         auto d                               = component("potentiometer");
         d["model"]["elements"][0]["between"] = {"a", "b"};
         expectComponentError(d, "/model/elements/0/between", "connects 3 terminals");
-    }
-    SECTION("an element finds its properties") {
+    });
+    section("an element finds its properties", [&] {
         auto d = component("led");
         d["properties"].erase("forwardVoltage");
         expectComponentError(d, "/model/elements/0/type", "numeric property 'forwardVoltage'");
-    }
-    SECTION("an element finds its state") {
+    });
+    section("an element finds its state", [&] {
         auto d = component("push-button");
         d["state"].erase("pressed");
         expectComponentError(d, "/model/elements/0/type", "boolean state 'pressed'");
-    }
-    SECTION("the elements of a composite are named and their state is prefixed") {
+    });
+    section("the elements of a composite are named and their state is prefixed", [&] {
         auto d = component("led");
         d["terminals"].push_back({
             {"name", "second"}
@@ -218,86 +220,86 @@ TEST_CASE("Component descriptions are checked beyond the schema", "[circuit][sch
         d["state"]["second.brightness"] = {
             {"type", "number"}
         };
-        CHECK(circuit::validateComponent(d));
-    }
-    SECTION("a state default matches its type and bounds") {
+        check(circuit::validateComponent(d));
+    });
+    section("a state default matches its type and bounds", [&] {
         auto d                            = component("potentiometer");
         d["state"]["position"]["default"] = 2;
         expectComponentError(d, "/state/position/default", "out of bounds");
         d["state"]["position"]["default"] = true;
         expectComponentError(d, "/state/position/default", "does not match");
-    }
-    SECTION("a large binary state is accepted, for the screens to come") {
+    });
+    section("a large binary state is accepted, for the screens to come", [&] {
         auto d                    = component("crystal");
         d["state"]["framebuffer"] = {
             {"type", "bytes"}
         };
         d["terminals"][0]["role"] = "bus";
         d["terminals"][0]["bus"]  = "spi.sck";
-        CHECK(circuit::validateComponent(d));
-    }
-}
+        check(circuit::validateComponent(d));
+    });
+}};
 
-TEST_CASE("Circuit descriptions are checked against the component library", "[circuit][schema]") {
-    SECTION("the schema locates a missing field and a malformed hole") {
+const Scenario circuitDescriptionsAreCheckedAgainstTheComponent{"Circuit descriptions are checked against the component library", {"circuit", "schema"}, [] {
+    section("the schema locates a missing field and a malformed hole", [&] {
         auto d = demo();
         d["board"].erase("columns");
         expectCircuitError(d, "/board/columns", "required property");
         d                     = demo();
         d["wires"][0]["from"] = "z9";
         const auto result     = circuit::validateCircuit(d);
-        REQUIRE_FALSE(result);
-        CHECK(result.error().path == "/wires/0/from");
-    }
-    SECTION("the chip is on the board") {
+        require(!result);
+        check(result.error().path == "/wires/0/from");
+    });
+    section("the chip is on the board", [&] {
         auto d              = demo();
         d["chip"]["column"] = 31;
         expectCircuitError(d, "/chip/column", "outside the board");
-    }
-    SECTION("component ids are unique") {
+    });
+    section("component ids are unique", [&] {
         auto d                  = demo();
         part(d, "led-d6")["id"] = "led-d13";
         expectCircuitError(d, "/components/4/id", "Duplicate component id: led-d13");
-    }
-    SECTION("the component type is known") {
+    });
+    section("the component type is known", [&] {
         auto d                  = demo();
         part(d, "xtal")["type"] = "flux-capacitor";
         expectCircuitError(d, partPath(d, "xtal") + "/type", "Unknown component type: flux-capacitor");
-    }
-    SECTION("only the terminals of the type are placed") {
+    });
+    section("only the terminals of the type are placed", [&] {
         auto d                           = demo();
         part(d, "led-d13")["at"]["gate"] = "f24";
         expectCircuitError(d, partPath(d, "led-d13") + "/at/gate", "Unknown terminal: gate");
-    }
-    SECTION("every terminal is placed") {
+    });
+    section("every terminal is placed", [&] {
         auto d = demo();
         part(d, "pot-a0")["at"].erase("wiper");
         expectCircuitError(d, partPath(d, "pot-a0") + "/at", "Missing terminal: wiper");
-    }
-    SECTION("holes are on the board") {
+    });
+    section("holes are on the board", [&] {
         auto d                      = demo();
         part(d, "r-d13")["at"]["b"] = "h31";
         expectCircuitError(d, partPath(d, "r-d13") + "/at/b", "outside the board: h31");
         d                   = demo();
         d["wires"][0]["to"] = "B+31";
         expectCircuitError(d, "/wires/0/to", "outside the board: B+31");
-    }
-    SECTION("a span footprint stays in its row and within its length") {
+    });
+    section("a span footprint stays in its row and within its length", [&] {
         auto d                      = demo();
         part(d, "r-d13")["at"]["b"] = "g22";
         expectCircuitError(d, partPath(d, "r-d13") + "/at", "same row");
         part(d, "r-d13")["at"]["b"] = "h16";
         expectCircuitError(d, partPath(d, "r-d13") + "/at", "1 holes apart");
-    }
-    SECTION("every dipole has its own length limits") {
+    });
+    section("every dipole has its own length limits", [&] {
         auto d                   = demo();
         part(d, "led-d13")["at"] = {
             {  "anode", "f23"},
             {"cathode", "f22"}
         };
-        CHECK(circuit::validateCircuit(d));
+        check(circuit::validateCircuit(d));
         part(d, "led-d13")["at"]["cathode"] = "f25";
-        CHECK(circuit::validateCircuit(d));
+        check(circuit::validateCircuit(d));
         part(d, "led-d13")["at"]["cathode"] = "f27";
         expectCircuitError(d, partPath(d, "led-d13") + "/at", "4 holes apart");
         d                            = demo();
@@ -309,46 +311,46 @@ TEST_CASE("Circuit descriptions are checked against the component library", "[ci
         d                            = demo();
         part(d, "r-d13")["at"]["b"]  = "h28";
         expectCircuitError(d, partPath(d, "r-d13") + "/at", "13 holes apart");
-    }
-    SECTION("a jumper wire has a maximum length, the rails and the channel counted") {
+    });
+    section("a jumper wire has a maximum length, the rails and the channel counted", [&] {
         auto d                = demo();
         d["wires"][6]["from"] = "b28";  // b4 to b28: 24 holes, the longest wire
-        CHECK(circuit::validateCircuit(d));
+        check(circuit::validateCircuit(d));
         d["wires"][6]["from"] = "b29";
         expectCircuitError(d, "/wires/6", "25.0 holes apart, longer than the 24 holes");
-        CHECK(circuit::distance(*circuit::parseHole("T-1"), *circuit::parseHole("B-1")) == 16);
-        CHECK(circuit::distance(*circuit::parseHole("f1"), *circuit::parseHole("e1")) == 2);
-        CHECK(circuit::distance(*circuit::parseHole("a1"), *circuit::parseHole("e4")) == 5);
-    }
-    SECTION("a fixed footprint is respected, in either direction") {
+        check(circuit::distance(*circuit::parseHole("T-1"), *circuit::parseHole("B-1")) == 16);
+        check(circuit::distance(*circuit::parseHole("f1"), *circuit::parseHole("e1")) == 2);
+        check(circuit::distance(*circuit::parseHole("a1"), *circuit::parseHole("e4")) == 5);
+    });
+    section("a fixed footprint is respected, in either direction", [&] {
         auto d                  = demo();
         part(d, "pot-a0")["at"] = {
             {    "a", "g4"},
             {"wiper", "g3"},
             {    "b", "g2"}
         };
-        CHECK(circuit::validateCircuit(d));
+        check(circuit::validateCircuit(d));
         part(d, "pot-a0")["at"] = {
             {    "a", "g2"},
             {"wiper", "g4"},
             {    "b", "g3"}
         };
         expectCircuitError(d, partPath(d, "pot-a0") + "/at", "do not match the footprint");
-    }
-    SECTION("only wires reach the power rails") {
+    });
+    section("only wires reach the power rails", [&] {
         auto d                      = demo();
         part(d, "r-d13")["at"]["b"] = "T-22";
         expectCircuitError(d, partPath(d, "r-d13") + "/at/b", "power rail");
-    }
-    SECTION("a hole takes one lead") {
+    });
+    section("a hole takes one lead", [&] {
         auto d                = demo();
         d["wires"][0]["from"] = "f22";
         expectCircuitError(d, "/wires/0/from", "Hole already used: f22");
         d                   = demo();
         d["wires"][1]["to"] = "a13";
         expectCircuitError(d, "/wires/1/to", "Hole already used: a13");
-    }
-    SECTION("property values are known, typed and bounded") {
+    });
+    section("property values are known, typed and bounded", [&] {
         auto d                                      = demo();
         part(d, "r-d13")["properties"]["tolerance"] = 5;
         expectCircuitError(d, partPath(d, "r-d13") + "/properties/tolerance", "Unknown property: tolerance");
@@ -360,83 +362,83 @@ TEST_CASE("Circuit descriptions are checked against the component library", "[ci
         d                                         = demo();
         part(d, "led-d13")["properties"]["color"] = "pink";
         expectCircuitError(d, partPath(d, "led-d13") + "/properties/color", "allowed values");
-    }
-}
+    });
+}};
 
-TEST_CASE("A component moved on the board gives a validated circuit", "[circuit]") {
-    SECTION("a whole component, or one of its ends") {
+const Scenario aComponentMovedOnTheBoardGives{"A component moved on the board gives a validated circuit", {"circuit"}, [] {
+    section("a whole component, or one of its ends", [&] {
         const auto moved = circuit::move(demo(), "r-d13", {
             {"a", "i15"},
             {"b", "i22"}
         });
-        REQUIRE(moved);
+        require(moved);
         auto placed = *moved;
-        CHECK(part(placed, "r-d13")["at"] == Json{{"a", "i15"}, {"b", "i22"}});
+        check(part(placed, "r-d13")["at"] == Json{{"a", "i15"}, {"b", "i22"}});
         const auto stretched = circuit::move(demo(), "r-d13", {{"b", "h20"}});
-        REQUIRE(stretched);
+        require(stretched);
         placed = *stretched;
-        CHECK(part(placed, "r-d13")["at"] == Json{{"a", "h15"}, {"b", "h20"}});
-    }
-    SECTION("a wire, numbered from 1 like in the interface") {
+        check(part(placed, "r-d13")["at"] == Json{{"a", "h15"}, {"b", "h20"}});
+    });
+    section("a wire, numbered from 1 like in the interface", [&] {
         const auto moved = circuit::move(demo(), "wire-7", {{"from", "b10"}});
-        REQUIRE(moved);
-        CHECK(moved->at("wires")[6]["from"] == "b10");
-        CHECK(moved->at("wires")[6]["to"] == "b4");
-    }
-    SECTION("an unknown component, an unknown terminal, a broken rule") {
+        require(moved);
+        check(moved->at("wires")[6]["from"] == "b10");
+        check(moved->at("wires")[6]["to"] == "b4");
+    });
+    section("an unknown component, an unknown terminal, a broken rule", [&] {
         auto unknown = circuit::move(demo(), "flux", {{"a", "h1"}});
-        REQUIRE_FALSE(unknown);
-        CHECK(unknown.error().kind == circuit::MoveError::Kind::UnknownComponent);
+        require(!unknown);
+        check(unknown.error().kind == circuit::MoveError::Kind::UnknownComponent);
         unknown = circuit::move(demo(), "wire-99", {{"from", "h1"}});
-        REQUIRE_FALSE(unknown);
-        CHECK(unknown.error().kind == circuit::MoveError::Kind::UnknownComponent);
+        require(!unknown);
+        check(unknown.error().kind == circuit::MoveError::Kind::UnknownComponent);
         const auto terminal = circuit::move(demo(), "r-d13", {{"gate", "h1"}});
-        REQUIRE_FALSE(terminal);
-        CHECK(terminal.error().kind == circuit::MoveError::Kind::Invalid);
+        require(!terminal);
+        check(terminal.error().kind == circuit::MoveError::Kind::Invalid);
         const auto tooLong = circuit::move(demo(), "led-d13", {{"cathode", "f26"}});
-        REQUIRE_FALSE(tooLong);
-        CHECK(tooLong.error().kind == circuit::MoveError::Kind::Invalid);
-        CHECK(tooLong.error().error.path == "/components/2/at");
+        require(!tooLong);
+        check(tooLong.error().kind == circuit::MoveError::Kind::Invalid);
+        check(tooLong.error().error.path == "/components/2/at");
         const auto twice = circuit::move(demo(), "r-d13", {{"b", "f22"}, {"a", "f15"}});
-        REQUIRE_FALSE(twice);
-        CHECK(twice.error().error.message.find("Hole already used: f22") != std::string::npos);
-    }
-}
+        require(!twice);
+        check(twice.error().error.message.find("Hole already used: f22") != std::string::npos);
+    });
+}};
 
-TEST_CASE("Circuits and component libraries are loaded from files and text", "[circuit]") {
-    SECTION("a missing file and malformed text are reported without a path") {
+const Scenario circuitsAndComponentLibrariesAreLoadedFrom{"Circuits and component libraries are loaded from files and text", {"circuit"}, [] {
+    section("a missing file and malformed text are reported without a path", [&] {
         const auto missing = circuit::loadDescription(sourceDir / "circuits" / "none.json");
-        REQUIRE_FALSE(missing);
-        CHECK(missing.error().path.empty());
-        CHECK(missing.error().message.find("none.json") != std::string::npos);
+        require(!missing);
+        check(missing.error().path.empty());
+        check(missing.error().message.find("none.json") != std::string::npos);
         const auto malformed = circuit::parseDescription("{");
-        REQUIRE_FALSE(malformed);
-        CHECK(malformed.error().path.empty());
-    }
-    SECTION("text is validated like a file") {
-        CHECK(circuit::parseDescription(demo().dump()));
+        require(!malformed);
+        check(malformed.error().path.empty());
+    });
+    section("text is validated like a file", [&] {
+        check(circuit::parseDescription(demo().dump()));
         auto d              = demo();
         d["chip"]["column"] = 99;
         const auto result   = circuit::parseDescription(d.dump());
-        REQUIRE_FALSE(result);
-        CHECK(result.error().path == "/chip/column");
-    }
-    SECTION("a library takes additional types, once each, and circuits may then use them") {
+        require(!result);
+        check(result.error().path == "/chip/column");
+    });
+    section("a library takes additional types, once each, and circuits may then use them", [&] {
         circuit::Library library;
-        CHECK(library.types().empty());
-        REQUIRE(library.addFile(sourceDir / "components" / "led" / "component.json"));
+        check(library.types().empty());
+        require(library.addFile(sourceDir / "components" / "led" / "component.json"));
         const auto again = library.add(component("led"));
-        REQUIRE_FALSE(again);
-        CHECK(again.error().path == "/type");
-        CHECK_FALSE(library.addFile(sourceDir / "components" / "none" / "component.json"));
-        CHECK(library.types() == std::vector<std::string>{"led"});
+        require(!again);
+        check(again.error().path == "/type");
+        check(!library.addFile(sourceDir / "components" / "none" / "component.json"));
+        check(library.types() == std::vector<std::string>{"led"});
 
         // The demonstration circuit needs more than LEDs.
         const auto result = circuit::validateCircuit(demo(), library);
-        REQUIRE_FALSE(result);
-        CHECK(result.error().path == "/components/0/type");
-    }
-    SECTION("an unknown built-in circuit is refused") {
-        CHECK_THROWS_AS(circuit::builtinDescription("none"), std::invalid_argument);
-    }
-}
+        require(!result);
+        check(result.error().path == "/components/0/type");
+    });
+    section("an unknown built-in circuit is refused", [&] {
+        checkThrows<std::invalid_argument>([&] { static_cast<void>(circuit::builtinDescription("none")); });
+    });
+}};

@@ -2,7 +2,7 @@
 // shown beside them. The editor in the window is tested by tests/ui/editor.spec.js.
 
 #include "../../apps/siliconforge/Project.hpp"
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
 
 #include <filesystem>
 #include <format>
@@ -14,6 +14,7 @@
 #include <sys/xattr.h>
 #endif
 
+using namespace webfront::bdd;
 using namespace siliconforge::app::project;
 namespace fs = std::filesystem;
 using nlohmann::json;
@@ -50,8 +51,8 @@ bool hasGit() {
 /// Runs a Git command in `directory`; the commits need an identity.
 void git(const fs::path& directory, const std::string& arguments) {
     const auto where = detail::quoted(detail::toUtf8(directory));
-    REQUIRE(where);
-    REQUIRE(detail::capture("git -C " + *where + " -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false " + arguments, 1 << 20));
+    require(where);
+    require(detail::capture("git -C " + *where + " -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false " + arguments, 1 << 20));
 }
 
 /// The version in an answer of the project, as the page hands it back to write().
@@ -77,29 +78,29 @@ std::string statusOf(const json& list, std::string_view path) {
 
 }  // namespace
 
-TEST_CASE("Text is UTF-8 without NUL", "[app][project]") {
-    CHECK(isText(""));
-    CHECK(isText("int main() { return 0; }\n"));
-    CHECK(isText("déjà vu — 日本語 🙂"));
-    CHECK_FALSE(isText(std::string_view{"a\0b", 3}));
-    CHECK_FALSE(isText("\xff\xfe"));
-    CHECK_FALSE(isText("\xc3"));          // A cut sequence.
-    CHECK_FALSE(isText("\xc0\x80"));      // Overlong NUL.
-    CHECK_FALSE(isText("\xed\xa0\x80"));  // A surrogate.
-}
+const Scenario textIsUtf8WithoutNul{"Text is UTF-8 without NUL", {"app", "project"}, [] {
+    check(isText(""));
+    check(isText("int main() { return 0; }\n"));
+    check(isText("déjà vu — 日本語 🙂"));
+    check(!isText(std::string_view{"a\0b", 3}));
+    check(!isText("\xff\xfe"));
+    check(!isText("\xc3"));          // A cut sequence.
+    check(!isText("\xc0\x80"));      // Overlong NUL.
+    check(!isText("\xed\xa0\x80"));  // A surrogate.
+}};
 
-TEST_CASE("Line endings are told apart, and a version follows the content", "[app][project]") {
-    CHECK(lineEndings("") == "lf");
-    CHECK(lineEndings("a\nb\n") == "lf");
-    CHECK(lineEndings("a\r\nb\r\n") == "crlf");
-    CHECK(lineEndings("a\r\nb\n") == "mixed");
-    CHECK(lineEndings("a\rb") == "mixed");
-    CHECK(versionOf("abc") == versionOf("abc"));
-    CHECK(versionOf("abc") != versionOf("abd"));
-    CHECK(versionOf("abc") != versionOf("abc "));
-}
+const Scenario lineEndingsAreToldApartAndA{"Line endings are told apart, and a version follows the content", {"app", "project"}, [] {
+    check(lineEndings("") == "lf");
+    check(lineEndings("a\nb\n") == "lf");
+    check(lineEndings("a\r\nb\r\n") == "crlf");
+    check(lineEndings("a\r\nb\n") == "mixed");
+    check(lineEndings("a\rb") == "mixed");
+    check(versionOf("abc") == versionOf("abc"));
+    check(versionOf("abc") != versionOf("abd"));
+    check(versionOf("abc") != versionOf("abc "));
+}};
 
-TEST_CASE("The files of a directory are listed, opened and saved", "[app][project]") {
+const Scenario theFilesOfADirectoryAreListed{"The files of a directory are listed, opened and saved", {"app", "project"}, [] {
     Directory directory;
     put(directory.path / "main.cpp", "int main() {}\n");
     put(directory.path / "src" / "pwm.cpp", "// pwm\n");
@@ -107,26 +108,26 @@ TEST_CASE("The files of a directory are listed, opened and saved", "[app][projec
     const Project project{directory.path};
 
     const auto list = project.list();
-    CHECK(list["name"] == directory.path.filename().string());
-    CHECK(list["root"] == directory.path.generic_string());  // The full path tells two projects of one name apart.
-    CHECK(list["files"].size() == 2);
-    CHECK(statusOf(list, "main.cpp") == "");
-    CHECK(statusOf(list, "src/pwm.cpp") == "");
-    CHECK(statusOf(list, ".git/config") == "absent");
+    check(list["name"] == directory.path.filename().string());
+    check(list["root"] == directory.path.generic_string());  // The full path tells two projects of one name apart.
+    check(list["files"].size() == 2);
+    check(statusOf(list, "main.cpp") == "");
+    check(statusOf(list, "src/pwm.cpp") == "");
+    check(statusOf(list, ".git/config") == "absent");
 
     const auto opened = project.read("src/pwm.cpp");
-    REQUIRE(opened);
-    CHECK((*opened)["content"] == "// pwm\n");
-    CHECK((*opened)["lineEndings"] == "lf");
+    require(opened);
+    check((*opened)["content"] == "// pwm\n");
+    check((*opened)["lineEndings"] == "lf");
 
     const auto saved = project.write("src/pwm.cpp", "// pwm at 62.5 kHz\n", versionIn(*opened));
-    REQUIRE(saved);
-    CHECK(get(directory.path / "src" / "pwm.cpp") == "// pwm at 62.5 kHz\n");
-    CHECK((*saved)["version"] == (*project.read("src/pwm.cpp"))["version"]);
-    CHECK(leftovers(directory.path / "src").empty());
-}
+    require(saved);
+    check(get(directory.path / "src" / "pwm.cpp") == "// pwm at 62.5 kHz\n");
+    check((*saved)["version"] == (*project.read("src/pwm.cpp"))["version"]);
+    check(leftovers(directory.path / "src").empty());
+}};
 
-TEST_CASE("Only the files of the project can be named", "[app][project]") {
+const Scenario onlyTheFilesOfTheProjectCan{"Only the files of the project can be named", {"app", "project"}, [] {
     Directory directory, outside;
     put(directory.path / "main.cpp", "x\n");
     put(directory.path / ".git" / "config", "x\n");
@@ -136,55 +137,55 @@ TEST_CASE("Only the files of the project can be named", "[app][project]") {
     for (const std::string& name : std::vector<std::string>{"", "../secret.txt", "src/../../secret.txt", "..", ".git/config", ".GIT/config", "nothing.txt", "src",
                                    (outside.path / "secret.txt").string()}) {
         const auto result = project.read(name);
-        INFO(name);
-        REQUIRE_FALSE(result);
-        CHECK(result.error().code == code::unknownFile);
-        CHECK_FALSE(project.write(name, "x", "0-0"));
-        CHECK_FALSE(project.diff(name));
+        const auto note1 = info(name);
+        require(!result);
+        check(result.error().code == code::unknownFile);
+        check(!project.write(name, "x", "0-0"));
+        check(!project.diff(name));
     }
-    CHECK(get(outside.path / "secret.txt") == "secret\n");
+    check(get(outside.path / "secret.txt") == "secret\n");
 #if !defined(_WIN32)
     fs::create_symlink(outside.path / "secret.txt", directory.path / "link.txt");
     fs::create_symlink(directory.path / ".git", directory.path / "gitlink");
-    CHECK_FALSE(project.read("link.txt"));
-    CHECK_FALSE(project.read("gitlink/config"));
-    CHECK_FALSE(project.write("link.txt", "overwritten", "0-0"));
-    CHECK(get(outside.path / "secret.txt") == "secret\n");
+    check(!project.read("link.txt"));
+    check(!project.read("gitlink/config"));
+    check(!project.write("link.txt", "overwritten", "0-0"));
+    check(get(outside.path / "secret.txt") == "secret\n");
 #endif
-}
+}};
 
-TEST_CASE("A save refuses to overwrite a change made behind the editor's back", "[app][project]") {
+const Scenario aSaveRefusesToOverwriteAChange{"A save refuses to overwrite a change made behind the editor's back", {"app", "project"}, [] {
     Directory directory;
     put(directory.path / "main.cpp", "one\n");
     const Project project{directory.path};
     const auto    opened = project.read("main.cpp");
-    REQUIRE(opened);
+    require(opened);
 
     put(directory.path / "main.cpp", "two, written by the agent\n");
     const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
-    REQUIRE_FALSE(refused);
-    CHECK(refused.error().code == code::fileChanged);
-    CHECK(get(directory.path / "main.cpp") == "two, written by the agent\n");
+    require(!refused);
+    check(refused.error().code == code::fileChanged);
+    check(get(directory.path / "main.cpp") == "two, written by the agent\n");
 
     // The page then reads the file again, and saves on top of that version if the person says so.
     const auto current = project.read("main.cpp");
-    REQUIRE(current);
-    CHECK((*current)["content"] == "two, written by the agent\n");
-    REQUIRE(project.write("main.cpp", "one, edited\n", versionIn(*current)));
-    CHECK(get(directory.path / "main.cpp") == "one, edited\n");
+    require(current);
+    check((*current)["content"] == "two, written by the agent\n");
+    require(project.write("main.cpp", "one, edited\n", versionIn(*current)));
+    check(get(directory.path / "main.cpp") == "one, edited\n");
 
     // A file that is gone or turned binary is not a version to save over either.
     const auto stale = versionIn(*project.read("main.cpp"));
     put(directory.path / "main.cpp", std::string_view{"\0\1\2", 3});
-    CHECK((*project.version("main.cpp"))["version"].is_null());
-    CHECK_FALSE(project.write("main.cpp", "text", stale));
+    check((*project.version("main.cpp"))["version"].is_null());
+    check(!project.write("main.cpp", "text", stale));
     fs::remove(directory.path / "main.cpp");
-    CHECK((*project.version("main.cpp"))["version"].is_null());
-    CHECK_FALSE(project.write("main.cpp", "text", stale));
-    CHECK_FALSE(fs::exists(directory.path / "main.cpp"));
-}
+    check((*project.version("main.cpp"))["version"].is_null());
+    check(!project.write("main.cpp", "text", stale));
+    check(!fs::exists(directory.path / "main.cpp"));
+}};
 
-TEST_CASE("A save keeps the line endings and the permissions of the file", "[app][project]") {
+const Scenario aSaveKeepsTheLineEndingsAnd{"A save keeps the line endings and the permissions of the file", {"app", "project"}, [] {
     Directory directory;
     put(directory.path / "dos.txt", "a\r\nb\r\n");
     put(directory.path / "mixed.txt", "a\r\nb\n");
@@ -192,44 +193,44 @@ TEST_CASE("A save keeps the line endings and the permissions of the file", "[app
     const Project project{directory.path};
 
     const auto dos = project.read("dos.txt");
-    REQUIRE(dos);
-    CHECK((*dos)["lineEndings"] == "crlf");
-    REQUIRE(project.write("dos.txt", "a\nb\nc\n", versionIn(*dos)));  // The textarea hands over "\n" only.
-    CHECK(get(directory.path / "dos.txt") == "a\r\nb\r\nc\r\n");
+    require(dos);
+    check((*dos)["lineEndings"] == "crlf");
+    require(project.write("dos.txt", "a\nb\nc\n", versionIn(*dos)));  // The textarea hands over "\n" only.
+    check(get(directory.path / "dos.txt") == "a\r\nb\r\nc\r\n");
 
     const auto mixed = project.write("mixed.txt", "a\nb\n", versionIn(*project.read("mixed.txt")));
-    REQUIRE_FALSE(mixed);
-    CHECK(mixed.error().code == code::notEditable);
-    CHECK(get(directory.path / "mixed.txt") == "a\r\nb\n");
+    require(!mixed);
+    check(mixed.error().code == code::notEditable);
+    check(get(directory.path / "mixed.txt") == "a\r\nb\n");
 
 #if !defined(_WIN32)
     fs::permissions(directory.path / "script.sh", fs::perms::owner_all | fs::perms::group_read | fs::perms::others_read);
-    REQUIRE(project.write("script.sh", "#!/bin/sh\necho hi\n", versionIn(*project.read("script.sh"))));
-    CHECK((fs::status(directory.path / "script.sh").permissions() & fs::perms::owner_exec) != fs::perms::none);
+    require(project.write("script.sh", "#!/bin/sh\necho hi\n", versionIn(*project.read("script.sh"))));
+    check((fs::status(directory.path / "script.sh").permissions() & fs::perms::owner_exec) != fs::perms::none);
 #endif
-}
+}};
 
-TEST_CASE("Binary and large files are not opened", "[app][project]") {
+const Scenario binaryAndLargeFilesAreNotOpened{"Binary and large files are not opened", {"app", "project"}, [] {
     Directory directory;
     put(directory.path / "image.bin", std::string_view{"\x89PNG\0\0", 6});
     put(directory.path / "latin1.txt", "caf\xe9\n");
     put(directory.path / "big.txt", std::string(maxFileBytes + 1, 'x'));
     const Project project{directory.path};
 
-    CHECK(project.read("image.bin").error().code == code::notText);
-    CHECK(project.read("latin1.txt").error().code == code::notText);
-    CHECK(project.read("big.txt").error().code == code::tooLarge);
+    check(project.read("image.bin").error().code == code::notText);
+    check(project.read("latin1.txt").error().code == code::notText);
+    check(project.read("big.txt").error().code == code::tooLarge);
 
     put(directory.path / "small.txt", "x\n");
     const auto version = versionIn(*project.read("small.txt"));
-    CHECK(project.write("small.txt", std::string(maxFileBytes + 1, 'y'), version).error().code == code::tooLarge);
-    CHECK(project.write("small.txt", std::string_view{"a\0b", 3}, version).error().code == code::notText);
-    CHECK(get(directory.path / "small.txt") == "x\n");
-}
+    check(project.write("small.txt", std::string(maxFileBytes + 1, 'y'), version).error().code == code::tooLarge);
+    check(project.write("small.txt", std::string_view{"a\0b", 3}, version).error().code == code::notText);
+    check(get(directory.path / "small.txt") == "x\n");
+}};
 
-TEST_CASE("The Git changes of the project are listed and shown as a diff", "[app][project][git]") {
+const Scenario theGitChangesOfTheProjectAre{"The Git changes of the project are listed and shown as a diff", {"app", "project", "git"}, [] {
     if (!hasGit())
-        SKIP("git is not installed");
+        skip("git is not installed");
     Directory directory;
     git(directory.path, "init -q");
     put(directory.path / "main.cpp", "int main() {\n  return 0;\n}\n");
@@ -238,17 +239,17 @@ TEST_CASE("The Git changes of the project are listed and shown as a diff", "[app
     put(directory.path / "app" / "pwm.cpp", "// v1\n");
     const Project project{directory.path};
 
-    SECTION("before the first commit every file is new") {
+    section("before the first commit every file is new", [&] {
         const auto list = project.list();
-        CHECK(list["git"] == true);
-        CHECK(statusOf(list, "main.cpp") == "?");
+        check(list["git"] == true);
+        check(statusOf(list, "main.cpp") == "?");
         const auto diff = project.diff("main.cpp");
-        REQUIRE(diff);
+        require(diff);
         const std::string text = (*diff)["diff"];
-        CHECK(text.contains("+++ b/main.cpp"));
-        CHECK(text.contains("+  return 0;"));
-        CHECK(text.contains("@@ -0,0 +1,3 @@"));
-    }
+        check(text.contains("+++ b/main.cpp"));
+        check(text.contains("+  return 0;"));
+        check(text.contains("@@ -0,0 +1,3 @@"));
+    });
 
     git(directory.path, "add -A");
     git(directory.path, "commit -q -m initial");
@@ -258,39 +259,39 @@ TEST_CASE("The Git changes of the project are listed and shown as a diff", "[app
     put(directory.path / "no newline.txt", "last line");
 
     const auto list = project.list();
-    CHECK(statusOf(list, "main.cpp") == "M");
-    CHECK(statusOf(list, "gone.txt") == "D");
-    CHECK(statusOf(list, "new.cpp") == "?");
-    CHECK(statusOf(list, "keep.txt") == "");
-    CHECK(statusOf(list, "app/pwm.cpp") == "");
-    CHECK(list["files"][0]["status"] != "");  // The changes come first.
+    check(statusOf(list, "main.cpp") == "M");
+    check(statusOf(list, "gone.txt") == "D");
+    check(statusOf(list, "new.cpp") == "?");
+    check(statusOf(list, "keep.txt") == "");
+    check(statusOf(list, "app/pwm.cpp") == "");
+    check(list["files"][0]["status"] != "");  // The changes come first.
 
     const auto modified = project.diff("main.cpp");
-    REQUIRE(modified);
+    require(modified);
     const std::string text = (*modified)["diff"];
-    CHECK(text.contains("-  return 0;"));
-    CHECK(text.contains("+  return 1;"));
+    check(text.contains("-  return 0;"));
+    check(text.contains("+  return 1;"));
 
-    CHECK((*project.diff("keep.txt"))["diff"] == "");
-    CHECK(std::string{(*project.diff("gone.txt"))["diff"]}.contains("-to delete"));
+    check((*project.diff("keep.txt"))["diff"] == "");
+    check(std::string{(*project.diff("gone.txt"))["diff"]}.contains("-to delete"));
     const std::string added = (*project.diff("new.cpp"))["diff"];
-    CHECK(added.contains("+// new"));
+    check(added.contains("+// new"));
     const std::string open = (*project.diff("no newline.txt"))["diff"];  // A name with a space: quoted for the shell.
-    CHECK(open.contains("\\ No newline at end of file"));
+    check(open.contains("\\ No newline at end of file"));
 
-    SECTION("in a folder of the repository only its files are listed, by their name in the folder") {
+    section("in a folder of the repository only its files are listed, by their name in the folder", [&] {
         put(directory.path / "app" / "pwm.cpp", "// v2\n");
         const Project below{directory.path / "app"};
         const auto    inside = below.list();
-        CHECK(inside["files"].size() == 1);
-        CHECK(statusOf(inside, "pwm.cpp") == "M");
-        CHECK(std::string{(*below.diff("pwm.cpp"))["diff"]}.contains("+// v2"));
-    }
-}
+        check(inside["files"].size() == 1);
+        check(statusOf(inside, "pwm.cpp") == "M");
+        check(std::string{(*below.diff("pwm.cpp"))["diff"]}.contains("+// v2"));
+    });
+}};
 
-TEST_CASE("Reading the Git changes does not take the lock of the index", "[app][project][git]") {
+const Scenario readingTheGitChangesDoesNotTake{"Reading the Git changes does not take the lock of the index", {"app", "project", "git"}, [] {
     if (!hasGit())
-        SKIP("git is not installed");
+        skip("git is not installed");
     Directory directory;
     git(directory.path, "init -q");
     put(directory.path / "a.txt", "a\n");
@@ -301,14 +302,14 @@ TEST_CASE("Reading the Git changes does not take the lock of the index", "[app][
 
     // The agent may run `git commit` at any moment: it must not meet an index.lock left by the editor.
     put(directory.path / ".git" / "index.lock", "");
-    CHECK(statusOf(project.list(), "a.txt") == "M");
-    CHECK(std::string{(*project.diff("a.txt"))["diff"]}.contains("+b"));
-}
+    check(statusOf(project.list(), "a.txt") == "M");
+    check(std::string{(*project.diff("a.txt"))["diff"]}.contains("+b"));
+}};
 
 #if !defined(_WIN32)
-TEST_CASE("A hook of the repository configuration is not run to read the changes", "[app][project][git]") {
+const Scenario aHookOfTheRepositoryConfigurationIs{"A hook of the repository configuration is not run to read the changes", {"app", "project", "git"}, [] {
     if (!hasGit())
-        SKIP("git is not installed");
+        skip("git is not installed");
     Directory directory;
     git(directory.path, "init -q");
     put(directory.path / "a.txt", "a\n");
@@ -323,69 +324,69 @@ TEST_CASE("A hook of the repository configuration is not run to read the changes
     fs::remove(marker);
 
     const Project project{directory.path};
-    CHECK(statusOf(project.list(), "a.txt") == "M");
-    CHECK(std::string{(*project.diff("a.txt"))["diff"]}.contains("+b"));
-    CHECK_FALSE(fs::exists(marker));
+    check(statusOf(project.list(), "a.txt") == "M");
+    check(std::string{(*project.diff("a.txt"))["diff"]}.contains("+b"));
+    check(!fs::exists(marker));
     fs::remove(marker);
-}
+}};
 #endif
 
 #if defined(__APPLE__)
-TEST_CASE("A save keeps the extended attributes of the file", "[app][project]") {
+const Scenario aSaveKeepsTheExtendedAttributesOf{"A save keeps the extended attributes of the file", {"app", "project"}, [] {
     Directory directory;
     put(directory.path / "tagged.txt", "a\n");
-    REQUIRE(::setxattr((directory.path / "tagged.txt").c_str(), "com.siliconforge.test", "kept", 4, 0, 0) == 0);
+    require(::setxattr((directory.path / "tagged.txt").c_str(), "com.siliconforge.test", "kept", 4, 0, 0) == 0);
     const Project project{directory.path};
-    REQUIRE(project.write("tagged.txt", "b\n", versionIn(*project.read("tagged.txt"))));
-    CHECK(get(directory.path / "tagged.txt") == "b\n");
+    require(project.write("tagged.txt", "b\n", versionIn(*project.read("tagged.txt"))));
+    check(get(directory.path / "tagged.txt") == "b\n");
     char value[8]{};
     const auto size = ::getxattr((directory.path / "tagged.txt").c_str(), "com.siliconforge.test", value, sizeof value, 0, 0);
-    REQUIRE(size == 4);
-    CHECK(std::string(value, 4) == "kept");
-}
+    require(size == 4);
+    check(std::string(value, 4) == "kept");
+}};
 #endif
 
-TEST_CASE("A change made while a save is under way is neither overwritten nor hidden", "[app][project]") {
+const Scenario aChangeMadeWhileASaveIs{"A change made while a save is under way is neither overwritten nor hidden", {"app", "project"}, [] {
     Directory directory;
     put(directory.path / "main.cpp", "one\n");
     Project project{directory.path};
     const auto opened = project.read("main.cpp");
-    REQUIRE(opened);
+    require(opened);
 
-    SECTION("the agent writes into the file") {
+    section("the agent writes into the file", [&] {
         project.beforeReplace = [&] { put(directory.path / "main.cpp", "two, written in place\n"); };
         const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
-        REQUIRE_FALSE(refused);
-        CHECK(refused.error().code == code::fileChanged);
-        CHECK(get(directory.path / "main.cpp") == "two, written in place\n");
-    }
-    SECTION("the agent replaces the file") {
+        require(!refused);
+        check(refused.error().code == code::fileChanged);
+        check(get(directory.path / "main.cpp") == "two, written in place\n");
+    });
+    section("the agent replaces the file", [&] {
         project.beforeReplace = [&] {
             put(directory.path / "new.tmp", "two, replaced\n");
             fs::rename(directory.path / "new.tmp", directory.path / "main.cpp");
         };
         const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
-        REQUIRE_FALSE(refused);
-        CHECK(refused.error().code == code::fileChanged);
-        CHECK(get(directory.path / "main.cpp") == "two, replaced\n");
-    }
-    SECTION("the agent deletes the file") {
+        require(!refused);
+        check(refused.error().code == code::fileChanged);
+        check(get(directory.path / "main.cpp") == "two, replaced\n");
+    });
+    section("the agent deletes the file", [&] {
         project.beforeReplace = [&] { fs::remove(directory.path / "main.cpp"); };
         const auto refused = project.write("main.cpp", "one, edited\n", versionIn(*opened));
-        REQUIRE_FALSE(refused);
-        CHECK(refused.error().code == code::fileChanged);
-        CHECK_FALSE(fs::exists(directory.path / "main.cpp"));
-    }
-    CHECK(leftovers(directory.path).empty());
+        require(!refused);
+        check(refused.error().code == code::fileChanged);
+        check(!fs::exists(directory.path / "main.cpp"));
+    });
+    check(leftovers(directory.path).empty());
 
     // Nothing changed in between: the save goes through.
     project.beforeReplace = nullptr;
     put(directory.path / "main.cpp", "one\n");
-    REQUIRE(project.write("main.cpp", "one, edited\n", versionIn(*project.read("main.cpp"))));
-    CHECK(get(directory.path / "main.cpp") == "one, edited\n");
-}
+    require(project.write("main.cpp", "one, edited\n", versionIn(*project.read("main.cpp"))));
+    check(get(directory.path / "main.cpp") == "one, edited\n");
+}};
 
-TEST_CASE("A save never writes to a file that is already there", "[app][project]") {
+const Scenario aSaveNeverWritesToAFile{"A save never writes to a file that is already there", {"app", "project"}, [] {
     Directory directory, outside;
     put(directory.path / "main.cpp", "one\n");
     put(outside.path / "precious.txt", "precious\n");
@@ -395,27 +396,27 @@ TEST_CASE("A save never writes to a file that is already there", "[app][project]
     // A link where a temporary name could be taken: its target is not truncated, and the link stays.
     fs::create_symlink(outside.path / "precious.txt", directory.path / ".main.cpp.sf-0000000000000000");
 #endif
-    REQUIRE(project.write("main.cpp", "two\n", versionIn(*project.read("main.cpp"))));
-    CHECK(get(directory.path / "main.cpp") == "two\n");
-    CHECK(get(directory.path / "main.cpp.sf-save") == "mine\n");
-    CHECK(get(outside.path / "precious.txt") == "precious\n");
+    require(project.write("main.cpp", "two\n", versionIn(*project.read("main.cpp"))));
+    check(get(directory.path / "main.cpp") == "two\n");
+    check(get(directory.path / "main.cpp.sf-save") == "mine\n");
+    check(get(outside.path / "precious.txt") == "precious\n");
 #if !defined(_WIN32)
-    CHECK(fs::is_symlink(directory.path / ".main.cpp.sf-0000000000000000"));
+    check(fs::is_symlink(directory.path / ".main.cpp.sf-0000000000000000"));
 #endif
 
     // Several saves in a row leave nothing behind, and the temporary files are not offered as files of the project.
     for (int i = 0; i < 5; ++i)
-        REQUIRE(project.write("main.cpp", std::format("{}\n", i), versionIn(*project.read("main.cpp"))));
+        require(project.write("main.cpp", std::format("{}\n", i), versionIn(*project.read("main.cpp"))));
     put(directory.path / ".other.sf-0123456789abcdef", "left by a crash\n");
     const auto list = project.list();
-    CHECK(statusOf(list, ".other.sf-0123456789abcdef") == "absent");
-    CHECK(statusOf(list, "main.cpp") == "");
-    CHECK(statusOf(list, "main.cpp.sf-save") == "");  // Not a temporary name of the new kind: a file like another.
-}
+    check(statusOf(list, ".other.sf-0123456789abcdef") == "absent");
+    check(statusOf(list, "main.cpp") == "");
+    check(statusOf(list, "main.cpp.sf-save") == "");  // Not a temporary name of the new kind: a file like another.
+}};
 
-TEST_CASE("A file removed from the index is still a change to read", "[app][project][git]") {
+const Scenario aFileRemovedFromTheIndexIs{"A file removed from the index is still a change to read", {"app", "project", "git"}, [] {
     if (!hasGit())
-        SKIP("git is not installed");
+        skip("git is not installed");
     Directory directory;
     git(directory.path, "init -q");
     put(directory.path / "gone.txt", "to delete\n");
@@ -425,9 +426,9 @@ TEST_CASE("A file removed from the index is still a change to read", "[app][proj
     git(directory.path, "rm -q gone.txt");  // Gone from the disk and from the index; the last commit still has it.
     const Project project{directory.path};
 
-    CHECK(statusOf(project.list(), "gone.txt") == "D");
+    check(statusOf(project.list(), "gone.txt") == "D");
     const auto diff = project.diff("gone.txt");
-    REQUIRE(diff);
-    CHECK(std::string{(*diff)["diff"]}.contains("-to delete"));
-    CHECK_FALSE(project.diff("never-existed.txt"));
-}
+    require(diff);
+    check(std::string{(*diff)["diff"]}.contains("-to delete"));
+    check(!project.diff("never-existed.txt"));
+}};

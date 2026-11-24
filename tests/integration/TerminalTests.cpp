@@ -3,7 +3,7 @@
 // test (tests/ui/terminal.spec.js) runs one in the native window.
 
 #include "../../apps/siliconforge/Terminal.hpp"
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
 
 #include <chrono>
 #include <coroutine>
@@ -13,6 +13,8 @@
 #include <vector>
 #include <fstream>
 #include <random>
+
+using namespace webfront::bdd;
 
 using namespace siliconforge::app;
 namespace fs = std::filesystem;
@@ -40,22 +42,22 @@ struct RefusingApp {
     bool hasCppFunction(std::string_view) const { return false; }
     template <typename F>
     void cppFunction(std::string_view, F&&) {
-        FAIL("a session was registered although PTY pages are refused");
+        fail("a session was registered although PTY pages are refused");
     }
 };
 struct AppWithoutPty {};
 
 }  // namespace
 
-TEST_CASE("The terminal offers the four agent clients and names their sessions", "[app][terminal]") {
+const Scenario theTerminalOffersTheFourAgentClients{"The terminal offers the four agent clients and names their sessions", {"app", "terminal"}, [] {
     std::vector<std::string_view> ids;
     for (const auto& client : terminal::clients)
         ids.push_back(client.id);
-    CHECK(ids == std::vector<std::string_view>{"claude", "codex", "opencode", "vibe"});
-    CHECK(terminal::callbackName("codex") == "sf.terminal.codex");
-}
+    check(ids == std::vector<std::string_view>{"claude", "codex", "opencode", "vibe"});
+    check(terminal::callbackName("codex") == "sf.terminal.codex");
+}};
 
-TEST_CASE("A client is looked for in PATH, in order", "[app][terminal]") {
+const Scenario aClientIsLookedForInPath{"A client is looked for in PATH, in order", {"app", "terminal"}, [] {
     Directory first, second;
 #if defined(_WIN32)
     const std::string name = "agent.exe", program = "agent", separator = ";";
@@ -73,34 +75,35 @@ TEST_CASE("A client is looked for in PATH, in order", "[app][terminal]") {
     };
     const auto both = first.path.string() + separator + second.path.string();
 
-    CHECK_FALSE(terminal::find(program, both));
+    check(!terminal::find(program, both));
     make(second, true);
-    CHECK(terminal::find(program, both) == second.path / name);
+    check(terminal::find(program, both) == second.path / name);
 #if !defined(_WIN32)
     make(first, false);  // A file that cannot be run is not the client.
-    CHECK(terminal::find(program, both) == second.path / name);
+    check(terminal::find(program, both) == second.path / name);
 #endif
     make(first, true);
-    CHECK(terminal::find(program, both) == first.path / name);
-    CHECK_FALSE(terminal::find(program, ""));
-}
+    check(terminal::find(program, both) == first.path / name);
+    check(!terminal::find(program, ""));
+}};
 
-TEST_CASE("The client receives the environment of the application", "[app][terminal]") {
+const Scenario theClientReceivesTheEnvironmentOfThe{"The client receives the environment of the application", {"app", "terminal"}, [] {
     const auto environment = terminal::currentEnvironment();
-    CHECK(environment.contains("PATH"));
-    CHECK_FALSE(terminal::shellProgram(environment).empty());
-}
+    check(environment.contains("PATH"));
+    check(!terminal::shellProgram(environment).empty());
+}};
 
-TEST_CASE("Nothing is registered unless WebFront allows PTY pages", "[app][terminal]") {
+const Scenario nothingIsRegisteredUnlessWebfrontAllowsPty{"Nothing is registered unless WebFront allows PTY pages", {"app", "terminal"}, [] {
     RefusingApp refusing;
     auto        refused = terminal::registerClients(refusing, fs::current_path());
-    CHECK(refused["enabled"] == false);
-    CHECK(refused["clients"].empty());
+    check(refused["enabled"] == false);
+    check(refused["clients"].empty());
     AppWithoutPty plain;
-    CHECK(terminal::registerClients(plain, fs::current_path())["enabled"] == false);
-}
+    check(terminal::registerClients(plain, fs::current_path())["enabled"] == false);
+}};
 
-TEST_CASE("A client does not inherit the session of the terminal or the agent the application was started from", "[app][terminal]") {
+const Scenario aClientDoesNotInheritTheSession{"A client does not inherit the session of the terminal or the agent the application was started from",
+                                               {"app", "terminal"}, [] {
     const std::map<std::string, std::string> inherited{
         {"PATH", "/usr/bin"}, {"HOME", "/home/user"}, {"LANG", "fr_FR.UTF-8"},
         {"ANTHROPIC_BASE_URL", "https://proxy.example"}, {"CLAUDE_CODE_USE_BEDROCK", "1"}, {"CLAUDE_CODE_OAUTH_TOKEN", "token"},
@@ -116,61 +119,66 @@ TEST_CASE("A client does not inherit the session of the terminal or the agent th
         {"OPENCODE_CONFIG", "/home/user/opencode.json"}, {"MISTRAL_API_KEY", "key"}, {"VIBE_HOME", "/home/user/.vibe"}, {"CODEX_HOME", "/home/user/.codex"},
     };
     const auto client = terminal::clientEnvironment(inherited);
-    CHECK(client == std::map<std::string, std::string>{{"PATH", "/usr/bin"}, {"HOME", "/home/user"}, {"LANG", "fr_FR.UTF-8"},
+    check(client == std::map<std::string, std::string>{{"PATH", "/usr/bin"}, {"HOME", "/home/user"}, {"LANG", "fr_FR.UTF-8"},
                                                        {"ANTHROPIC_BASE_URL", "https://proxy.example"},
                                                        {"CLAUDE_CODE_USE_BEDROCK", "1"}, {"CLAUDE_CODE_OAUTH_TOKEN", "token"},
                                                        {"OPENCODE_CONFIG", "/home/user/opencode.json"}, {"MISTRAL_API_KEY", "key"},
                                                        {"VIBE_HOME", "/home/user/.vibe"}, {"CODEX_HOME", "/home/user/.codex"}});
     // A GIT_ASKPASS the user set themselves is theirs to keep.
-    CHECK(terminal::clientEnvironment({{"GIT_ASKPASS", "/opt/mine.sh"}}).contains("GIT_ASKPASS"));
-}
+    check(terminal::clientEnvironment({{"GIT_ASKPASS", "/opt/mine.sh"}}).contains("GIT_ASKPASS"));
+    // The UI tests give the browser a throwaway XDG profile; the client gets the user's own values instead, or the defaults.
+    check(terminal::clientEnvironment({{"HOME", "/home/user"}, {"XDG_DATA_HOME", "/build/profile/data"}, {"XDG_CACHE_HOME", "/build/profile/cache"},
+                                       {"SILICONFORGE_CLIENT_ENV_XDG_DATA_HOME", "/data/mine"}, {"SILICONFORGE_CLIENT_ENV_XDG_CACHE_HOME", ""}})
+          == std::map<std::string, std::string>{{"HOME", "/home/user"}, {"XDG_DATA_HOME", "/data/mine"}});
+}};
 
-SCENARIO("Each client is told of the MCP server of the window in its own terms, the token by the environment", "[app][terminal][mcp]") {
-    GIVEN("the server of the window") {
+const Scenario eachClientIsToldOfTheMcp{"Each client is told of the MCP server of the window in its own terms, the token by the environment",
+                                        {"app", "terminal", "mcp"}, [] {
+    given("the server of the window", [&] {
         const terminal::AgentServer server{"http://127.0.0.1:9002/mcp/", "0123456789abcdef0123456789abcdef", "/home/someone/project"};
-        THEN("every session gets the URL, the token and the project as variables, and no argument holds the token") {
+        then("every session gets the URL, the token and the project as variables, and no argument holds the token", [&] {
             for (const auto& client : terminal::clients) {
                 const auto launch = terminal::launchWith(client.id, server);
-                CHECK(launch.environment.at("SILICONFORGE_MCP_URL") == server.url);
-                CHECK(launch.environment.at("SILICONFORGE_MCP_TOKEN") == server.token);
-                CHECK(launch.environment.at("SILICONFORGE_PROJECT") == server.project);  // siliconforge bench hands its runs to the window
+                check(launch.environment.at("SILICONFORGE_MCP_URL") == server.url);
+                check(launch.environment.at("SILICONFORGE_MCP_TOKEN") == server.token);
+                check(launch.environment.at("SILICONFORGE_PROJECT") == server.project);  // siliconforge bench hands its runs to the window
                 // The arguments of a process are readable by every user of the machine.
-                CHECK(std::ranges::none_of(launch.arguments, [&](const std::string& argument) { return argument.find(server.token) != std::string::npos; }));
+                check(std::ranges::none_of(launch.arguments, [&](const std::string& argument) { return argument.find(server.token) != std::string::npos; }));
             }
-        }
-        WHEN("Claude Code starts") {
+        });
+        when("Claude Code starts", [&] {
             const auto claude = terminal::launchWith("claude", server);
-            THEN("it gets --mcp-config, whose header names the variable of the token") {
-                REQUIRE(claude.arguments.size() == 2);
-                CHECK(claude.arguments[0] == "--mcp-config");
+            then("it gets --mcp-config, whose header names the variable of the token", [&] {
+                require(claude.arguments.size() == 2);
+                check(claude.arguments[0] == "--mcp-config");
                 const auto config = nlohmann::json::parse(claude.arguments[1]).at("mcpServers").at("siliconforge");
-                CHECK(config.at("type") == "http");
-                CHECK(config.at("url") == server.url);
-                CHECK(config.at("headers").at("Authorization") == "Bearer ${SILICONFORGE_MCP_TOKEN}");
-            }
-        }
-        WHEN("Codex starts") {
+                check(config.at("type") == "http");
+                check(config.at("url") == server.url);
+                check(config.at("headers").at("Authorization") == "Bearer ${SILICONFORGE_MCP_TOKEN}");
+            });
+        });
+        when("Codex starts", [&] {
             const auto codex = terminal::launchWith("codex", server);
-            THEN("it gets the URL and the variable of the token as overrides of its configuration") {
-                CHECK(codex.arguments == std::vector<std::string>{"-c", R"(mcp_servers.siliconforge.url="http://127.0.0.1:9002/mcp/")", "-c",
+            then("it gets the URL and the variable of the token as overrides of its configuration", [&] {
+                check(codex.arguments == std::vector<std::string>{"-c", R"(mcp_servers.siliconforge.url="http://127.0.0.1:9002/mcp/")", "-c",
                                                                   R"(mcp_servers.siliconforge.bearer_token_env_var="SILICONFORGE_MCP_TOKEN")"});
-            }
-        }
-        WHEN("OpenCode starts") {
+            });
+        });
+        when("OpenCode starts", [&] {
             const auto opencode = terminal::launchWith("opencode", server);
-            THEN("it gets the server in OPENCODE_CONFIG_CONTENT") {
-                CHECK(opencode.arguments.empty());
+            then("it gets the server in OPENCODE_CONFIG_CONTENT", [&] {
+                check(opencode.arguments.empty());
                 const auto content = nlohmann::json::parse(opencode.environment.at("OPENCODE_CONFIG_CONTENT")).at("mcp").at("siliconforge");
-                CHECK(content.at("type") == "remote");
-                CHECK(content.at("headers").at("Authorization") == "Bearer {env:SILICONFORGE_MCP_TOKEN}");
-            }
-        }
-        WHEN("Mistral Vibe starts") {
+                check(content.at("type") == "remote");
+                check(content.at("headers").at("Authorization") == "Bearer {env:SILICONFORGE_MCP_TOKEN}");
+            });
+        });
+        when("Mistral Vibe starts", [&] {
             const auto vibe = terminal::launchWith("vibe", server);
-            THEN("it gets the variables only: its servers come from its configuration file") {
-                CHECK(vibe.arguments.empty());
-                CHECK(vibe.environment.size() == 3);
-            }
-        }
-    }
-}
+            then("it gets the variables only: its servers come from its configuration file", [&] {
+                check(vibe.arguments.empty());
+                check(vibe.environment.size() == 3);
+            });
+        });
+    });
+}};

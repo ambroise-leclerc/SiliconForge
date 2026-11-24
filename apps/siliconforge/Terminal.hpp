@@ -121,6 +121,21 @@ struct Launch {
 [[nodiscard]] inline std::map<std::string, std::string> clientEnvironment(std::map<std::string, std::string> variables) {
     const bool ideAskpass = variables.contains("VSCODE_GIT_ASKPASS_MAIN") || variables.contains("VSCODE_GIT_IPC_HANDLE");
     std::erase_if(variables, [&](const auto& entry) { return belongsToHostSession(entry.first) || (ideAskpass && entry.first == "GIT_ASKPASS"); });
+    // `SILICONFORGE_CLIENT_ENV_<NAME>=<value>` sets <NAME> for the client alone, and removes it when the value is empty.
+    // The UI tests give the browser a throwaway XDG profile; a client that inherited it installed itself there and
+    // repointed ~/.local/bin/claude into build/. The test hands the real values over through these variables.
+    constexpr std::string_view prefix = "SILICONFORGE_CLIENT_ENV_";
+    std::map<std::string, std::string> overrides;
+    for (const auto& [name, value] : variables)
+        if (name.starts_with(prefix))
+            overrides.emplace(name.substr(prefix.size()), value);
+    std::erase_if(variables, [&](const auto& entry) { return entry.first.starts_with(prefix); });
+    for (const auto& [name, value] : overrides) {
+        if (value.empty())
+            variables.erase(name);
+        else
+            variables[name] = value;
+    }
     return variables;
 }
 

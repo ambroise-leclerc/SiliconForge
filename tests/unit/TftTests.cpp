@@ -8,7 +8,9 @@
 #include <siliconforge/scenario/Scenario.hpp>
 #include <siliconforge/testing/Bench.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
+
+using namespace webfront::bdd;
 
 #include <algorithm>
 #include <filesystem>
@@ -62,13 +64,13 @@ struct Run {
 Run runFirmware(const char* hex, const char* circuitFile) {
     const auto path = firmwareDir / hex;
     if (!std::filesystem::exists(path))
-        SKIP(path.string() << " is missing: build the firmware (see firmware/README.md)");
+        skip(path.string(), " is missing: build the firmware (see firmware/README.md)");
     testing::Bench bench{mcu::create("atmega328p")};
     bench.attach(readCircuit(circuitFile));
     bench.load(path);
-    REQUIRE(bench.runUntil([&] { return bench.pin("D12").level(); }, 1s, 4096));
+    require(bench.runUntil([&] { return bench.pin("D12").level(); }, 1s, 4096));
     const auto* tft = bench.circuit().display("tft");
-    REQUIRE(tft != nullptr);
+    require(tft != nullptr);
     return {std::move(bench), tft};
 }
 
@@ -109,125 +111,125 @@ struct SpiWires {
 };
 }  // namespace
 
-SCENARIO("a firmware paints a KMRTM28028 over SPI and the bus carries what it sent", "[circuit][tft][spi]") {
-    GIVEN("the tft_spi firmware on the Uno wired to the module, run until it raises D12") {
+const Scenario aFirmwarePaintsAKmrtm28028Over{"a firmware paints a KMRTM28028 over SPI and the bus carries what it sent", {"circuit", "tft", "spi"}, [] {
+    given("the tft_spi firmware on the Uno wired to the module, run until it raises D12", [&] {
         auto run = runFirmware("tft_spi.hex", "tft-spi-demo.json");
         const auto& tft = *run.tft;
 
-        THEN("the commands are those of its initialisation, with their parameters, then the window and the pixels") {
+        then("the commands are those of its initialisation, with their parameters, then the window and the pixels", [&] {
             const std::vector<Command> expected{{0x01, 0}, {0x11, 0}, {0x3A, 1}, {0x36, 1}, {0x29, 0}, {0x2A, 4}, {0x2B, 4}, {0x2C, 19200}};
             const auto                 actual = commandsOf(tft);
-            REQUIRE(actual.size() == expected.size());
+            require(actual.size() == expected.size());
             for (std::size_t i = 0; i < expected.size(); ++i) {
-                CHECK(actual[i].command == expected[i].command);
-                CHECK(actual[i].data == expected[i].data);
+                check(actual[i].command == expected[i].command);
+                check(actual[i].data == expected[i].data);
             }
             const auto& log = tft.transactions();
-            CHECK(log[2].head == std::vector<std::uint8_t>{0x55});
-            CHECK(log[5].head == std::vector<std::uint8_t>{0, 60, 0, 179});
-            CHECK(log[6].head == std::vector<std::uint8_t>{0, 120, 0, 199});
-            CHECK(log[7].head[0] == 0xF8);  // The first pixel is red: 0xF800
-            CHECK(log[7].head[1] == 0x00);
-            CHECK(log[7].checksum == quadrantChecksum());
-        }
-        THEN("the clock ran at the rate the firmware chose: two cycles per bit, fck/2") {
+            check(log[2].head == std::vector<std::uint8_t>{0x55});
+            check(log[5].head == std::vector<std::uint8_t>{0, 60, 0, 179});
+            check(log[6].head == std::vector<std::uint8_t>{0, 120, 0, 199});
+            check(log[7].head[0] == 0xF8);  // The first pixel is red: 0xF800
+            check(log[7].head[1] == 0x00);
+            check(log[7].checksum == quadrantChecksum());
+        });
+        then("the clock ran at the rate the firmware chose: two cycles per bit, fck/2", [&] {
             for (const auto& transaction : tft.transactions())
-                CHECK(transaction.bitCycles == 2);
-        }
-        THEN("nothing was refused: no unknown command, no read, no byte cut short") {
-            CHECK(tft.unknown() == 0);
-            CHECK(tft.unsupported() == 0);
-            CHECK(tft.framing() == 0);
-            CHECK(tft.pixelsWritten() == 9600);
-            CHECK(tft.dropped() == 0);
-        }
-        THEN("the panel is on, out of sleep and powered, and the backlight is lit") {
-            CHECK(tft.displayOn());
-            CHECK(*run.bench.circuit().state("tft", "powered") == 1.0);
-            CHECK(*run.bench.circuit().state("tft", "backlight") == 1.0);
-            CHECK(*run.bench.circuit().state("tft", "commands") == 8.0);
-        }
+                check(transaction.bitCycles == 2);
+        });
+        then("nothing was refused: no unknown command, no read, no byte cut short", [&] {
+            check(tft.unknown() == 0);
+            check(tft.unsupported() == 0);
+            check(tft.framing() == 0);
+            check(tft.pixelsWritten() == 9600);
+            check(tft.dropped() == 0);
+        });
+        then("the panel is on, out of sleep and powered, and the backlight is lit", [&] {
+            check(tft.displayOn());
+            check(*run.bench.circuit().state("tft", "powered") == 1.0);
+            check(*run.bench.circuit().state("tft", "backlight") == 1.0);
+            check(*run.bench.circuit().state("tft", "commands") == 8.0);
+        });
 
-        THEN("the frame carries the counters and the revision, and the pixels are fetched apart as RGB565 in base64") {
+        then("the frame carries the counters and the revision, and the pixels are fetched apart as RGB565 in base64", [&] {
             const auto frame = run.bench.circuit().frame();
-            CHECK_FALSE(frame["tft"].contains("screen"));
-            CHECK(frame["tft"]["pixelsWritten"] == 9600);
+            check(!(frame["tft"].contains("screen")));
+            check(frame["tft"]["pixelsWritten"] == 9600);
             const auto image = run.bench.circuit().screenImage("tft");
-            CHECK(image["width"] == 240);
-            CHECK(image["revision"] == frame["tft"]["revision"]);
-            CHECK(image["rgb565"].get<std::string>().size() == (240 * 320 * 2 + 2) / 3 * 4);
-            CHECK(run.bench.circuit().screenImage("xtal").is_null());
-            CHECK(run.bench.circuit().screenImage("no-such").is_null());
-        }
+            check(image["width"] == 240);
+            check(image["revision"] == frame["tft"]["revision"]);
+            check(image["rgb565"].get<std::string>().size() == (240 * 320 * 2 + 2) / 3 * 4);
+            check(run.bench.circuit().screenImage("xtal").is_null());
+            check(run.bench.circuit().screenImage("no-such").is_null());
+        });
 
-        WHEN("the pixels are compared with the image the firmware means to draw") {
+        when("the pixels are compared with the image the firmware means to draw", [&] {
             const auto expected = quadrants(240, 320, 60, 120);
             const auto result   = compareImages(tft.shown(), expected, 240);
-            THEN("they agree, pixel for pixel") {
-                CHECK(result.differing == 0);
-            }
-        }
-        WHEN("they are compared with an image whose green and blue quadrants are exchanged") {
+            then("they agree, pixel for pixel", [&] {
+                check(result.differing == 0);
+            });
+        });
+        when("they are compared with an image whose green and blue quadrants are exchanged", [&] {
             auto expected = quadrants(240, 320, 60, 120);
             for (auto& pixel : expected)
                 pixel = pixel == 0x00FF00u ? 0x0000FFu : pixel == 0x0000FFu ? 0x00FF00u : pixel;
             const auto result = compareImages(tft.shown(), expected, 240);
-            THEN("they diverge on exactly those two quadrants, and the first difference is where the green one starts") {
-                CHECK(result.differing == 2 * 60 * 40);
-                CHECK(result.firstX == 120);
-                CHECK(result.firstY == 120);
-            }
-        }
-        WHEN("they are compared with the same image one pixel to the right") {
+            then("they diverge on exactly those two quadrants, and the first difference is where the green one starts", [&] {
+                check(result.differing == 2 * 60 * 40);
+                check(result.firstX == 120);
+                check(result.firstY == 120);
+            });
+        });
+        when("they are compared with the same image one pixel to the right", [&] {
             const auto result = compareImages(tft.shown(), quadrants(240, 320, 61, 120), 240);
-            THEN("the edges differ: one column on each side of the window, and of the inner boundary") {
-                CHECK(result.differing > 0);
-                CHECK(result.firstX == 60);
-            }
-        }
-    }
-}
+            then("the edges differ: one column on each side of the window, and of the inner boundary", [&] {
+                check(result.differing > 0);
+                check(result.firstX == 60);
+            });
+        });
+    });
+}};
 
-SCENARIO("a firmware paints a MCUFRIEND shield over its 8-bit parallel bus", "[circuit][tft][parallel]") {
-    GIVEN("the tft_parallel firmware wired as on the Uno shield, run until it raises D12") {
+const Scenario aFirmwarePaintsAMcufriendShield{"a firmware paints a MCUFRIEND shield over its 8-bit parallel bus", {"circuit", "tft", "parallel"}, [] {
+    given("the tft_parallel firmware wired as on the Uno shield, run until it raises D12", [&] {
         auto run = runFirmware("tft_parallel.hex", "tft-parallel-demo.json");
         const auto& tft = *run.tft;
 
-        THEN("the controller is an ILI9481 of 320 x 480 pixels") {
-            CHECK(tft.controller() == Tft::Controller::Ili9481);
-            CHECK(tft.width() == 320);
-            CHECK(tft.height() == 480);
-        }
-        THEN("the bytes taken at the rising edges of WR make the commands of the initialisation, the window and the pixels") {
+        then("the controller is an ILI9481 of 320 x 480 pixels", [&] {
+            check(tft.controller() == Tft::Controller::Ili9481);
+            check(tft.width() == 320);
+            check(tft.height() == 480);
+        });
+        then("the bytes taken at the rising edges of WR make the commands of the initialisation, the window and the pixels", [&] {
             const std::vector<Command> expected{{0x01, 0}, {0x11, 0}, {0xD0, 3}, {0xD1, 3}, {0xD2, 2}, {0xC0, 5}, {0xC5, 1},
                                                 {0x3A, 1}, {0x36, 1}, {0x29, 0}, {0x2A, 4}, {0x2B, 4}, {0x2C, 19200}};
             const auto                 actual = commandsOf(tft);
-            REQUIRE(actual.size() == expected.size());
+            require(actual.size() == expected.size());
             for (std::size_t i = 0; i < expected.size(); ++i) {
-                CHECK(actual[i].command == expected[i].command);
-                CHECK(actual[i].data == expected[i].data);
+                check(actual[i].command == expected[i].command);
+                check(actual[i].data == expected[i].data);
             }
             const auto& log = tft.transactions();
-            CHECK(log[2].head == std::vector<std::uint8_t>{0x07, 0x42, 0x18});
-            CHECK(log[10].head == std::vector<std::uint8_t>{0, 100, 0, 219});
-            CHECK(log[11].head == std::vector<std::uint8_t>{0, 200, 1, 23});
-            CHECK(log[12].checksum == quadrantChecksum());
-            CHECK(tft.unknown() == 0);
-            CHECK(tft.unsupported() == 0);
-        }
-        WHEN("the pixels are compared with the image the firmware means to draw") {
-            THEN("they agree") {
-                CHECK(compareImages(tft.shown(), quadrants(320, 480, 100, 200), 320).differing == 0);
-            }
-            THEN("they do not agree with the window painted at the same place on the other controller's 240-wide panel") {
-                CHECK(compareImages(tft.shown(), quadrants(320, 480, 60, 200), 320).differing > 0);
-            }
-        }
-    }
-}
+            check(log[2].head == std::vector<std::uint8_t>{0x07, 0x42, 0x18});
+            check(log[10].head == std::vector<std::uint8_t>{0, 100, 0, 219});
+            check(log[11].head == std::vector<std::uint8_t>{0, 200, 1, 23});
+            check(log[12].checksum == quadrantChecksum());
+            check(tft.unknown() == 0);
+            check(tft.unsupported() == 0);
+        });
+        when("the pixels are compared with the image the firmware means to draw", [&] {
+            then("they agree", [&] {
+                check(compareImages(tft.shown(), quadrants(320, 480, 100, 200), 320).differing == 0);
+            });
+            then("they do not agree with the window painted at the same place on the other controller's 240-wide panel", [&] {
+                check(compareImages(tft.shown(), quadrants(320, 480, 60, 200), 320).differing > 0);
+            });
+        });
+    });
+}};
 
-SCENARIO("a module that is not powered ignores its bus", "[circuit][tft]") {
-    GIVEN("the SPI circuit without the wire from VCC to the positive rail") {
+const Scenario aModuleThatIsNotPowered{"a module that is not powered ignores its bus", {"circuit", "tft"}, [] {
+    given("the SPI circuit without the wire from VCC to the positive rail", [&] {
         auto description = readCircuit("tft-spi-demo.json");
         Json wires = Json::array();
         for (const auto& wire : description["wires"])
@@ -238,45 +240,45 @@ SCENARIO("a module that is not powered ignores its bus", "[circuit][tft]") {
         bench.attach(description);
         bench.load(firmwareDir / "tft_spi.hex");
         bench.runFor(300ms);
-        THEN("the controller saw nothing and the screen is black") {
+        then("the controller saw nothing and the screen is black", [&] {
             const auto* tft = bench.circuit().display("tft");
-            REQUIRE(tft != nullptr);
-            CHECK_FALSE(tft->powered());
-            CHECK(tft->commands() == 0);
-            CHECK(tft->pixelsWritten() == 0);
-            CHECK(*bench.circuit().state("tft", "powered") == 0.0);
-        }
-    }
-}
+            require(tft != nullptr);
+            check(!(tft->powered()));
+            check(tft->commands() == 0);
+            check(tft->pixelsWritten() == 0);
+            check(*bench.circuit().state("tft", "powered") == 0.0);
+        });
+    });
+}};
 
-SCENARIO("the controller follows its commands", "[tft]") {
-    GIVEN("an ILI9341 on a bus driven bit by bit") {
+const Scenario theControllerFollowsItsCommands{"the controller follows its commands", {"tft"}, [] {
+    given("an ILI9341 on a bus driven bit by bit", [&] {
         Tft      tft;
         SpiWires wires{tft};
         wires.reset = true;
 
-        WHEN("a command it does not have, and a command that reads it, are sent") {
+        when("a command it does not have, and a command that reads it, are sent", [&] {
             wires.command(0xFF);
             wires.command(0x04);
-            THEN("they are counted apart, and neither changes the screen") {
-                CHECK(tft.unknown() == 1);
-                CHECK(tft.unsupported() == 1);
-                CHECK(tft.commands() == 2);
-            }
-        }
-        WHEN("CS is released after three bits of a byte") {
+            then("they are counted apart, and neither changes the screen", [&] {
+                check(tft.unknown() == 1);
+                check(tft.unsupported() == 1);
+                check(tft.commands() == 2);
+            });
+        });
+        when("CS is released after three bits of a byte", [&] {
             wires.select(true);
             wires.bits(0xFF, false, 3);
             wires.select(false);
             wires.select(true);
             wires.bits(0x11, false);
-            THEN("the partial byte is lost and counted, and the next byte is whole") {
-                CHECK(tft.framing() == 1);
-                CHECK(tft.commands() == 1);
-                CHECK(tft.transactions().back().command == 0x11);
-            }
-        }
-        WHEN("the window is 2 x 2 and four 16-bit pixels are written after sleep out and display on") {
+            then("the partial byte is lost and counted, and the next byte is whole", [&] {
+                check(tft.framing() == 1);
+                check(tft.commands() == 1);
+                check(tft.transactions().back().command == 0x11);
+            });
+        });
+        when("the window is 2 x 2 and four 16-bit pixels are written after sleep out and display on", [&] {
             wires.command(0x11);
             wires.command(0x29);
             wires.command(0x2A);
@@ -290,29 +292,29 @@ SCENARIO("the controller follows its commands", "[tft]") {
             wires.command(0x2C);
             wires.data({0xF8, 0x00, 0x07, 0xE0, 0x00, 0x1F, 0xFF, 0xFF});
             const auto at = [&](unsigned x, unsigned y) { return tft.shown()[y * 240 + x]; };
-            THEN("they land in reading order inside the window, in the colours of their words") {
-                CHECK(at(10, 20) == 0xFF0000u);
-                CHECK(at(11, 20) == 0x00FF00u);
-                CHECK(at(10, 21) == 0x0000FFu);
-                CHECK(at(11, 21) == 0xFFFFFFu);
-                CHECK(at(12, 20) == 0u);
-                CHECK(tft.pixelsWritten() == 4);
-            }
-            THEN("inversion complements them and display off blanks them, the memory keeping its content") {
+            then("they land in reading order inside the window, in the colours of their words", [&] {
+                check(at(10, 20) == 0xFF0000u);
+                check(at(11, 20) == 0x00FF00u);
+                check(at(10, 21) == 0x0000FFu);
+                check(at(11, 21) == 0xFFFFFFu);
+                check(at(12, 20) == 0u);
+                check(tft.pixelsWritten() == 4);
+            });
+            then("inversion complements them and display off blanks them, the memory keeping its content", [&] {
                 wires.command(0x21);
-                CHECK(at(10, 20) == 0x00FFFFu);
+                check(at(10, 20) == 0x00FFFFu);
                 wires.command(0x20);
                 wires.command(0x28);
-                CHECK(at(10, 20) == 0u);
-                CHECK(tft.memory()[20 * 240 + 10] == 0xFF0000u);
-            }
-            THEN("a software reset puts the controller to sleep but keeps the pixels") {
+                check(at(10, 20) == 0u);
+                check(tft.memory()[20 * 240 + 10] == 0xFF0000u);
+            });
+            then("a software reset puts the controller to sleep but keeps the pixels", [&] {
                 wires.command(0x01);
-                CHECK(tft.sleeping());
-                CHECK(tft.memory()[20 * 240 + 10] == 0xFF0000u);
-            }
-        }
-        WHEN("the memory is mirrored, MX set, and one pixel is written at column 0") {
+                check(tft.sleeping());
+                check(tft.memory()[20 * 240 + 10] == 0xFF0000u);
+            });
+        });
+        when("the memory is mirrored, MX set, and one pixel is written at column 0", [&] {
             wires.command(0x11);
             wires.command(0x29);
             wires.command(0x3A);
@@ -325,12 +327,12 @@ SCENARIO("the controller follows its commands", "[tft]") {
             wires.data({0, 0, 0, 0});
             wires.command(0x2C);
             wires.data({0xFF, 0xFF});
-            THEN("it lands on the last column") {
-                CHECK(tft.shown()[239] == 0xFFFFFFu);
-                CHECK(tft.shown()[0] == 0u);
-            }
-        }
-        WHEN("the rows and columns are exchanged, MV set, and the window runs along 3 columns of 320") {
+            then("it lands on the last column", [&] {
+                check(tft.shown()[239] == 0xFFFFFFu);
+                check(tft.shown()[0] == 0u);
+            });
+        });
+        when("the rows and columns are exchanged, MV set, and the window runs along 3 columns of 320", [&] {
             wires.command(0x11);
             wires.command(0x29);
             wires.command(0x3A);
@@ -343,14 +345,14 @@ SCENARIO("the controller follows its commands", "[tft]") {
             wires.data({0, 0, 0, 0});
             wires.command(0x2C);
             wires.data({0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF});
-            THEN("they go down the first column of the panel") {
-                CHECK(tft.shown()[0] == 0xFFFFFFu);
-                CHECK(tft.shown()[240] == 0xFFFFFFu);
-                CHECK(tft.shown()[480] == 0xFFFFFFu);
-                CHECK(tft.shown()[1] == 0u);
-            }
-        }
-        WHEN("18 bits per pixel are chosen and a pixel is written") {
+            then("they go down the first column of the panel", [&] {
+                check(tft.shown()[0] == 0xFFFFFFu);
+                check(tft.shown()[240] == 0xFFFFFFu);
+                check(tft.shown()[480] == 0xFFFFFFu);
+                check(tft.shown()[1] == 0u);
+            });
+        });
+        when("18 bits per pixel are chosen and a pixel is written", [&] {
             wires.command(0x11);
             wires.command(0x29);
             wires.command(0x3A);
@@ -359,23 +361,23 @@ SCENARIO("the controller follows its commands", "[tft]") {
             wires.data({0x08});
             wires.command(0x2C);
             wires.data({0xFC, 0x00, 0x80});
-            THEN("each channel keeps its six bits") {
-                CHECK(tft.shown()[0] == 0xFF0082u);
-            }
-        }
-        WHEN("RESET is pulled low in the middle of a session") {
+            then("each channel keeps its six bits", [&] {
+                check(tft.shown()[0] == 0xFF0082u);
+            });
+        });
+        when("RESET is pulled low in the middle of a session", [&] {
             wires.command(0x11);
             wires.command(0x29);
-            CHECK(tft.displayOn());
+            check(tft.displayOn());
             wires.reset = false;
             wires.level(false, false, false);
-            THEN("the controller is asleep again, display off") {
-                CHECK_FALSE(tft.displayOn());
-                CHECK(tft.sleeping());
-            }
-        }
-    }
-}
+            then("the controller is asleep again, display off", [&] {
+                check(!(tft.displayOn()));
+                check(tft.sleeping());
+            });
+        });
+    });
+}};
 
 namespace {
 /// A scenario of the SPI demo that compares the screen with `image`, in a directory of its own.
@@ -413,31 +415,31 @@ struct ScreenScenario {
 };
 }  // namespace
 
-SCENARIO("a scenario compares the screen with an expected picture", "[scenario][tft]") {
+const Scenario aScenarioComparesTheScreenWith{"a scenario compares the screen with an expected picture", {"scenario", "tft"}, [] {
     if (!std::filesystem::exists(firmwareDir / "tft_spi.hex"))
-        SKIP("tft_spi.hex is missing: build the firmware (see firmware/README.md)");
-    GIVEN("the SPI demo and a picture that matches what the firmware draws") {
+        skip("tft_spi.hex", " is missing: build the firmware (see firmware/README.md)");
+    given("the SPI demo and a picture that matches what the firmware draws", [&] {
         ScreenScenario fixture;
         fixture.write("expected.ppm", quadrants(240, 320, 60, 120), 240, 320);
 
-        WHEN("the scenario runs") {
+        when("the scenario runs", [&] {
             const auto report = fixture.run("expected.ppm");
-            THEN("it passes, and the report says how many pixels differ: none") {
-                REQUIRE(report.verdict == scenario::Verdict::Pass);
-                REQUIRE(report.screens.size() == 1);
-                CHECK(report.screens[0].differing == 0);
-                CHECK(report.screens[0].width == 240);
-                CHECK(report.steps[1].kind == "screen");
-            }
-            THEN("the picture is one of the inputs, identified by its hash") {
+            then("it passes, and the report says how many pixels differ: none", [&] {
+                require(report.verdict == scenario::Verdict::Pass);
+                require(report.screens.size() == 1);
+                check(report.screens[0].differing == 0);
+                check(report.screens[0].width == 240);
+                check(report.steps[1].kind == "screen");
+            });
+            then("the picture is one of the inputs, identified by its hash", [&] {
                 const auto image = std::ranges::find(report.inputs, std::string{"image"}, &scenario::Input::role);
-                REQUIRE(image != report.inputs.end());
-                CHECK(image->path == "expected.ppm");
-                CHECK(image->sha256.size() == 64);
-            }
-        }
-    }
-    GIVEN("the picture the firmware draws, but a module whose LED pin is not wired to the supply") {
+                require(image != report.inputs.end());
+                check(image->path == "expected.ppm");
+                check(image->sha256.size() == 64);
+            });
+        });
+    });
+    given("the picture the firmware draws, but a module whose LED pin is not wired to the supply", [&] {
         ScreenScenario fixture;
         fixture.write("expected.ppm", quadrants(240, 320, 60, 120), 240, 320);
         auto description = Json::parse(std::ifstream{circuitDir / "tft-spi-demo.json"});
@@ -445,21 +447,21 @@ SCENARIO("a scenario compares the screen with an expected picture", "[scenario][
         for (const auto& wire : description.at("wires"))
             if (wire.at("from") != "h28")  // The wire from the LED pin of the module to the +5 V rail
                 wires.push_back(wire);
-        REQUIRE(wires.size() + 1 == description.at("wires").size());
+        require(wires.size() + 1 == description.at("wires").size());
         description["wires"] = wires;
         const auto dark      = fixture.directory / "dark.json";
         std::ofstream{dark} << description.dump();
 
-        WHEN("the scenario runs") {
+        when("the scenario runs", [&] {
             const auto report = fixture.run("expected.ppm", "tft", dark);
-            THEN("the screen is black whatever the memory holds, so the picture does not match") {
-                REQUIRE(report.verdict == scenario::Verdict::Fail);
-                REQUIRE(report.screens.size() == 1);
-                CHECK(report.screens[0].differing == 9600);  // The painted window, black instead of its colours
-            }
-        }
-    }
-    GIVEN("the same picture saved with Windows line ends (CRLF) in its header") {
+            then("the screen is black whatever the memory holds, so the picture does not match", [&] {
+                require(report.verdict == scenario::Verdict::Fail);
+                require(report.screens.size() == 1);
+                check(report.screens[0].differing == 9600);  // The painted window, black instead of its colours
+            });
+        });
+    });
+    given("the same picture saved with Windows line ends (CRLF) in its header", [&] {
         ScreenScenario fixture;
         fixture.write("crlf.ppm", quadrants(240, 320, 60, 120), 240, 320, "\r\n");
         // And one whose first pixel starts with the bytes 0D 0A, after a header that ends with a single LF: those are pixel data
@@ -467,61 +469,61 @@ SCENARIO("a scenario compares the screen with an expected picture", "[scenario][
         pixels[0]   = 0x0D0A0Bu;
         fixture.write("lf.ppm", pixels, 240, 320);
 
-        THEN("the CRLF pair ends the header: the pixels are not shifted by a byte and the screen matches") {
+        then("the CRLF pair ends the header: the pixels are not shifted by a byte and the screen matches", [&] {
             const auto report = fixture.run("crlf.ppm");
-            REQUIRE(report.verdict == scenario::Verdict::Pass);
-            CHECK(report.screens[0].differing == 0);
-        }
-        THEN("a single LF still ends only itself: the bytes after it are the first pixel") {
+            require(report.verdict == scenario::Verdict::Pass);
+            check(report.screens[0].differing == 0);
+        });
+        then("a single LF still ends only itself: the bytes after it are the first pixel", [&] {
             const auto report = fixture.run("lf.ppm");
-            REQUIRE(report.screens.size() == 1);
-            CHECK(report.screens[0].differing == 1);  // Only the first pixel differs: the picture was not shifted
-            CHECK(report.screens[0].firstX == 0);
-            CHECK(report.screens[0].firstY == 0);
-        }
-    }
-    GIVEN("a picture whose green and blue quadrants are exchanged") {
+            require(report.screens.size() == 1);
+            check(report.screens[0].differing == 1);  // Only the first pixel differs: the picture was not shifted
+            check(report.screens[0].firstX == 0);
+            check(report.screens[0].firstY == 0);
+        });
+    });
+    given("a picture whose green and blue quadrants are exchanged", [&] {
         ScreenScenario fixture;
         auto           expected = quadrants(240, 320, 60, 120);
         for (auto& pixel : expected)
             pixel = pixel == 0x00FF00u ? 0x0000FFu : pixel == 0x0000FFu ? 0x00FF00u : pixel;
         fixture.write("diverging.ppm", expected, 240, 320);
 
-        WHEN("the scenario runs") {
+        when("the scenario runs", [&] {
             const auto report = fixture.run("diverging.ppm");
-            THEN("it fails, and says where the first difference is") {
-                REQUIRE(report.verdict == scenario::Verdict::Fail);
-                REQUIRE(report.screens.size() == 1);
-                CHECK(report.screens[0].differing == 4800);
-                CHECK(report.screens[0].firstX == 120);
-                CHECK(report.screens[0].firstY == 120);
-                CHECK_FALSE(report.screens[0].passed);
-                CHECK(report.steps[1].outcome == scenario::StepRecord::Outcome::Failed);
-                CHECK(report.steps[1].detail.find("(120, 120)") != std::string::npos);
-                CHECK(scenario::exitCode(report.verdict) == 1);
-            }
-        }
-    }
-    GIVEN("pictures the screen cannot match") {
+            then("it fails, and says where the first difference is", [&] {
+                require(report.verdict == scenario::Verdict::Fail);
+                require(report.screens.size() == 1);
+                check(report.screens[0].differing == 4800);
+                check(report.screens[0].firstX == 120);
+                check(report.screens[0].firstY == 120);
+                check(!(report.screens[0].passed));
+                check(report.steps[1].outcome == scenario::StepRecord::Outcome::Failed);
+                check(report.steps[1].detail.find("(120, 120)") != std::string::npos);
+                check(scenario::exitCode(report.verdict) == 1);
+            });
+        });
+    });
+    given("pictures the screen cannot match", [&] {
         ScreenScenario fixture;
         fixture.write("small.ppm", std::vector<std::uint32_t>(4, 0u), 2, 2);
 
-        THEN("one of the wrong size is refused before the run, as beyond what the screen shows") {
+        then("one of the wrong size is refused before the run, as beyond what the screen shows", [&] {
             const auto report = fixture.run("small.ppm");
-            REQUIRE(report.verdict == scenario::Verdict::Incompatible);
-            REQUIRE(report.problem);
-            CHECK(report.problem->cause == scenario::Problem::Cause::Capacity);
-            CHECK(report.problem->path == "/steps/1/screen/image");
-        }
-        THEN("a missing file is refused as unreadable") {
+            require(report.verdict == scenario::Verdict::Incompatible);
+            require(report.problem);
+            check(report.problem->cause == scenario::Problem::Cause::Capacity);
+            check(report.problem->path == "/steps/1/screen/image");
+        });
+        then("a missing file is refused as unreadable", [&] {
             const auto report = fixture.run("absent.ppm");
-            REQUIRE(report.problem);
-            CHECK(report.problem->cause == scenario::Problem::Cause::Unreadable);
-        }
-        THEN("a component that is not a display is refused as a missing resource") {
+            require(report.problem);
+            check(report.problem->cause == scenario::Problem::Cause::Unreadable);
+        });
+        then("a component that is not a display is refused as a missing resource", [&] {
             const auto report = fixture.run("small.ppm", "xtal");
-            REQUIRE(report.problem);
-            CHECK(report.problem->cause == scenario::Problem::Cause::Resource);
-        }
-    }
-}
+            require(report.problem);
+            check(report.problem->cause == scenario::Problem::Cause::Resource);
+        });
+    });
+}};

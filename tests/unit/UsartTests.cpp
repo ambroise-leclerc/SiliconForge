@@ -1,6 +1,8 @@
 #include "../support/AvrFixture.hpp"
 
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
+
+using namespace webfront::bdd;
 
 using namespace siliconforge;
 using siliconforge::test::AvrAssembler;
@@ -24,49 +26,49 @@ struct Usart9600 : AvrFixture {
 };
 }  // namespace
 
-SCENARIO("USART0 transmits at the configured baud rate", "[avr][usart]") {
+const Scenario usart0TransmitsAtTheConfiguredBaudRate{"USART0 transmits at the configured baud rate", {"avr", "usart"}, [] {
     Usart9600 usart{txen};
-    CHECK(usart.mcu.usart0().baudRate(usart.mcu.clockHz()) == 9615);
-    CHECK(usart.mcu.pin("PD1")->state() == PinState::High);  // TXD idles high
+    check(usart.mcu.usart0().baudRate(usart.mcu.clockHz()) == 9615);
+    check(usart.mcu.pin("PD1")->state() == PinState::High);  // TXD idles high
 
-    WHEN("two bytes are written back to back") {
+    when("two bytes are written back to back", [&] {
         usart.data.write(udr0, 'O');
-        THEN("the first moves to the shift register at once and UDRE0 is set again") { CHECK((usart.data.read(ucsr0a) & udre) != 0); }
+        then("the first moves to the shift register at once and UDRE0 is set again", [&] { check((usart.data.read(ucsr0a) & udre) != 0); });
         usart.data.write(udr0, 'K');
-        CHECK((usart.data.read(ucsr0a) & udre) == 0);
+        check((usart.data.read(ucsr0a) & udre) == 0);
 
-        AND_THEN("each byte reaches the host after one full frame") {
+        andThen("each byte reaches the host after one full frame", [&] {
             usart.mcu.run(frame - 1);
-            CHECK(usart.serial.output().empty());
+            check(usart.serial.output().empty());
             usart.mcu.run(1);
-            CHECK(usart.serial.output() == "O");
-            CHECK((usart.data.read(ucsr0a) & udre) != 0);
+            check(usart.serial.output() == "O");
+            check((usart.data.read(ucsr0a) & udre) != 0);
             usart.mcu.run(frame);
-            CHECK(usart.serial.output() == "OK");
-            CHECK((usart.data.read(ucsr0a) & txc) != 0);
-        }
-    }
-}
+            check(usart.serial.output() == "OK");
+            check((usart.data.read(ucsr0a) & txc) != 0);
+        });
+    });
+}};
 
-SCENARIO("USART0 receives bytes sent by the host", "[avr][usart]") {
+const Scenario usart0ReceivesBytesSentByTheHost{"USART0 receives bytes sent by the host", {"avr", "usart"}, [] {
     Usart9600 usart{rxen};
     usart.serial.send("hi");
-    WHEN("one frame elapses") {
+    when("one frame elapses", [&] {
         usart.mcu.run(frame);
-        THEN("the first byte is available in UDR0") {
-            CHECK((usart.data.read(ucsr0a) & rxc) != 0);
-            CHECK(usart.data.read(udr0) == 'h');
-            CHECK((usart.data.read(ucsr0a) & rxc) == 0);
-        }
-    }
-    WHEN("firmware does not read three bytes in time") {
+        then("the first byte is available in UDR0", [&] {
+            check((usart.data.read(ucsr0a) & rxc) != 0);
+            check(usart.data.read(udr0) == 'h');
+            check((usart.data.read(ucsr0a) & rxc) == 0);
+        });
+    });
+    when("firmware does not read three bytes in time", [&] {
         usart.serial.send("!");
         usart.mcu.run(3 * frame);
-        THEN("the two-level FIFO keeps the first two bytes and DOR0 reports the lost one") {
-            CHECK((usart.data.read(ucsr0a) & dor) != 0);
-            CHECK(usart.data.read(udr0) == 'h');
-            CHECK(usart.data.read(udr0) == 'i');
-            CHECK((usart.data.read(ucsr0a) & rxc) == 0);
-        }
-    }
-}
+        then("the two-level FIFO keeps the first two bytes and DOR0 reports the lost one", [&] {
+            check((usart.data.read(ucsr0a) & dor) != 0);
+            check(usart.data.read(udr0) == 'h');
+            check(usart.data.read(udr0) == 'i');
+            check((usart.data.read(ucsr0a) & rxc) == 0);
+        });
+    });
+}};
