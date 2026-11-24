@@ -51,7 +51,7 @@ if(SILICONFORGE_BUILD_APP)
     CPMAddPackage(
         NAME WebFront
         GITHUB_REPOSITORY ambroise-leclerc/WebFront
-        GIT_TAG acfc68152f094021d5a7a6e6ec10bddda2818981) # WebFront 1.1.1: POST routes (#619)
+        GIT_TAG 215758021c62a76b632c7d8c70409231990dba9e) # WebFront 1.2.0
     add_subdirectory(apps/siliconforge)
 elseif(PROJECT_IS_TOP_LEVEL OR SILICONFORGE_BUILD_TESTS)
     # Keep the bench available without WebFront or a window.
