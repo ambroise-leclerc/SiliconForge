@@ -384,9 +384,9 @@ struct ScreenScenario {
 
     ScreenScenario() { std::filesystem::create_directories(directory); }
 
-    void write(const std::string& name, const std::vector<std::uint32_t>& pixels, unsigned width, unsigned height) const {
+    void write(const std::string& name, const std::vector<std::uint32_t>& pixels, unsigned width, unsigned height, const std::string& lineEnd = "\n") const {
         std::ofstream file{directory / name, std::ios::binary};
-        file << "P6\n" << width << ' ' << height << "\n255\n";
+        file << "P6" << lineEnd << width << ' ' << height << lineEnd << "255" << lineEnd;
         for (const auto pixel : pixels) {
             const char rgb[3] = {static_cast<char>(pixel >> 16), static_cast<char>(pixel >> 8), static_cast<char>(pixel)};
             file.write(rgb, 3);
@@ -457,6 +457,27 @@ SCENARIO("a scenario compares the screen with an expected picture", "[scenario][
                 REQUIRE(report.screens.size() == 1);
                 CHECK(report.screens[0].differing == 9600);  // The painted window, black instead of its colours
             }
+        }
+    }
+    GIVEN("the same picture saved with Windows line ends (CRLF) in its header") {
+        ScreenScenario fixture;
+        fixture.write("crlf.ppm", quadrants(240, 320, 60, 120), 240, 320, "\r\n");
+        // And one whose first pixel starts with the bytes 0D 0A, after a header that ends with a single LF: those are pixel data
+        auto pixels = quadrants(240, 320, 60, 120);
+        pixels[0]   = 0x0D0A0Bu;
+        fixture.write("lf.ppm", pixels, 240, 320);
+
+        THEN("the CRLF pair ends the header: the pixels are not shifted by a byte and the screen matches") {
+            const auto report = fixture.run("crlf.ppm");
+            REQUIRE(report.verdict == scenario::Verdict::Pass);
+            CHECK(report.screens[0].differing == 0);
+        }
+        THEN("a single LF still ends only itself: the bytes after it are the first pixel") {
+            const auto report = fixture.run("lf.ppm");
+            REQUIRE(report.screens.size() == 1);
+            CHECK(report.screens[0].differing == 1);  // Only the first pixel differs: the picture was not shifted
+            CHECK(report.screens[0].firstX == 0);
+            CHECK(report.screens[0].firstY == 0);
         }
     }
     GIVEN("a picture whose green and blue quadrants are exchanged") {

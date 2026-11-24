@@ -91,7 +91,9 @@ std::optional<Picture> parsePpm(const std::string& text, std::string& why) {
     picture.pixels.reserve(width * height);
     const auto scale = [&](std::size_t value) { return static_cast<std::uint32_t>((value * 255 + maximum / 2) / maximum); };
     if (magic == "P6") {
-        ++position;  // The single whitespace that ends the header.
+        // The single whitespace that ends the header, or the pair CRLF a file written on Windows may have there. Nothing
+        // else is consumed: the next bytes are pixels.
+        position += text.compare(position, 2, "\r\n") == 0 ? 2 : 1;
         if (text.size() < position + width * height * 3) {
             why = "the pixel data are shorter than the header says";
             return std::nullopt;
