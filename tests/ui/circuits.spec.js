@@ -186,7 +186,7 @@ describe("Circuits", () => {
   });
 
   it("signals a short circuit between an output and a rail", async () => {
-    await sf().loadExample("demo");
+    await sf().loadExample("blink");
     expect(element("shorts").hidden).toBe(true);
     const shorted = structuredClone(fixtures.demo);
     shorted.wires.push({from: "g15", to: "T-15", color: "white"});  // D13 straight to ground

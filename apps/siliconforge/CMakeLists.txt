@@ -13,6 +13,21 @@ foreach(_firmware_file IN LISTS _firmware_files)
     string(APPEND SILICONFORGE_FIRMWARE_VIEWS "    {\"${_firmware_name}\", view(firmware_${_firmware_id})},\n")
 endforeach()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_firmware_files})
+# Their C sources (firmware/src/*.c) too: loading an example copies its source into a folder of the working directory, for the
+# editor and the agent to work on.
+file(GLOB _source_files CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/firmware/src/*.c")
+list(SORT _source_files)
+set(SILICONFORGE_SOURCE_ARRAYS "")
+set(SILICONFORGE_SOURCE_VIEWS "")
+foreach(_source_file IN LISTS _source_files)
+    get_filename_component(_source_name "${_source_file}" NAME)
+    string(MAKE_C_IDENTIFIER "${_source_name}" _source_id)
+    siliconforge_embed_bytes("${_source_file}" _source_bytes)
+    string(APPEND SILICONFORGE_SOURCE_ARRAYS
+        "inline constexpr unsigned char source_${_source_id}[] = {\n${_source_bytes}\n};\n")
+    string(APPEND SILICONFORGE_SOURCE_VIEWS "    {\"${_source_name}\", view(source_${_source_id})},\n")
+endforeach()
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_source_files})
 configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedFirmware.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedFirmware.hpp" @ONLY)
 

@@ -16,7 +16,9 @@ namespace siliconforge::avr {
 /// pin change at its own cycle, so that a logic analyser or a simulated device on the bus sees the real waveform; MISO
 /// is sampled at the sampling edge. SPIF is set once the eighth bit is complete (SPDR then holds what was received) and
 /// is cleared by reading SPSR and then accessing SPDR, or by the interrupt vector. A write to SPDR during a transfer
-/// sets WCOL and is ignored. The direction of the pins stays with DDRx, as on the real device. Slave mode is not
+/// sets WCOL and is ignored; WCOL is cleared the same way as SPIF, even while the transfer is still under way. Clearing
+/// SPE (or MSTR) during a transfer aborts it: the edges still to come are cancelled, SPIF stays clear and the pins are
+/// released. The direction of the pins stays with DDRx, as on the real device. Slave mode is not
 /// modelled: with MSTR clear the peripheral does nothing.
 class Spi {
 public:
@@ -42,6 +44,7 @@ private:
     void finish();
     void updateInterrupt();
     void releasePins();
+    void clearSeenFlags();
 
     DataSpace&           data;
     Scheduler&           scheduler;
@@ -52,7 +55,7 @@ private:
     Pins                 pins;
 
     bool                            busy{false};
-    bool                            statusRead{false};  ///< SPSR was read with SPIF set: the next access to SPDR clears it.
+    u8                              statusSeen{0};  ///< The flags (SPIF, WCOL) SPSR showed since the last access to SPDR: that access clears them.
     u8                              received{0};
     u8                              shiftIn{0};
     std::vector<Scheduler::EventId> events;

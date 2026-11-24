@@ -331,6 +331,27 @@ public:
 
     [[nodiscard]] const std::filesystem::path& directory() const { return root; }
 
+    /// Records `files` (names relative to the directory) in a Git repository of the directory itself, made when it has none,
+    /// so that the editor shows what the person and the agent change from then on: the folder of a session may lie in a
+    /// tree that another repository ignores, which would show nothing. Does nothing when `git` is missing.
+    bool record(const std::vector<std::string>& files, const std::string& message) const {
+        std::error_code error;
+        if (!std::filesystem::exists(root / ".git", error) && !git("init -q", 4096))
+            return false;
+        std::string names;
+        for (const auto& file : files) {
+            const auto quoted = detail::quoted(file);
+            if (!quoted)
+                return false;
+            names += " " + *quoted;
+        }
+        const auto quotedMessage = detail::quoted(message);
+        if (!quotedMessage || !git("add --" + names, 4096))
+            return false;
+        static constexpr std::string_view identity = "-c user.name=SiliconForge -c user.email=siliconforge@localhost -c commit.gpgsign=false ";
+        return git(std::string{identity} + "commit -q -m " + *quotedMessage, 4096).has_value();
+    }
+
     /// Called by write() once the new content is ready and the file was found at the expected version, just before the
     /// replacement: a seam for tests, which play the agent writing in that interval.
     std::function<void()> beforeReplace;

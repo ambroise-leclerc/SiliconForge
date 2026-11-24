@@ -107,6 +107,39 @@ SCENARIO("a byte is shifted out in SPI mode 0, most significant bit first", "[sp
                 CHECK(seen == std::vector<bool>(8, true));
             }
         }
+        WHEN("the collision flag is read and SPDR accessed while the first byte is still being shifted") {
+            spi.send(0xFF);
+            spi.run(8);
+            spi.send(0x00);
+            REQUIRE((spi.status() & wcol) != 0);
+            (void)spi.avr.io(spdr);
+            THEN("WCOL is cleared at once, and the transfer under way still completes with SPIF") {
+                CHECK((spi.status() & wcol) == 0);
+                spi.run(64);
+                CHECK((spi.status() & spif) != 0);
+            }
+        }
+        WHEN("the firmware clears SPE while a byte is being shifted") {
+            spi.send(0xFF);
+            spi.run(10);  // Two bits are out
+            const auto edges = spi.wires.clock.size();
+            const auto bits  = spi.wires.data.size();
+            spi.avr.mcu.dataSpace().write(spcr, 0x10);  // MSTR without SPE
+            spi.run(100);
+            THEN("the byte is aborted: no more edge, no SPIF, the pins are released") {
+                CHECK(spi.wires.clock.size() <= edges + 1);  // At most the release of SCK
+                CHECK(spi.wires.data.size() <= bits + 1);
+                CHECK((spi.status() & spif) == 0);
+                CHECK_FALSE(spi.avr.mcu.pin("PB5")->level());
+                CHECK_FALSE(spi.avr.mcu.pin("PB3")->level());
+            }
+            AND_THEN("a new byte can be sent once the peripheral is enabled again") {
+                spi.avr.mcu.dataSpace().write(spcr, 0x50);
+                spi.send(0x00);
+                spi.run(40);
+                CHECK((spi.status() & spif) != 0);
+            }
+        }
         WHEN("MISO is held high by the device and a byte is exchanged") {
             spi.avr.mcu.pin("PB4")->setExternal(true);
             spi.send(0x00);

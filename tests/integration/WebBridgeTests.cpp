@@ -6,6 +6,7 @@
 #include <siliconforge/mcu/Description.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -14,6 +15,16 @@
 using namespace siliconforge;
 
 namespace {
+// Loading an example copies its source into a folder of the home directory: the tests use one of the temporary directory.
+const bool examplesHome = [] {
+    const auto home = (std::filesystem::temp_directory_path() / "siliconforge-bridge-tests").string();
+#if defined(_WIN32)
+    _putenv_s("SILICONFORGE_HOME", home.c_str());
+#else
+    setenv("SILICONFORGE_HOME", home.c_str(), 1);
+#endif
+    return true;
+}();
 struct Frames {
     std::mutex mutex;
     std::condition_variable ready;
@@ -60,6 +71,8 @@ struct TestApp {
     std::function<Signals(double, double)> signals;
     std::function<std::vector<std::string>()> circuits;
     std::function<std::string()> circuit;
+    std::function<std::string()> filesList;
+    std::function<std::string(std::string)> filesRead;
     template <typename F>
     void cppFunction(std::string_view name, F f) {
         if constexpr (std::is_invocable_v<F, std::string>) {
@@ -71,6 +84,10 @@ struct TestApp {
                 selectCircuit = std::move(f);
             else if (name == "sf.loadExample")
                 loadExample = std::move(f);
+            else if constexpr (std::is_invocable_r_v<std::string, F, std::string>) {
+                if (name == "sf.files.read")
+                    filesRead = std::move(f);
+            }
         } else if constexpr (std::is_invocable_v<F, std::string, std::vector<std::uint8_t>>) {
             if (name == "sf.loadFirmware")
                 loadFirmware = std::move(f);
@@ -95,6 +112,8 @@ struct TestApp {
                 chip = std::move(f);
             else if (name == "sf.circuit")
                 circuit = std::move(f);
+            else if (name == "sf.files.list")
+                filesList = std::move(f);
         } else if constexpr (std::is_invocable_r_v<void, F>) {
             if (name == "sf.reset")
                 reset = std::move(f);
@@ -399,11 +418,11 @@ TEST_CASE("An example loads its circuit and its firmware, and the capture restar
     CHECK(rejection([&] { web.loadExample("no-such-example"); }).code() == app::error_code::unknownExample);
 
     const auto before = std::get<0>(web.signals(-1, 0));
-    web.loadExample("demo");
+    web.loadExample("blink");
     simulation.pause();
     CHECK(nlohmann::json::parse(web.circuit()).at("id") == "arduino-demo");
 
-    // 1.6 simulated seconds of the demo: D13 rises at once, falls after 0.5 s, rises after 1 s, falls after 1.5 s.
+    // 1.6 simulated seconds of blink: D13 rises at once, falls after 0.5 s, rises after 1 s, falls after 1.5 s.
     simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1600}) - mcu.cycles()); });
     const auto [epoch, first, next, now, at, channel, volts, state] = web.signals(-1, 0);
     CHECK(epoch > before);
@@ -445,4 +464,81 @@ TEST_CASE("The SPI display example loads the ILI9341 module and paints its windo
     CHECK(nlohmann::json::parse(web.circuit()).at("id") == "tft-spi-demo");
     simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1500}) - mcu.cycles()); });
     CHECK(simulation.access([](Mcu& mcu) { return mcu.pin("D12")->level(); }));  // The firmware raises D12 once the window is painted
+}
+
+TEST_CASE("The session has a folder made at the start, where the examples are copied and the editor works", "[app][bridge][editor]") {
+    const auto home = std::filesystem::temp_directory_path() / "siliconforge-session-test";
+    std::filesystem::remove_all(home);
+    // A file of the project directory (the current one): the editor must not reach it.
+    const auto probe = std::filesystem::current_path() / "scope-probe.txt";
+    std::ofstream{probe} << "not in the session\n";
+    struct Cleanup {
+        std::filesystem::path path, home;
+        ~Cleanup() {
+            std::error_code ignored;
+            std::filesystem::remove(path, ignored);
+            std::filesystem::remove_all(home, ignored);
+        }
+    } cleanup{probe, home};
+#if defined(_WIN32)
+    _putenv_s("SILICONFORGE_HOME", home.string().c_str());
+    _putenv_s("SILICONFORGE_SESSION", "");
+#else
+    setenv("SILICONFORGE_HOME", home.string().c_str(), 1);
+    unsetenv("SILICONFORGE_SESSION");
+#endif
+
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    std::filesystem::path folder;
+    {
+        app::WebBridge bridge{web, simulation, ""};
+        const auto listed = [&] {
+            std::vector<std::string> paths;
+            for (const auto& file : nlohmann::json::parse(web.filesList()).at("files"))
+                paths.push_back(file.at("path"));
+            std::ranges::sort(paths);
+            return paths;
+        };
+        folder = nlohmann::json::parse(web.filesList()).at("root").get<std::string>();
+        CHECK(folder.parent_path() == home / "sessions");  // Made at the start, in the home directory
+        CHECK(std::filesystem::is_directory(folder));
+        CHECK(listed().empty());
+        CHECK(rejection([&] { (void)web.filesRead("scope-probe.txt"); }).code() == "siliconforge.unknownFile");  // Not the project directory
+        CHECK(rejection([&] { (void)web.filesRead("../scope-probe.txt"); }).code() == "siliconforge.unknownFile");
+
+        web.loadExample("blink");
+        simulation.pause();
+        REQUIRE(std::filesystem::is_regular_file(folder / "blink.c"));
+        CHECK(listed() == std::vector<std::string>{"blink.c"});
+        CHECK(web.filesRead("blink.c").find("D13") != std::string::npos);
+
+        // What the agent adds, and an edit, stay; a second load of the example does not overwrite them
+        std::ofstream{folder / "bounce.c"} << "int bounce;\n";
+        { std::ofstream edited{folder / "blink.c", std::ios::app}; edited << "// edited\n"; }
+        web.loadExample("blink");
+        simulation.pause();
+        CHECK(listed() == std::vector<std::string>{"blink.c", "bounce.c"});
+        CHECK(web.filesRead("blink.c").find("// edited") != std::string::npos);
+
+        web.loadExample("pwm");  // Another example goes to the same folder
+        simulation.pause();
+        CHECK(listed() == std::vector<std::string>{"blink.c", "bounce.c", "pwm.c"});
+
+        // A firmware of the person's own changes nothing to what the editor sees
+        const std::string hex = ":02000000FFCF30\n:00000001FF\n";  // rjmp .-2
+        web.loadFirmware("mine.hex", {hex.begin(), hex.end()});
+        CHECK(listed() == std::vector<std::string>{"blink.c", "bounce.c", "pwm.c"});
+    }
+    // The end of the session removes nothing
+    CHECK(std::filesystem::exists(folder / "bounce.c"));
+    CHECK(std::filesystem::exists(folder / "blink.c"));
+
+    // A new session makes a folder of its own and leaves the first alone
+    TestApp second;
+    app::Simulation other{mcu::create("atmega328p")};
+    app::WebBridge bridge{second, other, ""};
+    const std::filesystem::path next = nlohmann::json::parse(second.filesList()).at("root").get<std::string>();
+    CHECK(next != folder);
+    CHECK(std::filesystem::exists(folder / "bounce.c"));
 }

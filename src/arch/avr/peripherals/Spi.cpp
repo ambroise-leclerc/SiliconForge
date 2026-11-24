@@ -27,8 +27,7 @@ Spi::Spi(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts,
                          }});
     data.map(regs.spsr, {[this] {
                              auto status = this->data.raw(regs.spsr);
-                             if (status & spif)
-                                 statusRead = true;
+                             statusSeen  = static_cast<u8>(statusSeen | (status & (spif | wcol)));  // Cleared by the next access to SPDR
                              return status;
                          },
                          [this](u8 value, u8 mask) {
@@ -36,11 +35,7 @@ Spi::Spi(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts,
                              stored       = static_cast<u8>((stored & ~(mask & spi2x)) | (value & mask & spi2x));
                          }});
     data.map(regs.spdr, {[this] {
-                             if (statusRead) {
-                                 this->data.raw(regs.spsr) &= static_cast<u8>(~(spif | wcol));
-                                 statusRead = false;
-                                 updateInterrupt();
-                             }
+                             clearSeenFlags();
                              return received;
                          },
                          [this](u8 value, u8) {
@@ -51,11 +46,7 @@ Spi::Spi(DataSpace& data, Scheduler& scheduler, InterruptController& interrupts,
                                  this->data.raw(regs.spsr) |= wcol;
                                  return;
                              }
-                             if (statusRead) {
-                                 this->data.raw(regs.spsr) &= static_cast<u8>(~(spif | wcol));
-                                 statusRead = false;
-                                 updateInterrupt();
-                             }
+                             clearSeenFlags();
                              start(value, this->clock);
                          }});
     interrupts.onAcknowledge(vector, [this] {
@@ -68,7 +59,7 @@ void Spi::reset(bool preserveRegisters) {
     for (const auto event : std::exchange(events, {}))
         scheduler.cancel(event);
     busy       = false;
-    statusRead = false;
+    statusSeen = 0;
     received   = 0;
     if (!preserveRegisters) {
         data.raw(regs.spcr) = 0;
@@ -91,10 +82,27 @@ void Spi::releasePins() {
     pins.port->overrideLevel(pins.mosi, std::nullopt);
 }
 
+void Spi::clearSeenFlags() {
+    if (!statusSeen)
+        return;
+    data.raw(regs.spsr) &= static_cast<u8>(~statusSeen);
+    statusSeen = 0;
+    updateInterrupt();
+}
+
 void Spi::controlChanged() {
     const auto control = data.raw(regs.spcr);
-    if (busy)
+    if (busy) {
+        if ((control & spe) && (control & mstr))
+            return;  // The mode of a transfer under way does not change
+        // Disabling the peripheral (or leaving master mode) aborts the byte: no more edge, no SPIF, the pins are released.
+        for (const auto event : std::exchange(events, {}))
+            scheduler.cancel(event);
+        busy = false;
+        releasePins();
+        updateInterrupt();
         return;
+    }
     if (!pins.port)
         return;
     // A master that is enabled holds SCK at its idle level; the direction stays with DDRx.
