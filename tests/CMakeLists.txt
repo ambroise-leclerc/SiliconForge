@@ -1,5 +1,9 @@
-CPMAddPackage("gh:catchorg/Catch2@3.15.2")
-include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
+# The tests are written with WebFront's BDD framework: one header, and a CMake function that registers each scenario in
+# CTest. Without the application, only that part of WebFront is taken: its sources are downloaded, not configured.
+if(NOT TARGET WebFront::Bdd)
+    CPMAddPackage(NAME WebFront GITHUB_REPOSITORY ambroise-leclerc/WebFront GIT_TAG ${SILICONFORGE_WEBFRONT_TAG} DOWNLOAD_ONLY YES)
+    include(${WebFront_SOURCE_DIR}/cmake/WebFrontBddTarget.cmake)
+endif()
 
 # Firmware: compiled from firmware/src when avr-gcc is available, otherwise the committed firmware/prebuilt is used.
 find_program(AVR_GCC avr-gcc)
@@ -20,6 +24,7 @@ else()
 endif()
 
 add_executable(siliconforge_tests
+    support/Main.cpp
     support/PublicHeaders.cpp
     support/OpcodeCoverageListener.cpp
     unit/DescriptionTests.cpp
@@ -42,7 +47,7 @@ add_executable(siliconforge_tests
     unit/ScenarioTests.cpp
     integration/FirmwareTests.cpp)
 target_link_libraries(siliconforge_tests PRIVATE SiliconForge::mcu SiliconForge::circuit SiliconForge::scenario SiliconForge::atdf
-    SiliconForge::gif SiliconForge_options Catch2::Catch2WithMain)
+    SiliconForge::gif SiliconForge_options WebFront::Bdd)
 # The unit tests of the scenario engine reach its SHA-256.
 target_include_directories(siliconforge_tests PRIVATE ${PROJECT_SOURCE_DIR}/src)
 target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_MCU_DIR="${PROJECT_SOURCE_DIR}/mcus" SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}" SILICONFORGE_FIRMWARE_DIR="${SILICONFORGE_FIRMWARE_DIR}")
@@ -55,7 +60,7 @@ if(AVR_OBJDUMP)
     target_compile_definitions(siliconforge_tests PRIVATE SILICONFORGE_AVR_OBJDUMP="${AVR_OBJDUMP}")
 endif()
 # The opcodes executed by the tests feed the qualification matrix (ADR 0006): one file per test process.
-catch_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast
+webfront_bdd_discover_tests(siliconforge_tests PROPERTIES TIMEOUT 60 LABELS fast
     ENVIRONMENT "SILICONFORGE_OPCODE_COVERAGE=${PROJECT_BINARY_DIR}/qualification/coverage/tests")
 
 add_subdirectory(qualification)
@@ -113,10 +118,10 @@ if(SILICONFORGE_BUILD_APP)
                 -DWORK=${CMAKE_CURRENT_BINARY_DIR}/McuCommandLine -P ${CMAKE_CURRENT_SOURCE_DIR}/McuCliTests.cmake)
     set_tests_properties(McuCommandLine PROPERTIES TIMEOUT 60 LABELS fast)
     add_executable(siliconforge_bridge_tests integration/WebBridgeTests.cpp integration/BenchWindowTests.cpp integration/TerminalTests.cpp integration/ProjectTests.cpp
-        integration/McpTests.cpp)
-    target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options Catch2::Catch2WithMain)
+        integration/McpTests.cpp support/Main.cpp)
+    target_link_libraries(siliconforge_bridge_tests PRIVATE SiliconForge::app SiliconForge_options WebFront::Bdd)
     target_compile_definitions(siliconforge_bridge_tests PRIVATE SILICONFORGE_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
-    catch_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
+    webfront_bdd_discover_tests(siliconforge_bridge_tests PROPERTIES TIMEOUT 15 LABELS fast)
 
     # The project directory of the bench (it works on the scenarios and runs of the working directory).
     macro(siliconforge_ui_bench_project directory)

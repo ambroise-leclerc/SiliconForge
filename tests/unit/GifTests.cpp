@@ -2,12 +2,14 @@
 // decoder written from the GIF89a specification reads the encoder's output back.
 #include <Gif.hpp>
 
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
 
 #include <cstdint>
 #include <random>
 #include <stdexcept>
 #include <vector>
+
+using namespace webfront::bdd;
 
 namespace gif = siliconforge::gif;
 using Bytes = std::vector<std::uint8_t>;
@@ -73,13 +75,13 @@ Decoded decode(const Bytes& g) {
     const auto byte = [&] { return g.at(p++); };
     const auto shortValue = [&] { const int lo = byte(); return lo | (byte() << 8); };
     Decoded d;
-    REQUIRE(std::string(g.begin(), g.begin() + 6) == "GIF89a");
+    require(std::string(g.begin(), g.begin() + 6) == "GIF89a");
     p = 6;
     d.width = shortValue();
     d.height = shortValue();
     const int packed = byte();
     p += 2;
-    REQUIRE((packed & 0x80) != 0);
+    require((packed & 0x80) != 0);
     for (int i = 0; i < (2 << (packed & 7)); ++i)
         d.palette.push_back({byte(), byte(), byte()});
     Bytes canvas(static_cast<std::size_t>(d.width) * d.height, 0);
@@ -95,7 +97,7 @@ Decoded decode(const Bytes& g) {
                 for (int i = 0; i < n; ++i)
                     payload.push_back(byte());
             if (label == 0xF9) {
-                REQUIRE(((payload[0] >> 2) & 7) == 1);  // Keep the previous frame under the next.
+                require(((payload[0] >> 2) & 7) == 1);  // Keep the previous frame under the next.
                 delay = payload[1] | (payload[2] << 8);
                 transparent = (payload[0] & 1) ? payload[3] : -1;
             } else if (label == 0xFF && std::string(payload.begin(), payload.begin() + 11) == "NETSCAPE2.0") {
@@ -103,16 +105,16 @@ Decoded decode(const Bytes& g) {
             }
             continue;
         }
-        REQUIRE(block == 0x2C);
+        require(block == 0x2C);
         const int left = shortValue(), top = shortValue(), w = shortValue(), h = shortValue();
-        REQUIRE(byte() == 0);
+        require(byte() == 0);
         const int minimumCodeSize = byte();
         Bytes data;
         for (int n = byte(); n; n = byte())
             for (int i = 0; i < n; ++i)
                 data.push_back(byte());
         const Bytes pixels = unlzw(data, minimumCodeSize);
-        REQUIRE(pixels.size() == static_cast<std::size_t>(w) * h);
+        require(pixels.size() == static_cast<std::size_t>(w) * h);
         for (int y = 0; y < h; ++y)
             for (int x = 0; x < w; ++x) {
                 const auto index = pixels[static_cast<std::size_t>(y) * w + x];
@@ -126,7 +128,7 @@ Decoded decode(const Bytes& g) {
 
 }  // namespace
 
-TEST_CASE("GIF LZW codes read back, across code widths and dictionary resets", "[gif]") {
+const Scenario gifLzwCodesReadBackAcrossCode{"GIF LZW codes read back, across code widths and dictionary resets", {"gif"}, [] {
     std::mt19937 random(1729);
     for (int minimumCodeSize : {2, 4, 8}) {
         const int alphabet = 1 << minimumCodeSize;
@@ -135,12 +137,12 @@ TEST_CASE("GIF LZW codes read back, across code widths and dictionary resets", "
             // Runs and noise: long runs fill the dictionary slowly, noise fills it fast and forces resets.
             for (std::size_t i = 0; i < length; ++i)
                 indices[i] = static_cast<std::uint8_t>(i % 1000 < 500 ? (i / 37) % alphabet : random() % alphabet);
-            CHECK(unlzw(gif::lzw(indices, minimumCodeSize), minimumCodeSize) == indices);
+            check(unlzw(gif::lzw(indices, minimumCodeSize), minimumCodeSize) == indices);
         }
     }
-}
+}};
 
-TEST_CASE("GIF frames compose back to the sequence, repeated ones lengthening the previous", "[gif]") {
+const Scenario gifFramesComposeBackToTheSequence{"GIF frames compose back to the sequence, repeated ones lengthening the previous", {"gif"}, [] {
     const int width = 7, height = 5;
     const std::vector<gif::Color> palette{{0, 0, 0}, {255, 0, 0}, {0, 255, 0}};
     std::vector<Bytes> frames(4, Bytes(width * height, 0));
@@ -150,24 +152,24 @@ TEST_CASE("GIF frames compose back to the sequence, repeated ones lengthening th
     frames[3] = frames[1];
     frames[3][8] = 0;
     const Decoded d = decode(gif::encode(width, height, palette, frames, 10));
-    CHECK(d.width == width);
-    CHECK(d.height == height);
-    CHECK(d.loops == 0);
-    CHECK(d.palette[1] == palette[1]);
-    REQUIRE(d.frames.size() == 3);
-    CHECK(d.frames[0] == frames[0]);
-    CHECK(d.frames[1] == frames[1]);
-    CHECK(d.frames[2] == frames[3]);
-    CHECK(d.delays == std::vector<int>{10, 20, 10});
-}
+    check(d.width == width);
+    check(d.height == height);
+    check(d.loops == 0);
+    check(d.palette[1] == palette[1]);
+    require(d.frames.size() == 3);
+    check(d.frames[0] == frames[0]);
+    check(d.frames[1] == frames[1]);
+    check(d.frames[2] == frames[3]);
+    check(d.delays == std::vector<int>{10, 20, 10});
+}};
 
-TEST_CASE("GIF palette keeps the colours of a few-colour image and maps each pixel to its nearest", "[gif]") {
+const Scenario gifPaletteKeepsTheColoursOfA{"GIF palette keeps the colours of a few-colour image and maps each pixel to its nearest", {"gif"}, [] {
     gif::Image image{4, 1, {10, 10, 10, 12, 10, 10, 200, 0, 0, 0, 0, 250}};
     const auto exact = gif::medianCut(std::span(&image, 1), 4);
-    REQUIRE(exact.size() == 4);
+    require(exact.size() == 4);
     const auto indices = gif::quantize(image, exact);
     for (std::size_t i = 0; i < 4; ++i)
-        CHECK(exact[indices[i]] == gif::Color{image.rgb[i * 3], image.rgb[i * 3 + 1], image.rgb[i * 3 + 2]});
+        check(exact[indices[i]] == gif::Color{image.rgb[i * 3], image.rgb[i * 3 + 1], image.rgb[i * 3 + 2]});
     const auto distance = [](const gif::Color& a, const gif::Color& b) {
         int sum = 0;
         for (std::size_t c = 0; c < 3; ++c)
@@ -176,19 +178,19 @@ TEST_CASE("GIF palette keeps the colours of a few-colour image and maps each pix
     };
     for (int colors : {1, 2, 3}) {
         const auto palette = gif::medianCut(std::span(&image, 1), colors);
-        CHECK(palette.size() == static_cast<std::size_t>(colors));
+        check(palette.size() == static_cast<std::size_t>(colors));
         const auto mapped = gif::quantize(image, palette);
         for (std::size_t i = 0; i < 4; ++i) {
             const gif::Color pixel{image.rgb[i * 3], image.rgb[i * 3 + 1], image.rgb[i * 3 + 2]};
             for (const auto& other : palette)
-                CHECK(distance(pixel, palette[mapped[i]]) <= distance(pixel, other));
+                check(distance(pixel, palette[mapped[i]]) <= distance(pixel, other));
         }
     }
-}
+}};
 
-TEST_CASE("GIF scaling keeps an image of the same size and averages a uniform one", "[gif]") {
+const Scenario gifScalingKeepsAnImageOfThe{"GIF scaling keeps an image of the same size and averages a uniform one", {"gif"}, [] {
     gif::Image image{3, 2, {0, 50, 100, 150, 200, 250, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}};
-    CHECK(gif::resize(image, 3, 2).rgb == image.rgb);
+    check(gif::resize(image, 3, 2).rgb == image.rgb);
     gif::Image uniform{8, 8, Bytes(8 * 8 * 3, 77)};
-    CHECK(gif::resize(uniform, 3, 5).rgb == Bytes(3 * 5 * 3, 77));
-}
+    check(gif::resize(uniform, 3, 5).rgb == Bytes(3 * 5 * 3, 77));
+}};

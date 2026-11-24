@@ -1,0 +1,97 @@
+name: Test build time
+
+# Builds the project twice on the same runner, from a base and from a head, and compares what the tests cost to compile
+# (the summary of each job). It runs for a change of this file or of its script, and by hand once it is on the default
+# branch.
+on:
+  pull_request:
+    branches: [develop, master]
+    paths:
+      - .github/workflows/TestBuildTime.yml
+      - .github/scripts/ninja_log_summary.py
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Reference to compare from
+        default: develop
+      head:
+        description: Reference to compare to
+        default: develop
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-time-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BASE: ${{ github.event.pull_request.base.sha || inputs.base }}
+  HEAD: ${{ github.event.pull_request.head.sha || inputs.head }}
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.cache/CPM
+
+jobs:
+  linux-gcc16:
+    runs-on: ubuntu-24.04
+    container: ubuntu:26.04
+    timeout-minutes: 60
+    env:
+      CC: gcc-16
+      CXX: g++-16
+    steps:
+      - name: Install the toolchains
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends -o Acquire::Retries=3 \
+            ca-certificates curl git cmake ninja-build python3 gcc-16 g++-16 gcc-avr avr-libc binutils-avr make libwebkitgtk-6.0-dev
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.BASE }}", path: base }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.HEAD }}", path: head }
+      - name: Build the base, then the head
+        run: |
+          for side in base head; do
+            cmake -S $side -B build-$side -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+            cmake --build build-$side
+          done
+      - name: Compare
+        run: python3 head/.github/scripts/ninja_log_summary.py base=build-base head=build-head | tee -a "$GITHUB_STEP_SUMMARY"
+
+  macos-tools:
+    # As in BuildAndTest: the tests without the application.
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.BASE }}", path: base }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.HEAD }}", path: head }
+      - run: brew install ninja
+      - name: Build the base, then the head
+        run: |
+          for side in base head; do
+            cmake -S $side -B build-$side -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+            cmake --build build-$side --target atdf2json captures2gif siliconforge_tests
+          done
+      - name: Compare
+        run: python3 head/.github/scripts/ninja_log_summary.py base=build-base head=build-head | tee -a "$GITHUB_STEP_SUMMARY"
+
+  windows-msvc:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.BASE }}", path: base }
+      - uses: actions/checkout@v4
+        with: { ref: "${{ env.HEAD }}", path: head }
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build the base, then the head
+        shell: bash
+        run: |
+          for side in base head; do
+            cmake -S $side -B build-$side -G Ninja -DSILICONFORGE_WARNINGS_AS_ERRORS=ON -DCPM_SOURCE_CACHE="$CPM_SOURCE_CACHE"
+            cmake --build build-$side
+          done
+      - name: Compare
+        shell: bash
+        run: python head/.github/scripts/ninja_log_summary.py base=build-base head=build-head | tee -a "$GITHUB_STEP_SUMMARY"

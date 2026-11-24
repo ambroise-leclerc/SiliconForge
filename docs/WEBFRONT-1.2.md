@@ -12,7 +12,7 @@ une surcharge locale. Ce document succède au [bilan 1.0](WEBFRONT-1.0.md), qui 
 | `webfront-agent`, `webfront_add_agent()` et `WEBFRONT_BUILD_AUTOMATION` retirés (WebFront#632) | Sans effet : l'agent utilise le serveur MCP de SiliconForge ([AGENT-MCP.md](AGENT-MCP.md)), pas celui de WebFront. |
 | `enableAutomation` n'est plus compilé avec `WEBFRONT_DISTRIBUTION` | Sans effet : nous ne l'appelons pas. |
 | Profil CEF dans `cef_cache/<exécutable>` (WebFront#617) | Sans effet : CEF n'est pas le moteur choisi par défaut et l'application ne conserve rien dans son profil. |
-| `webfront::bdd` public (WebFront#647) | Sans effet : nos tests gardent leur propre Catch2. |
+| `webfront::bdd` public (WebFront#647) | Adopté : les tests n'utilisent plus Catch2 (voir ci-dessous). |
 
 La compilation avec `-Werror` passe sans modification du code existant.
 
@@ -25,6 +25,32 @@ La compilation avec `-Werror` passe sans modification du code existant.
   défini, utiliser `WEBFRONT_PORT=0` (port libre) ou un port différent par instance. L'adresse affichée au démarrage,
   celle du serveur MCP de l'agent et les sessions du terminal portent le port réellement choisi. Pour Mistral Vibe,
   dont la configuration est statique, il faut toujours fixer `--port 9002`.
+
+- **Tests écrits avec `webfront::bdd` (WebFront#647).** Catch2 et ses macros disparaissent : `const Scenario`, `given`,
+  `when`, `then`, `check`, `require`, `checkThrows`, `skip`, `info` (en-tête `<webfront/testing/Bdd.hpp>`, cible
+  `WebFront::Bdd`, `webfront_bdd_discover_tests`). Les 195 scénarios et les 198 381 assertions des tests unitaires sont
+  conservés ; CTest garde 221 cas. Sans l'application, seul l'en-tête de WebFront est téléchargé (`DOWNLOAD_ONLY`).
+  Différences à connaître : `check(a == b)` n'affiche pas les valeurs comparées (utiliser `info`), un `return;` dans une
+  section ne quitte plus que la section, `Approx` est fourni par `tests/support/Approx.hpp`, et l'ordre d'exécution
+  d'un processus est aléatoire par défaut (`--order decl` pour l'ordre de déclaration).
+
+### Temps de compilation avant / après
+
+Mesuré avec `.github/scripts/ninja_log_summary.py` (journal de Ninja) sur deux compilations complètes en Release,
+GCC 16, 24 cœurs, de `develop` (Catch2) puis de la branche (`webfront::bdd`). « CPU » additionne la durée de chaque étape.
+
+| Étape | Catch2 | `webfront::bdd` | Écart |
+| --- | ---: | ---: | ---: |
+| Sources des tests (CPU) | 419 s | 439 s | +5 % |
+| Bibliothèque Catch2 (CPU) | 267 s | 0 s | −100 % |
+| Compilation complète (CPU) | 1375 s | 1118 s | −19 % |
+| Compilation complète (temps réel) | 135 s | 128 s | −6 % |
+
+Mesure par fichier, un par un (CPU, sans concurrence entre étapes) : 238 s avant, 235 s après pour les sources des
+tests, 138 s de plus pour Catch2 avant. Les fichiers de test ne compilent donc pas plus vite ; le gain vient de la
+bibliothèque Catch2 qu'il n'y a plus à compiler. Chaque fichier inclut `Bdd.hpp`, un peu plus lourd que l'en-tête
+des macros de Catch2 : les petits fichiers gagnent environ une seconde, les gros perdent peu ou gagnent.
+La comparaison en CI (Linux, macOS, Windows) est faite par `.github/workflows/TestBuildTime.yml`.
 
 ## Évalué et non retenu
 

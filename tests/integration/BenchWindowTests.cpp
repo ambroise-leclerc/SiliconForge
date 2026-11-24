@@ -2,7 +2,7 @@
 // reading and writing the evidence the command line keeps.
 
 #include "../../apps/siliconforge/Bench.hpp"
-#include <catch2/catch_test_macros.hpp>
+#include <webfront/testing/Bdd.hpp>
 
 #include <filesystem>
 #include <format>
@@ -15,6 +15,7 @@
 #include <sys/stat.h>
 #endif
 
+using namespace webfront::bdd;
 using namespace siliconforge;
 using Json = nlohmann::json;
 namespace fs = std::filesystem;
@@ -62,136 +63,136 @@ private:
 
 }  // namespace
 
-SCENARIO("The window lists the scenarios and the runs of the project", "[app][bench]") {
-    GIVEN("a project with two scenarios and no run") {
+const Scenario theWindowListsTheScenariosAndThe{"The window lists the scenarios and the runs of the project", {"app", "bench"}, [] {
+    given("a project with two scenarios and no run", [&] {
         Project project;
-        THEN("the scenarios are named and no run is offered") {
+        then("the scenarios are named and no run is offered", [&] {
             const auto listing = app::bench::list();
-            CHECK(listing.at("scenarios") == Json::array({"off-target.json", "pwm-setpoint.json"}));
-            CHECK(listing.at("runs").empty());
-        }
-        WHEN("the command line has run one of them") {
+            check(listing.at("scenarios") == Json::array({"off-target.json", "pwm-setpoint.json"}));
+            check(listing.at("runs").empty());
+        });
+        when("the command line has run one of them", [&] {
             const auto report = scenario::run(fs::path{"scenarios"} / "pwm-setpoint.json");
-            REQUIRE(scenario::keepEvidence(report, scenario::defaultEvidenceDirectory("scenarios/pwm-setpoint.json")));
-            THEN("the run is offered with its verdict") {
+            require(scenario::keepEvidence(report, scenario::defaultEvidenceDirectory("scenarios/pwm-setpoint.json")));
+            then("the run is offered with its verdict", [&] {
                 const auto runs = app::bench::list().at("runs");
-                REQUIRE(runs.size() == 1);
-                CHECK(runs[0].at("name") == "pwm-setpoint");
-                CHECK(runs[0].at("scenario") == "PWM setpoint on D6");
-                CHECK(runs[0].at("verdict") == "pass");
-            }
-        }
-    }
-}
+                require(runs.size() == 1);
+                check(runs[0].at("name") == "pwm-setpoint");
+                check(runs[0].at("scenario") == "PWM setpoint on D6");
+                check(runs[0].at("verdict") == "pass");
+            });
+        });
+    });
+}};
 
-SCENARIO("The window reruns a scenario and compares it with the run of the command line", "[app][bench]") {
-    GIVEN("a scenario the command line has run") {
+const Scenario theWindowRerunsAScenarioAndCompares{"The window reruns a scenario and compares it with the run of the command line", {"app", "bench"}, [] {
+    given("a scenario the command line has run", [&] {
         Project    project;
         const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
         const auto directory = scenario::defaultEvidenceDirectory(file);
         const auto cli       = scenario::keepEvidence(scenario::run(file), directory);
-        REQUIRE(cli);
-        WHEN("the window runs it on the same inputs") {
+        require(cli);
+        when("the window runs it on the same inputs", [&] {
             const auto result = app::bench::run("pwm-setpoint.json");
-            REQUIRE(result);
-            THEN("it passes and reproduces the report of the command line byte for byte") {
-                CHECK(result->at("report").at("verdict") == "pass");
-                CHECK(result->at("exitCode") == 0);
-                CHECK(result->at("identical") == true);
-                CHECK(result->at("previous") == result->at("report"));
-                CHECK(text(directory / "report.json") == *cli);
-            }
-            THEN("it keeps its evidence where the command line keeps it") {
-                CHECK(result->at("directory") == ".siliconforge/runs/pwm-setpoint");
-                CHECK(result->at("trace").get<std::string>() == text(directory / "trace.vcd"));
-            }
-        }
-        WHEN("a firmware change alters the run before the window repeats it") {
+            require(result);
+            then("it passes and reproduces the report of the command line byte for byte", [&] {
+                check(result->at("report").at("verdict") == "pass");
+                check(result->at("exitCode") == 0);
+                check(result->at("identical") == true);
+                check(result->at("previous") == result->at("report"));
+                check(text(directory / "report.json") == *cli);
+            });
+            then("it keeps its evidence where the command line keeps it", [&] {
+                check(result->at("directory") == ".siliconforge/runs/pwm-setpoint");
+                check(result->at("trace").get<std::string>() == text(directory / "trace.vcd"));
+            });
+        });
+        when("a firmware change alters the run before the window repeats it", [&] {
             auto stale = Json::parse(*cli);
             stale["inputs"][2]["sha256"] = "0";
             std::ofstream{directory / "report.json"} << stale.dump(2);
             const auto result = app::bench::run("pwm-setpoint.json");
-            REQUIRE(result);
-            THEN("the earlier report is returned with the difference flagged") {
-                CHECK(result->at("identical") == false);
-                CHECK(result->at("previous").at("inputs")[2].at("sha256") == "0");
-                CHECK(result->at("report").at("inputs")[2].at("sha256") != "0");
-            }
-        }
-    }
-    GIVEN("a scenario that never ran") {
+            require(result);
+            then("the earlier report is returned with the difference flagged", [&] {
+                check(result->at("identical") == false);
+                check(result->at("previous").at("inputs")[2].at("sha256") == "0");
+                check(result->at("report").at("inputs")[2].at("sha256") != "0");
+            });
+        });
+    });
+    given("a scenario that never ran", [&] {
         Project project;
-        WHEN("the window runs it") {
+        when("the window runs it", [&] {
             const auto result = app::bench::run("pwm-setpoint.json");
-            REQUIRE(result);
-            THEN("there is nothing to compare with") {
-                CHECK(result->at("previous").is_null());
-                CHECK(result->at("identical") == false);
-            }
-        }
-    }
-}
+            require(result);
+            then("there is nothing to compare with", [&] {
+                check(result->at("previous").is_null());
+                check(result->at("identical") == false);
+            });
+        });
+    });
+}};
 
-SCENARIO("The window opens the evidence of a failed run", "[app][bench]") {
-    GIVEN("a scenario whose measurement misses its expectation, run by the command line") {
+const Scenario theWindowOpensTheEvidenceOfA{"The window opens the evidence of a failed run", {"app", "bench"}, [] {
+    given("a scenario whose measurement misses its expectation, run by the command line", [&] {
         Project    project;
         const auto file = fs::path{"scenarios"} / "off-target.json";
-        REQUIRE(scenario::keepEvidence(scenario::run(file), scenario::defaultEvidenceDirectory(file)));
-        WHEN("the window opens it") {
+        require(scenario::keepEvidence(scenario::run(file), scenario::defaultEvidenceDirectory(file)));
+        when("the window opens it", [&] {
             const auto opened = app::bench::open("off-target");
-            REQUIRE(opened);
+            require(opened);
             const auto& report = opened->at("report");
-            THEN("the verdict, the stimulus, the measurement with its expectation and the trace are there") {
-                CHECK(report.at("verdict") == "fail");
-                CHECK(report.at("steps")[3].at("detail") == "button-d2.pressed = 1");
+            then("the verdict, the stimulus, the measurement with its expectation and the trace are there", [&] {
+                check(report.at("verdict") == "fail");
+                check(report.at("steps")[3].at("detail") == "button-d2.pressed = 1");
                 const auto& measurement = report.at("measurements")[0];
-                CHECK(measurement.at("id") == "duty-released");
-                CHECK(measurement.at("verdict") == "fail");
-                CHECK(measurement.at("value").get<double>() > 24.0);
-                CHECK(measurement.at("expected").at("min").get<double>() == 49.5);
-                CHECK(opened->at("trace").get<std::string>().starts_with("$"));
-            }
-        }
-        WHEN("the window runs it again") {
+                check(measurement.at("id") == "duty-released");
+                check(measurement.at("verdict") == "fail");
+                check(measurement.at("value").get<double>() > 24.0);
+                check(measurement.at("expected").at("min").get<double>() == 49.5);
+                check(opened->at("trace").get<std::string>().starts_with("$"));
+            });
+        });
+        when("the window runs it again", [&] {
             const auto result = app::bench::run("off-target.json");
-            REQUIRE(result);
-            THEN("it fails the same way, with the exit code of the command line") {
-                CHECK(result->at("exitCode") == 1);
-                CHECK(result->at("identical") == true);
-            }
-        }
-    }
-}
+            require(result);
+            then("it fails the same way, with the exit code of the command line", [&] {
+                check(result->at("exitCode") == 1);
+                check(result->at("identical") == true);
+            });
+        });
+    });
+}};
 
-SCENARIO("The window refuses what the project does not hold", "[app][bench]") {
-    GIVEN("a project and a run") {
+const Scenario theWindowRefusesWhatTheProjectDoes{"The window refuses what the project does not hold", {"app", "bench"}, [] {
+    given("a project and a run", [&] {
         Project project;
-        WHEN("the page names something that is not a scenario or a run of the project") {
-            THEN("each call refuses with its code, and names with a path are never followed") {
+        when("the page names something that is not a scenario or a run of the project", [&] {
+            then("each call refuses with its code, and names with a path are never followed", [&] {
                 for (const auto* name : {"missing.json", "../pwm-setpoint.json", "scenarios/pwm-setpoint.json", ".."}) {
                     const auto run = app::bench::run(name);
-                    REQUIRE_FALSE(run);
-                    CHECK(run.error().code == "siliconforge.unknownScenario");
+                    require(!run);
+                    check(run.error().code == "siliconforge.unknownScenario");
                 }
                 for (const auto* name : {"missing", "../scenarios", "a/b", ""}) {
                     const auto opened = app::bench::open(name);
-                    REQUIRE_FALSE(opened);
-                    CHECK(opened.error().code == "siliconforge.unknownRun");
+                    require(!opened);
+                    check(opened.error().code == "siliconforge.unknownRun");
                 }
-            }
-        }
-        WHEN("a scenario cannot run on this bench") {
+            });
+        });
+        when("a scenario cannot run on this bench", [&] {
             std::ofstream{project.root / "scenarios" / "broken.json"} << "{\"formatVersion\": 99}";
             const auto result = app::bench::run("broken.json");
-            REQUIRE(result);
-            THEN("the evidence says incompatible, with the exit code of the command line") {
-                CHECK(result->at("report").at("verdict") == "incompatible");
-                CHECK(result->at("exitCode") == 2);
-                CHECK(result->at("trace").is_null());
-            }
-        }
-    }
-}
+            require(result);
+            then("the evidence says incompatible, with the exit code of the command line", [&] {
+                check(result->at("report").at("verdict") == "incompatible");
+                check(result->at("exitCode") == 2);
+                check(result->at("trace").is_null());
+            });
+        });
+    });
+}};
 
 namespace {
 
@@ -201,13 +202,13 @@ void link(const fs::path& target, const fs::path& at) {
     fs::create_directories(at.parent_path(), error);
     fs::create_symlink(target, at, error);
     if (error)
-        SKIP("Cannot create a symbolic link: " << error.message());
+        skip("Cannot create a symbolic link: ", error.message());
 }
 
 }  // namespace
 
-SCENARIO("The window does not follow links out of the project", "[app][bench]") {
-    GIVEN("a project and a file outside it") {
+const Scenario theWindowDoesNotFollowLinksOut{"The window does not follow links out of the project", {"app", "bench"}, [] {
+    given("a project and a file outside it", [&] {
         Project       project;
         const auto    outside = project.root.parent_path() / (project.root.filename().string() + "-outside");
         fs::remove_all(outside);
@@ -215,158 +216,158 @@ SCENARIO("The window does not follow links out of the project", "[app][bench]") 
         std::ofstream{outside / "secret.txt"} << "secret";
         const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
         const auto directory = scenario::defaultEvidenceDirectory(file);
-        REQUIRE(scenario::keepEvidence(scenario::run(file), directory));
+        require(scenario::keepEvidence(scenario::run(file), directory));
 
-        WHEN("trace.vcd of a run is a link to that file") {
+        when("trace.vcd of a run is a link to that file", [&] {
             fs::remove(directory / "trace.vcd");
             link(outside / "secret.txt", directory / "trace.vcd");
             const auto opened = app::bench::open("pwm-setpoint");
-            THEN("the run is not opened, and nothing of the file is returned") {
-                REQUIRE_FALSE(opened);
-                CHECK(opened.error().message.find("secret") == std::string::npos);
-            }
-        }
-        WHEN("report.json of a run is a link to that file") {
+            then("the run is not opened, and nothing of the file is returned", [&] {
+                require(!opened);
+                check(opened.error().message.find("secret") == std::string::npos);
+            });
+        });
+        when("report.json of a run is a link to that file", [&] {
             fs::remove(directory / "report.json");
             link(outside / "secret.txt", directory / "report.json");
-            THEN("the run is not opened") {
-                REQUIRE_FALSE(app::bench::open("pwm-setpoint"));
-            }
-            AND_THEN("running the scenario again replaces the link by a plain file and leaves the target alone") {
+            then("the run is not opened", [&] {
+                require(!app::bench::open("pwm-setpoint"));
+            });
+            andThen("running the scenario again replaces the link by a plain file and leaves the target alone", [&] {
                 const auto result = app::bench::run("pwm-setpoint.json");
-                REQUIRE(result);
-                CHECK(text(outside / "secret.txt") == "secret");
-                CHECK_FALSE(fs::is_symlink(fs::symlink_status(directory / "report.json")));
-                CHECK(text(directory / "report.json").starts_with("{"));
-            }
-        }
-        WHEN("the directory of a run is a link to a directory outside the project") {
+                require(result);
+                check(text(outside / "secret.txt") == "secret");
+                check(!fs::is_symlink(fs::symlink_status(directory / "report.json")));
+                check(text(directory / "report.json").starts_with("{"));
+            });
+        });
+        when("the directory of a run is a link to a directory outside the project", [&] {
             fs::remove_all(directory);
             link(outside, directory);
-            THEN("the run is neither opened, listed nor written to") {
-                CHECK_FALSE(app::bench::open("pwm-setpoint"));
-                CHECK(app::bench::list().at("runs").empty());
+            then("the run is neither opened, listed nor written to", [&] {
+                check(!app::bench::open("pwm-setpoint"));
+                check(app::bench::list().at("runs").empty());
                 const auto result = app::bench::run("pwm-setpoint.json");
-                REQUIRE_FALSE(result);
-                CHECK(result.error().code == "siliconforge.evidenceNotKept");
-                CHECK_FALSE(fs::exists(outside / "report.json"));
-            }
-        }
-        WHEN(".siliconforge/runs itself is a link outside the project") {
+                require(!result);
+                check(result.error().code == "siliconforge.evidenceNotKept");
+                check(!fs::exists(outside / "report.json"));
+            });
+        });
+        when(".siliconforge/runs itself is a link outside the project", [&] {
             fs::remove_all(fs::path{".siliconforge"});
             link(outside, fs::path{".siliconforge"} / "runs");
-            THEN("nothing is written through it") {
+            then("nothing is written through it", [&] {
                 const auto result = app::bench::run("pwm-setpoint.json");
-                REQUIRE_FALSE(result);
-                CHECK_FALSE(fs::exists(outside / "pwm-setpoint"));
-            }
-        }
-        WHEN("a scenario is a link to a file outside the project") {
+                require(!result);
+                check(!fs::exists(outside / "pwm-setpoint"));
+            });
+        });
+        when("a scenario is a link to a file outside the project", [&] {
             fs::copy_file(sourceDir / "scenarios" / "pwm-setpoint.json", outside / "elsewhere.json");
             link(outside / "elsewhere.json", fs::path{"scenarios"} / "elsewhere.json");
-            THEN("it is neither listed nor run") {
+            then("it is neither listed nor run", [&] {
                 const auto names = app::bench::list().at("scenarios");
-                CHECK(names == Json::array({"off-target.json", "pwm-setpoint.json"}));
+                check(names == Json::array({"off-target.json", "pwm-setpoint.json"}));
                 const auto result = app::bench::run("elsewhere.json");
-                REQUIRE_FALSE(result);
-                CHECK(result.error().code == "siliconforge.unknownScenario");
-            }
-        }
-        WHEN("report.json of a run is a hard link to a file outside the project") {
+                require(!result);
+                check(result.error().code == "siliconforge.unknownScenario");
+            });
+        });
+        when("report.json of a run is a hard link to a file outside the project", [&] {
             fs::remove(directory / "report.json");
             std::error_code error;
             fs::create_hard_link(outside / "secret.txt", directory / "report.json", error);
             if (error)
-                SKIP("Cannot create a hard link: " << error.message());
+                skip("Cannot create a hard link: ", error.message());
             const auto result = app::bench::run("pwm-setpoint.json");
-            THEN("the run keeps its evidence in a new file and the other file keeps its content") {
-                REQUIRE(result);
-                CHECK(text(outside / "secret.txt") == "secret");
-                CHECK(text(directory / "report.json").starts_with("{"));
-                CHECK(fs::hard_link_count(directory / "report.json") == 1);
-            }
-        }
+            then("the run keeps its evidence in a new file and the other file keeps its content", [&] {
+                require(result);
+                check(text(outside / "secret.txt") == "secret");
+                check(text(directory / "report.json").starts_with("{"));
+                check(fs::hard_link_count(directory / "report.json") == 1);
+            });
+        });
         fs::remove_all(outside);
-    }
-}
+    });
+}};
 
 #if defined(__unix__) || defined(__APPLE__)
-SCENARIO("The window does not wait on a special file in a run directory", "[app][bench]") {
-    GIVEN("a run kept by the command line") {
+const Scenario theWindowDoesNotWaitOnA{"The window does not wait on a special file in a run directory", {"app", "bench"}, [] {
+    given("a run kept by the command line", [&] {
         Project    project;
         const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
         const auto directory = scenario::defaultEvidenceDirectory(file);
-        REQUIRE(scenario::keepEvidence(scenario::run(file), directory));
-        WHEN("trace.vcd is a FIFO nobody writes to") {
+        require(scenario::keepEvidence(scenario::run(file), directory));
+        when("trace.vcd is a FIFO nobody writes to", [&] {
             fs::remove(directory / "trace.vcd");
-            REQUIRE(::mkfifo((directory / "trace.vcd").c_str(), 0600) == 0);
+            require(::mkfifo((directory / "trace.vcd").c_str(), 0600) == 0);
             const auto opened = app::bench::open("pwm-setpoint");
-            THEN("the call returns, and the run is not opened since its trace is not the one its report names") {
-                CHECK_FALSE(opened);
-            }
-        }
-        WHEN("report.json is a FIFO nobody writes to") {
+            then("the call returns, and the run is not opened since its trace is not the one its report names", [&] {
+                check(!opened);
+            });
+        });
+        when("report.json is a FIFO nobody writes to", [&] {
             fs::remove(directory / "report.json");
-            REQUIRE(::mkfifo((directory / "report.json").c_str(), 0600) == 0);
-            THEN("the run is not opened and not listed, and the listing returns") {
-                CHECK_FALSE(app::bench::open("pwm-setpoint"));
-                CHECK(app::bench::list().at("runs").empty());
-            }
-        }
-    }
-}
+            require(::mkfifo((directory / "report.json").c_str(), 0600) == 0);
+            then("the run is not opened and not listed, and the listing returns", [&] {
+                check(!app::bench::open("pwm-setpoint"));
+                check(app::bench::list().at("runs").empty());
+            });
+        });
+    });
+}};
 #endif
 
-SCENARIO("The evidence of a run is always a report with its own trace", "[app][bench]") {
-    GIVEN("a run kept by the command line") {
+const Scenario theEvidenceOfARunIsAlways{"The evidence of a run is always a report with its own trace", {"app", "bench"}, [] {
+    given("a run kept by the command line", [&] {
         Project    project;
         const auto file      = fs::path{"scenarios"} / "pwm-setpoint.json";
         const auto directory = scenario::defaultEvidenceDirectory(file);
         const auto report    = scenario::run(file);
         const auto kept      = scenario::keepEvidence(report, directory);
-        REQUIRE(kept);
+        require(kept);
         const auto trace = text(directory / "trace.vcd");
 
-        THEN("the report names the SHA-256 of its trace") {
+        then("the report names the SHA-256 of its trace", [&] {
             const auto json = Json::parse(*kept);
-            CHECK(json.at("trace").at("sha256").get<std::string>().size() == 64);
-        }
-        WHEN("the trace is not the one the report names, as between the two replacements of a run") {
+            check(json.at("trace").at("sha256").get<std::string>().size() == 64);
+        });
+        when("the trace is not the one the report names, as between the two replacements of a run", [&] {
             std::ofstream{directory / "trace.vcd"} << "$comment another run $end\n";
-            THEN("the run is not opened, rather than shown with another run's trace") {
+            then("the run is not opened, rather than shown with another run's trace", [&] {
                 const auto opened = app::bench::open("pwm-setpoint");
-                REQUIRE_FALSE(opened);
-                CHECK(opened.error().message.contains("does not match"));
-            }
-            AND_THEN("the listing still shows it, since it reads the reports only") {
+                require(!opened);
+                check(opened.error().message.contains("does not match"));
+            });
+            andThen("the listing still shows it, since it reads the reports only", [&] {
                 const auto runs = app::bench::list().at("runs");
-                REQUIRE(runs.size() == 1);
-                CHECK(runs[0].at("verdict") == "pass");
-            }
-        }
-        WHEN("the trace of the new run cannot be written") {
+                require(runs.size() == 1);
+                check(runs[0].at("verdict") == "pass");
+            });
+        });
+        when("the trace of the new run cannot be written", [&] {
             fs::create_directories(directory / "trace.vcd.new" / "in-the-way");
             auto other = report;
             other.name = "Another run";
             const auto result = scenario::keepEvidence(other, directory);
-            THEN("the earlier report and trace are both left as they were") {
-                REQUIRE_FALSE(result);
-                CHECK(text(directory / "report.json") == *kept);
-                CHECK(text(directory / "trace.vcd") == trace);
-                CHECK(app::bench::open("pwm-setpoint"));
-            }
-        }
-        WHEN("a run that keeps no trace replaces it") {
+            then("the earlier report and trace are both left as they were", [&] {
+                require(!result);
+                check(text(directory / "report.json") == *kept);
+                check(text(directory / "trace.vcd") == trace);
+                check(app::bench::open("pwm-setpoint"));
+            });
+        });
+        when("a run that keeps no trace replaces it", [&] {
             std::ofstream{project.root / "scenarios" / "broken.json"} << "{\"formatVersion\": 99}";
             const auto incompatible = scenario::run(fs::path{"scenarios"} / "broken.json");
-            REQUIRE(scenario::keepEvidence(incompatible, directory));
-            THEN("the earlier trace is removed, and one put back is not taken for its own") {
-                CHECK_FALSE(fs::exists(directory / "trace.vcd"));
+            require(scenario::keepEvidence(incompatible, directory));
+            then("the earlier trace is removed, and one put back is not taken for its own", [&] {
+                check(!fs::exists(directory / "trace.vcd"));
                 std::ofstream{directory / "trace.vcd"} << trace;
                 const auto opened = app::bench::open("pwm-setpoint");
-                REQUIRE(opened);
-                CHECK(opened->at("trace").is_null());
-            }
-        }
-    }
-}
+                require(opened);
+                check(opened->at("trace").is_null());
+            });
+        });
+    });
+}};
