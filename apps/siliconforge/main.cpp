@@ -41,7 +41,7 @@ struct Options {
     double                       duration{0};  ///< Simulated seconds for headless runs, 0 = until stopped.
     double                       speed{1.0};   ///< 0 = as fast as possible.
     std::string                  address{"127.0.0.1"};
-    std::string                  port;  ///< Empty: WEBFRONT_PORT, else 9002, else a free port (WebFront 1.2).
+    std::string                  port;  ///< Empty: WEBFRONT_PORT if set, else 9002 with a free port as fallback (WebFront 1.2).
     std::filesystem::path        ui{SILICONFORGE_UI_DIR};
 };
 
@@ -62,7 +62,8 @@ Options:
   --duration <s>      Simulated seconds to run in headless mode (default: until interrupted)
   --speed <factor>    1 = real time (default), 0 or "max" = as fast as possible
   --address <ip>      Address to listen on (default 127.0.0.1; 0.0.0.0 to serve other machines)
-  --port <port>       HTTP port (default: $WEBFRONT_PORT, else 9002, else any free port; 0 for any free port)
+  --port <port>       HTTP port (default: $WEBFRONT_PORT if set, else 9002, or a free port if 9002 is taken;
+                      a port given here or by WEBFRONT_PORT is never replaced; 0 for any free port)
   --browser           Show the interface in the system browser instead of a window
   --no-browser        Serve the interface without opening a window or a browser
   --ui <directory>    Interface files (default: the ui/ directory of the sources)

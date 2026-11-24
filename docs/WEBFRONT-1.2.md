@@ -18,11 +18,13 @@ La compilation avec `-Werror` passe sans modification du code existant.
 
 ## Adopté dans cette version
 
-- **Repli sur un port libre (WebFront#617).** `--port` n'impose plus `9002` : sans l'option, le port suit
-  `WEBFRONT_PORT`, sinon `9002`, sinon un port libre. Deux fenêtres, ou une fenêtre et une exécution de la CI, ne se
-  gênent plus. L'adresse affichée au démarrage, celle du serveur MCP de l'agent et les sessions du terminal portent le
-  port réellement choisi. Un port demandé par `--port` n'est jamais remplacé : l'échec nomme l'adresse et la cause.
-  Pour Mistral Vibe, dont la configuration est statique, il faut toujours fixer `--port 9002`.
+- **Repli sur un port libre (WebFront#617).** `--port` n'impose plus `9002`. Sans `--port` ni `WEBFRONT_PORT`, l'application
+  prend `9002` et, s'il est occupé, un port libre : deux fenêtres, ou une fenêtre et une exécution de la CI, ne se
+  gênent plus. Un port choisi n'est jamais remplacé : avec `--port 9100` ou `WEBFRONT_PORT=9100`, un port occupé fait
+  échouer le démarrage en nommant l'adresse et la cause (vérifié). Pour lancer plusieurs instances avec `WEBFRONT_PORT`
+  défini, utiliser `WEBFRONT_PORT=0` (port libre) ou un port différent par instance. L'adresse affichée au démarrage,
+  celle du serveur MCP de l'agent et les sessions du terminal portent le port réellement choisi. Pour Mistral Vibe,
+  dont la configuration est statique, il faut toujours fixer `--port 9002`.
 
 ## Évalué et non retenu
 
@@ -40,5 +42,5 @@ et Linux (WebKitGTK).
 - Compilation et suites rapides : passent.
 - Suites Jasmine : `UI-Agent` a échoué une fois lors d'un `ctest -j4` complet et passe à la relance isolée (8,5 s) ;
   à surveiller si elle se reproduit.
-- Port 9002 occupé : l'application démarre sur un port libre ; avec `--port 9002`, elle refuse en nommant la cause.
+- Port 9002 occupé : l'application démarre sur un port libre ; avec `--port 9002` ou `WEBFRONT_PORT` sur un port occupé, elle refuse en nommant la cause.
 - Windows (WebView2), macOS (WKWebView) : non vérifiés.
