@@ -78,15 +78,18 @@ struct Measurement {
     std::string           detail;
 };
 
-/// A screen compared with the picture a scenario expects: the pixels of a display module at the time of the step.
+/// A screen compared with what a scenario expects at the time of the step: the pixels of a TFT module with a picture, or
+/// the rows of a character LCD with text.
 struct ScreenCheck {
     std::string component;
     std::string label;
-    std::string image;  ///< The expected picture, as the scenario names it.
-    unsigned    width{0}, height{0};
-    std::size_t differing{0};  ///< Pixels of another colour (compared as the controller stores them: 5-6-5 or 6-6-6 bits).
+    std::string image;  ///< The expected picture, as the scenario names it; empty for a text check.
+    std::vector<std::string> text;   ///< A text check: the rows expected, one per row of the display.
+    std::vector<std::string> shown;  ///< A text check: the rows shown, without their trailing spaces.
+    unsigned    width{0}, height{0};  ///< Pixels, or characters for a text check.
+    std::size_t differing{0};  ///< Pixels of another colour (compared as the controller stores them: 5-6-5 or 6-6-6 bits), or rows of other text.
     std::size_t tolerance{0};  ///< Pixels allowed to differ.
-    std::size_t firstX{0}, firstY{0};
+    std::size_t firstX{0}, firstY{0};  ///< The first pixel that differs; for a text check, the first character (column, row).
     Cycles      at{0};          ///< When the step is scheduled.
     Cycles      observedAt{0};  ///< When the screen was read: the end of the instruction under way at `at`, a few cycles later at most.
     bool        passed{true};
