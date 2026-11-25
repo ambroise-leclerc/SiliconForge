@@ -78,6 +78,7 @@ jobs:
           path: |
             build/siliconforge.gif
             build/tests/webfront-jasmine/UI-Tour/captures/*.png
+            build/tests/webfront-jasmine/UI-Agent/captures/*.png
           if-no-files-found: warn
       - name: Upload UI test reports
         if: always()

@@ -86,7 +86,7 @@ window.SiliconForgeBench = (root, host) => {
     steps.replaceChildren(...(report?.steps ?? []).map((step) => {
       const row = element("tr");
       row.dataset.outcome = step.outcome;
-      row.append(element("td", step.index), element("td", step.outcome, "outcome"), element("td", step.kind),
+      row.append(element("td", step.index), element("td", step.outcome, "outcome"), element("td", step.kind, "kind"),
         element("td", [step.label, step.detail].filter(Boolean).join(" — ")));
       return row;
     }));
@@ -96,7 +96,7 @@ window.SiliconForgeBench = (root, host) => {
       row.dataset.verdict = m.verdict;
       const expected = m.expected ? `${format(m.expected.min)} to ${format(m.expected.max)} ${m.unit}` : "informative";
       row.append(element("td", m.verdict, "outcome"), element("td", `${m.id} (${m.pin} ${m.quantity})`),
-        element("td", m.value === null ? "not measurable" : `${format(m.value)} ${m.unit}`), element("td", expected, "muted"));
+        element("td", m.value === null ? "not measurable" : `${format(m.value)} ${m.unit}`, "value"), element("td", expected, "muted"));
       if (m.detail) row.title = m.detail;
       return row;
     }));
