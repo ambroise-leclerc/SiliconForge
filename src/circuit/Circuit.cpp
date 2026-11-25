@@ -878,8 +878,8 @@ struct Circuit::Model {
             };
             double contrast = 0, backlight = 0;
             if (i2c) {
-                auto& chip = *lcd.backpack;
-                chip.power(powered);
+                auto& backpack = *lcd.backpack;
+                backpack.power(powered);
                 if (powered) {
                     const auto threshold = vss + (vdd - vss) / 2;
                     // The pull-ups of the module hold a line nothing drives high.
@@ -889,7 +889,7 @@ struct Circuit::Model {
                     };
                     // What P0-P7 read: the port, a one pulled low where the LCD drives a zero on D4-D7 (D0-D3 are not wired).
                     const auto pins = [&] {
-                        auto value = chip.port();
+                        auto value = backpack.port();
                         if (const auto output = controller.output()) {
                             const auto mask = static_cast<std::uint8_t>(output->mask & 0xF0);
                             value           = static_cast<std::uint8_t>((value & ~mask) | (value & output->value & mask));
@@ -899,11 +899,11 @@ struct Circuit::Model {
                     const auto written = [&](std::uint8_t port) {
                         controller.bus((port & 0x01) != 0, (port & 0x02) != 0, (port & 0x04) != 0, static_cast<std::uint8_t>(port & 0xF0), seconds);
                     };
-                    chip.bus(line("scl"), line("sda") && !pulledLow.contains(net(lcd.node.at("sda"))), pins, written);
+                    backpack.bus(line("scl"), line("sda") && !pulledLow.contains(net(lcd.node.at("sda"))), pins, written);
                     // A low level wins over the pull-ups: a module that releases a line never hides another that holds it low.
                     for (const auto* name : {"sda", "scl"}) {
                         const auto target = net(lcd.node.at(name));
-                        if (name == std::string_view{"sda"} && chip.pullsSda())
+                        if (name == std::string_view{"sda"} && backpack.pullsSda())
                             busDrive[target] = vss;
                         else if (!solution.driven[target])
                             busDrive.try_emplace(target, vdd);  // The pull-up of the module, unless the line is already held
@@ -912,10 +912,10 @@ struct Circuit::Model {
                 // The trimmer of the backpack sets V0 between GND and VCC; P3 switches the backlight through a transistor.
                 const double v0 = get("trimmer", 0.1) * (vdd - vss);
                 contrast        = powered ? std::clamp((vdd - vss - v0 - 3.0) / 1.5, 0.0, 1.0) : 0.0;
-                backlight       = powered && (chip.port() & 0x08) ? 1.0 : 0.0;
-                put("port", chip.port());
-                put("i2cWrites", static_cast<double>(chip.writes()));
-                put("i2cReads", static_cast<double>(chip.reads()));
+                backlight       = powered && (backpack.port() & 0x08) ? 1.0 : 0.0;
+                put("port", backpack.port());
+                put("i2cWrites", static_cast<double>(backpack.writes()));
+                put("i2cReads", static_cast<double>(backpack.reads()));
             } else if (powered) {
                 const auto threshold = vss + (vdd - vss) / 2;
                 const auto high = [&](const char* name) { return volts(name) > threshold; };
