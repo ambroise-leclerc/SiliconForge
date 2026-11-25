@@ -262,7 +262,10 @@ SiliconForge is a demonstrator. The next developments include:
 - [WebFront 1.2: upgrade, adoption and decisions (French)](docs/WEBFRONT-1.2.md) (earlier reports: [1.0](docs/WEBFRONT-1.0.md), [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Project direction](docs/adr)
 
-## Licence
+## Copyright
 
-SiliconForge is dual-licensed under **Apache-2.0 OR CECILL-B**, at your option. [LICENSE](LICENSE) contains the full
-texts, including the French and English versions of CeCILL-B. Third-party components retain their own licences.
+© 2026 Ambroise Leclerc. All rights reserved.
+
+The source code of SiliconForge is public so that it can be read, but it is not released under an open-source
+licence: no right to use, modify or redistribute it is granted beyond viewing and forking as GitHub's Terms of
+Service allow. Third-party components retain their own licences.

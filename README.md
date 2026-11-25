@@ -273,8 +273,11 @@ Les prochains développements porteront sur les points suivants.
 - [WebFront 1.2 : passage, adoption et décisions](docs/WEBFRONT-1.2.md) (bilans précédents : [1.0](docs/WEBFRONT-1.0.md), [0.9](docs/WEBFRONT-0.9.md), [0.8](docs/WEBFRONT-0.8.md), [0.7](docs/WEBFRONT-0.7.md))
 - [Orientations du projet](docs/adr)
 
-## Licence
+## Droits d’auteur
 
-SiliconForge est proposé sous double licence **Apache-2.0 OR CECILL-B**, au choix. Le fichier [LICENSE](LICENSE)
-contient les textes complets, dont les versions française et anglaise de CeCILL-B. Les composants tiers conservent
-leurs propres licences.
+© 2026 Ambroise Leclerc. Tous droits réservés.
+
+Le code source de SiliconForge est public pour être consulté, mais il n’est pas distribué sous licence libre : aucun
+droit d’utilisation, de modification ou de redistribution n’est accordé au-delà de la consultation et de la copie
+par « fork » que permettent les conditions d’utilisation de GitHub. Les composants tiers conservent leurs
+propres licences.
