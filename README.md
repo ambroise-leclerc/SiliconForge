@@ -44,7 +44,7 @@ trames UART, export VCD pour GTKWave ou PulseView. Voir le [guide des instrument
 Un circuit est un fichier JSON : la puce, les composants posés sur les trous de la plaque et les fils. Trois sont
 fournis (LED et potentiomètre, afficheur 7 segments, LED et deux boutons) ; chargez le vôtre par
 `--circuit montage.json`, **Load circuit…** ou glisser-déposer. Les composants disponibles sont la LED, la résistance,
-le bouton-poussoir, le potentiomètre, l’afficheur 7 segments, l’afficheur LCD 1602 (HD44780) et le quartz ; le [guide des circuits](docs/CIRCUITS.md)
+le bouton-poussoir, le potentiomètre, l’afficheur 7 segments, l’afficheur LCD 1602 (HD44780), en parallèle ou derrière un module I2C (PCF8574), et le quartz ; le [guide des circuits](docs/CIRCUITS.md)
 explique comment en ajouter. L’édition graphique du circuit et les écrans simulés font partie des prochaines étapes.
 
 ## Vérifier les broches
@@ -67,7 +67,8 @@ Le brochage indique aussi les fonctions du composant réel qui ne sont pas encor
 | Entrées-sorties | Ports B, C et D, résistances de rappel, niveaux logiques et tensions analogiques |
 | PWM et temporisation | Timer0 : normal, CTC, Fast PWM et Phase Correct PWM |
 | Liaison série | USART0 asynchrone, envoi et réception dans le moniteur série, trames visibles bit par bit sur TXD |
-| Circuits | Modèle électrique résistif : LED, résistances, boutons, potentiomètres, afficheur 7 segments, afficheur LCD 1602, détection des courts-circuits |
+| Bus | SPI et TWI (I²C) maîtres, chaque front sur son cycle |
+| Circuits | Modèle électrique résistif : LED, résistances, boutons, potentiomètres, afficheur 7 segments, afficheur LCD 1602 (parallèle ou I2C), détection des courts-circuits |
 | Instruments | Analyseur logique et oscilloscope au cycle près, mesures, curseurs, déclenchement, décodeur UART, export VCD |
 | Conversion analogique | Conversions simples sur A0–A5 et référence interne |
 | Tests automatisés | Pilotage du temps simulé, des broches, de la liaison série et des composants du circuit depuis un banc de test C++ |
@@ -79,7 +80,7 @@ programmes aléatoires : 150 000 instructions à chaque build, 74 millions en ca
 compilés en `-O0`, `-O2` et `-Os`. Voir la
 [matrice de qualification](docs/qualification/README.md).
 
-**Limites actuelles :** Timer1/2, SPI, I²C/TWI, watchdog, comparateur analogique et interruptions externes ne sont
+**Limites actuelles :** Timer1/2, les modes esclaves du SPI et du TWI, watchdog, comparateur analogique et interruptions externes ne sont
 pas encore émulés. Leurs noms sur le brochage ne signifient pas qu’ils sont utilisables. D’autres microcontrôleurs,
 dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
 
@@ -103,7 +104,7 @@ cmake --build build -j
 ```
 
 Le menu **Open an example…** charge un [firmware précompilé](firmware/README.md) avec son circuit : LED et PWM,
-compteur 7 segments, afficheur LCD 1602, boutons, écho série, interruptions Timer0. Aucun compilateur AVR n’est nécessaire.
+compteur 7 segments, afficheur LCD 1602 (parallèle et I2C), boutons, écho série, interruptions Timer0. Aucun compilateur AVR n’est nécessaire.
 
 Pour essayer votre propre code, donnez le chemin de votre binaire ATmega328P sur la ligne de commande, ou
 utilisez **Load firmware…** dans l’application. Aucune opération de programmation sur une carte n’est nécessaire.

@@ -156,7 +156,7 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
 - La luminosité d'une LED est son courant rapporté à `nominalCurrent`, bornée à 1 ; l'interface en reçoit la moyenne
   sur la trame, ce qui rend une PWM comme l'œil la voit.
 - Un écran TFT (éléments `tft-spi` et `tft-parallel`) ne tire aucun courant : il lit les niveaux de ses nets (voir [Écrans TFT](#écrans-tft)).
-- Un afficheur LCD à caractères (élément `hd44780`) ne tire aucun courant ; il pilote D0-D7 (ou D4-D7) pendant un cycle de lecture seulement, ce que reçoivent les entrées du MCU reliées à ces nets (voir [Afficheur LCD à caractères](#afficheur-lcd-à-caractères)).
+- Un afficheur LCD à caractères (éléments `hd44780` et `hd44780-i2c`) ne tire aucun courant ; il pilote D0-D7 (ou D4-D7) pendant un cycle de lecture seulement, ce que reçoivent les entrées du MCU reliées à ces nets (voir [Afficheur LCD à caractères](#afficheur-lcd-à-caractères)).
 - Deux sources de tensions différentes sur un même net sont un **court-circuit**, signalé dans un bandeau et par
   `circuit.shorts()`.
 - Le modèle est résistif et logique : pas de condensateur, pas de transitoire, pas de courant maximal de sortie.
@@ -432,6 +432,30 @@ Circuit : `circuits/lcd1602-demo.json` (avec `firmware/src/lcd1602.c`), en 4 bit
 *busy* : RS D8, R/W D9, E D10, D4-D7 sur D4-D7, contraste par un potentiomètre sur V0. L’exemple « Character LCD 1602 »
 règle l’analyseur logique sur RS, R/W, E et D4-D7.
 
+### Module I2C
+
+`lcd1602-i2c` est le même afficheur derrière le module I2C courant, un PCF8574 branché par un connecteur de 4 broches :
+GND, VCC, SDA, SCL. Le PCF8574 répond à son adresse 7 bits (propriété `address`, 0x27 par défaut ; 0x20 à 0x27, ou 0x38
+à 0x3F pour un PCF8574A) en tirant SDA au niveau bas pendant l’impulsion d’acquittement. Chaque octet écrit devient
+l’état de P0-P7 à son acquittement ; à la lecture, il envoie les niveaux de P0-P7, relevés à l’acquittement de l’adresse
+puis de chaque octet que le maître acquitte. Le port est quasi bidirectionnel : un bit à 1 est un niveau haut faible que
+l’afficheur peut tirer au niveau bas, ce qui permet de lire le drapeau *busy*. Câblage du module : P0 RS, P1 R/W, P2 E,
+P3 rétroéclairage (par un transistor, cavalier en place), P4-P7 D4-D7 ; l’afficheur s’utilise donc en 4 bits. Le module
+porte les résistances de rappel de SDA et SCL : une ligne que rien ne tire au niveau bas est haute, pour le PCF8574 comme
+pour les entrées du MCU qui y sont reliées. Le contraste vient du potentiomètre du module (état interactif `trimmer`,
+V0 de GND à VCC, 0,1 par défaut). États en plus de ceux du `lcd1602` : `port` (l’état écrit de P0-P7), `i2cWrites`,
+`i2cReads`.
+
+Côté MCU, le TWI de l’ATmega328P (`avr.twi`, maître seulement, voir [Descriptions de MCU](MCU-DESCRIPTIONS.md)) prend
+SDA (A4) et SCL (A5) en drain ouvert : il les tire au niveau bas ou les relâche, et chaque front tombe sur son cycle, au
+rythme F_CPU / (16 + 2 × TWBR × 4^TWPS). Circuit : `circuits/lcd1602-i2c-demo.json` (avec `firmware/src/lcd1602_i2c.c`,
+qui vérifie chaque code d’état et lit le drapeau *busy* à travers le PCF8574 après un START répété) ; l’exemple
+« Character LCD 1602 over I2C » règle l’analyseur logique sur A4 et A5, déclenchement sur le START. Non modélisés : les
+modes esclaves du TWI, l’étirement de l’horloge par un esclave, la détection d’un autre maître sur le bus.
+
 Qualification : [`tests/unit/Hd44780Tests.cpp`](../tests/unit/Hd44780Tests.cpp) pilote le contrôleur fil à fil (8 et
 4 bits, CGRAM, lecture du drapeau et de la mémoire, passage d’une ligne à l’autre, décalage, écriture perdue, impulsion
-trop courte), puis vérifie le texte écrit par le firmware de démonstration et l’étape `screen` en texte du banc.
+trop courte), puis vérifie le texte écrit par les firmwares de démonstration, en parallèle et en I2C (avec une adresse
+qui ne répond pas), et l’étape `screen` en texte du banc ; [`tests/unit/TwiTests.cpp`](../tests/unit/TwiTests.cpp)
+vérifie le TWI face au modèle du PCF8574 : cadence, START, START répété, STOP, codes d’état, lecture, TWWC, perte
+d’arbitrage et interruption.

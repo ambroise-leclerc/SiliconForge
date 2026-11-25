@@ -1,0 +1,186 @@
+{
+  "formatVersion": 1,
+  "type": "lcd1602-i2c",
+  "name": "LCD1602 with I2C backpack (PCF8574)",
+  "description": "An LCD1602 (HD44780, 16 x 2) behind the common I2C backpack, on its 4-pin header: GND, VCC, SDA, SCL. The PCF8574 answers its address (0x27 by default, 0x20-0x27, or 0x38-0x3F for a PCF8574A) and drives the LCD from its port: P0 RS, P1 R/W, P2 E, P3 the backlight, P4-P7 D4-D7, so the LCD is used in 4-bit mode; reading the port returns what the LCD drives on D4-D7 during a read cycle (busy flag). The backpack holds SDA and SCL high through its pull-ups. The controller has the timings of the lcd1602 (early, timing); the trimmer sets the contrast. The module draws no current from the circuit.",
+  "terminals": [
+    {
+      "name": "gnd"
+    },
+    {
+      "name": "vcc"
+    },
+    {
+      "name": "sda"
+    },
+    {
+      "name": "scl"
+    }
+  ],
+  "properties": {
+    "columns": {
+      "type": "number",
+      "default": 16,
+      "minimum": 1,
+      "maximum": 40,
+      "description": "Characters per row."
+    },
+    "rows": {
+      "type": "number",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 2,
+      "description": "Rows of characters."
+    },
+    "color": {
+      "type": "string",
+      "default": "green",
+      "enum": [
+        "green",
+        "blue"
+      ],
+      "description": "Dark characters on a yellow-green panel, or white characters on a blue one."
+    },
+    "address": {
+      "type": "number",
+      "default": 39,
+      "minimum": 32,
+      "maximum": 63,
+      "description": "7-bit I2C address of the PCF8574 (A0-A2 jumpers): 0x20-0x27 (32-39), or 0x38-0x3F (56-63) for a PCF8574A."
+    }
+  },
+  "footprint": {
+    "kind": "fixed",
+    "description": "The 4 pins of the backpack header, 2.54 mm apart, in one row.",
+    "offsets": {
+      "gnd": [
+        0,
+        0
+      ],
+      "vcc": [
+        1,
+        0
+      ],
+      "sda": [
+        2,
+        0
+      ],
+      "scl": [
+        3,
+        0
+      ]
+    }
+  },
+  "model": {
+    "elements": [
+      {
+        "type": "hd44780-i2c",
+        "between": [
+          "gnd",
+          "vcc",
+          "sda",
+          "scl"
+        ]
+      }
+    ]
+  },
+  "state": {
+    "powered": {
+      "type": "boolean",
+      "default": false,
+      "description": "VCC is at least 2.7 V above GND."
+    },
+    "contrast": {
+      "type": "number",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How dark the dots that are on look, from the trimmer of the backpack: 0 below 3 V between VCC and V0, 1 from 4.5 V."
+    },
+    "backlight": {
+      "type": "number",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "The backlight, switched by P3 of the PCF8574 (the jumper of the backpack in place)."
+    },
+    "displayOn": {
+      "type": "boolean",
+      "default": false,
+      "description": "The display is on (display control D)."
+    },
+    "cursor": {
+      "type": "boolean",
+      "default": false,
+      "description": "The underline cursor is shown (display control C)."
+    },
+    "blink": {
+      "type": "boolean",
+      "default": false,
+      "description": "The character at the cursor blinks (display control B)."
+    },
+    "dataBits": {
+      "type": "number",
+      "default": 8,
+      "description": "Width of the interface: 8, or 4 after a function set with DL clear."
+    },
+    "lines": {
+      "type": "number",
+      "default": 1,
+      "description": "Display lines of the function set: 1 after power on, 2 with N set."
+    },
+    "instructions": {
+      "type": "number",
+      "default": 0,
+      "description": "Instructions executed since power on."
+    },
+    "dataWrites": {
+      "type": "number",
+      "default": 0,
+      "description": "Characters or CGRAM rows written since power on."
+    },
+    "reads": {
+      "type": "number",
+      "default": 0,
+      "description": "Reads of the busy flag or of the memory."
+    },
+    "early": {
+      "type": "number",
+      "default": 0,
+      "description": "Writes lost because the controller was still busy, and memory reads while it was."
+    },
+    "timing": {
+      "type": "number",
+      "default": 0,
+      "description": "E pulses shorter than 230 ns, or less than 500 ns after the previous one."
+    },
+    "revision": {
+      "type": "number",
+      "default": 0,
+      "description": "Increases whenever what the panel shows may have changed."
+    },
+    "trimmer": {
+      "type": "number",
+      "default": 0.1,
+      "minimum": 0,
+      "maximum": 1,
+      "interactive": true,
+      "description": "Position of the contrast trimmer of the backpack: V0 from GND (0) to VCC (1)."
+    },
+    "port": {
+      "type": "number",
+      "default": 255,
+      "description": "The state written to P0-P7 of the PCF8574: P0 RS, P1 R/W, P2 E, P3 backlight, P4-P7 D4-D7."
+    },
+    "i2cWrites": {
+      "type": "number",
+      "default": 0,
+      "description": "Bytes the master wrote to the PCF8574."
+    },
+    "i2cReads": {
+      "type": "number",
+      "default": 0,
+      "description": "Bytes the PCF8574 sent to the master."
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "formatVersion": 1,
+  "name": "lcd1602-i2c",
+  "description": "The firmware drives an LCD1602 through its I2C backpack with the hardware TWI, reading the busy flag through the PCF8574; the text the module shows is checked, and that no write was lost while the controller was busy.",
+  "circuit": "../circuits/lcd1602-i2c-demo.json",
+  "firmware": "../firmware/prebuilt/lcd1602_i2c.hex",
+  "steps": [
+    {
+      "label": "written",
+      "waitFor": {
+        "pin": "D12",
+        "state": "high"
+      },
+      "timeout": "2s"
+    },
+    {
+      "label": "the greeting and the counter",
+      "screen": {
+        "component": "lcd",
+        "text": ["Hello over I2C!", "Seconds: 0"]
+      }
+    },
+    {
+      "label": "no write lost while the controller was busy",
+      "waitFor": {
+        "component": "lcd",
+        "state": "early",
+        "below": 0.5
+      },
+      "timeout": "1ms"
+    },
+    {
+      "wait": "1100ms"
+    },
+    {
+      "label": "a second later",
+      "screen": {
+        "component": "lcd",
+        "text": ["Hello over I2C!", "Seconds: 1"]
+      }
+    }
+  ]
+}

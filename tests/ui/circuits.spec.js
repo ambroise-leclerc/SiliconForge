@@ -278,6 +278,20 @@ describe("Circuits", () => {
     expect(pinOf("d0")).toBe("");
     await sf().pause();
   }, 40000);
+  it("shows the text of the character LCD driven over I2C", async () => {
+    await sf().loadExample("lcd1602_i2c");
+    await sf().run();
+    const module = () => document.querySelector('#breadboard .bb-lcd-module[data-component="lcd"]');
+    await until(() => module()?.dataset.text?.startsWith("Hello over I2C!"), () => `the greeting on the LCD (${JSON.stringify(module()?.dataset.text)})`, 20000);
+    const state = sf().component("lcd");
+    expect(state.early).toBe(0);
+    expect(state.i2cReads).toBeGreaterThan(0);  // The busy flag, read through the PCF8574
+    expect(state.backlight).toBe(1);
+    const pads = Array.from(module().querySelectorAll(".bb-lcd-pad"));
+    expect(pads.map((pad) => pad.dataset.terminal)).toEqual(["gnd", "vcc", "sda", "scl"]);
+    expect(pads.map((pad) => pad.dataset.pin).slice(2)).toEqual(["A4", "A5"]);
+    await sf().pause();
+  }, 40000);
   it("sets the logic analyser to watch the display bus when the example loads", async () => {
     await sf().loadExample("tft_spi");
     const view = () => window.siliconForge.instruments.view;

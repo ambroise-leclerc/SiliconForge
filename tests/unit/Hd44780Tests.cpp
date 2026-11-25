@@ -95,6 +95,10 @@ struct Wires {
     }
 };
 
+bool lcd1602Blank(const Hd44780& lcd) {
+    return lcd.text() == std::vector<std::string>{std::string(16, ' '), std::string(16, ' ')};
+}
+
 testing::Bench runDemo() {
     const auto path = firmwareDir / "lcd1602.hex";
     if (!std::filesystem::exists(path))
@@ -375,6 +379,55 @@ const Scenario aScenarioChecksTheTextOfAnLcd{"a bench scenario checks the text o
             const auto report = runTextScenario(Json::array({"a"}), "contrast");
             require(report.problem);
             check(report.problem->cause == scenario::Problem::Cause::Resource);
+        });
+    });
+}};
+
+const Scenario aFirmwareWritesAnLcdThroughI2c{"a firmware writes an LCD1602 through its I2C backpack with the TWI", {"circuit", "lcd", "twi"}, [] {
+    const auto path = firmwareDir / "lcd1602_i2c.hex";
+    if (!std::filesystem::exists(path))
+        skip(path.string(), " is missing: build the firmware (see firmware/README.md)");
+    const auto description = Json::parse(std::ifstream{circuitDir / "lcd1602-i2c-demo.json"});
+    given("the lcd1602_i2c firmware on the demonstration circuit, run until it raises D12", [&] {
+        testing::Bench bench{mcu::create("atmega328p")};
+        bench.attach(description);
+        bench.load(path);
+        require(bench.runUntil([&] { return bench.pin("D12").level() || bench.pin("D13").level(); }, 2s, 4096));
+        const auto* lcd = bench.circuit().characterDisplay("lcd");
+        require(lcd != nullptr);
+
+        then("every status of the bus was the expected one, and the module shows the text", [&] {
+            check(!bench.pin("D13").level());
+            check(lcd->text()[0] == "Hello over I2C! ");
+            check(lcd->text()[1] == "Seconds: 0      ");
+        });
+        then("the busy flag was read through the PCF8574, and nothing was lost or too fast", [&] {
+            check(lcd->reads() > 0);
+            check(bench.circuit().state("lcd", "i2cReads").value_or(0) > 0);
+            check(lcd->early() == 0);
+            check(lcd->timing() == 0);
+            check(!lcd->eightBit());
+        });
+        then("P3 lights the backlight, and the trimmer gives the contrast", [&] {
+            check(bench.circuit().state("lcd", "backlight").value_or(0) == 1.0);
+            check(bench.circuit().state("lcd", "contrast").value_or(0) == 1.0);
+            require(bench.circuit().set("lcd", "trimmer", 1.0).has_value());
+            bench.runFor(1ms);  // The next write of the firmware observes it
+            bench.runUntil([&] { return bench.circuit().state("lcd", "contrast").value_or(1) == 0.0; }, 1100ms, 4096);
+            check(bench.circuit().state("lcd", "contrast").value_or(1) == 0.0);
+        });
+    });
+    given("the same circuit with the backpack at 0x26", [&] {
+        auto other = description;
+        other["components"][0]["properties"]["address"] = 0x26;
+        testing::Bench bench{mcu::create("atmega328p")};
+        bench.attach(other);
+        bench.load(path);
+        require(bench.runUntil([&] { return bench.pin("D12").level() || bench.pin("D13").level(); }, 2s, 4096));
+        then("the address is not acknowledged: the firmware stops on D13 and the LCD stays blank", [&] {
+            check(bench.pin("D13").level());
+            check(bench.circuit().state("lcd", "i2cWrites").value_or(-1) == 0);
+            check(lcd1602Blank(*bench.circuit().characterDisplay("lcd")));
         });
     });
 }};

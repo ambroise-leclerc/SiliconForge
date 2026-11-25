@@ -1,0 +1,67 @@
+{
+  "formatVersion": 1,
+  "name": "LCD1602 I2C demo",
+  "description": "An LCD1602 behind an I2C backpack (PCF8574 at 0x27) on the hardware TWI of the ATmega328P: SDA A4, SCL A5, the pull-ups on the backpack. With lcd1602_i2c.hex the module says hello and counts the seconds, the firmware reading the busy flag through the PCF8574.",
+  "board": {
+    "type": "breadboard",
+    "columns": 32
+  },
+  "chip": {
+    "mcu": "atmega328p",
+    "column": 6
+  },
+  "components": [
+    {
+      "id": "lcd",
+      "type": "lcd1602-i2c",
+      "at": {
+        "gnd": "j26",
+        "vcc": "j27",
+        "sda": "j28",
+        "scl": "j29"
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "b12",
+      "to": "B+12",
+      "color": "red"
+    },
+    {
+      "from": "a13",
+      "to": "B-13",
+      "color": "black"
+    },
+    {
+      "from": "i14",
+      "to": "T+14",
+      "color": "red"
+    },
+    {
+      "from": "j12",
+      "to": "T-12",
+      "color": "black"
+    },
+    {
+      "from": "h26",
+      "to": "T-26",
+      "color": "black"
+    },
+    {
+      "from": "h27",
+      "to": "T+27",
+      "color": "red"
+    },
+    {
+      "from": "h7",
+      "to": "h28",
+      "color": "blue"
+    },
+    {
+      "from": "h6",
+      "to": "h29",
+      "color": "yellow"
+    }
+  ]
+}

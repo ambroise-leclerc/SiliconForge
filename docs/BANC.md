@@ -138,8 +138,9 @@ affichage éteint est blanc. Les caractères de la ROM s’écrivent comme ils s
 demi-chasse pour 0xA1-0xDF), ceux de la CGRAM en `\u0000` à `\u0007`. Le rapport donne, dans `screens`, les rangées
 attendues (`text`) et affichées (`shown`), le nombre de rangées différentes et la colonne et la rangée de la première
 différence. Plus de rangées que l’afficheur n’en a sont refusées par le schéma, une rangée trop longue avant l’essai
-(`capacity`), un composant qui n’est pas un afficheur à caractères aussi (`resource`). `scenarios/lcd1602.json` en est
-un exemple ; il vérifie aussi qu’aucune écriture n’a été perdue (`early` en dessous de 0,5).
+(`capacity`), un composant qui n’est pas un afficheur à caractères aussi (`resource`). `scenarios/lcd1602.json` et
+`scenarios/lcd1602-i2c.json` (le même afficheur derrière un module I2C) en sont des exemples ; ils vérifient aussi
+qu’aucune écriture n’a été perdue (`early` en dessous de 0,5).
 
 ## Ce qui est refusé avant l’essai
 

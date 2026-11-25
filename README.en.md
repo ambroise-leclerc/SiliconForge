@@ -42,7 +42,7 @@ PulseView. See the [instruments guide](docs/INSTRUMENTS.md) (in French).
 A circuit is a JSON file: the chip, the components plugged in the holes of the board and the wires. Three are
 provided (LEDs and a potentiometer, a 7-segment display, an LED and two buttons); load your own with
 `--circuit circuit.json`, **Load circuit…** or drag and drop. The available components are the LED, the resistor, the
-push button, the potentiometer, the 7-segment display, the LCD1602 character display (HD44780) and the crystal; the [circuits guide](docs/CIRCUITS.md) (in
+push button, the potentiometer, the 7-segment display, the LCD1602 character display (HD44780), parallel or behind an I2C backpack (PCF8574), and the crystal; the [circuits guide](docs/CIRCUITS.md) (in
 French) explains how to add one. Graphical editing of the circuit and simulated screens are planned next steps.
 
 ## Check the pins
@@ -64,7 +64,8 @@ The pinout also labels functions of the physical chip that are not yet simulated
 | Inputs and outputs | Ports B, C and D, pull-ups, logic levels and analogue voltages |
 | PWM and timing | Timer0: normal, CTC, Fast PWM and Phase Correct PWM |
 | Serial communication | Asynchronous USART0, sending and receiving through the serial monitor, frames visible bit by bit on TXD |
-| Circuits | Resistive electrical model: LEDs, resistors, buttons, potentiometers, 7-segment display, LCD1602 character display, short-circuit detection |
+| Buses | SPI and TWI (I²C) masters, every edge on its own cycle |
+| Circuits | Resistive electrical model: LEDs, resistors, buttons, potentiometers, 7-segment display, LCD1602 character display (parallel or I2C), short-circuit detection |
 | Instruments | Cycle-exact logic analyser and oscilloscope, measurements, cursors, trigger, UART decoder, VCD export |
 | Analogue conversion | Single conversions on A0–A5 and the internal reference |
 | Automated tests | Control of simulated time, pins, serial communication and circuit components from a C++ test bench |
@@ -75,7 +76,7 @@ programs: 150,000 instructions on every build, 74 million in the long campaign) 
 `-O2` and `-Os`. See the
 [qualification matrix (French)](docs/qualification/README.md).
 
-**Current limitations:** Timer1/2, SPI, I²C/TWI, watchdog, analogue comparator and external interrupts are not yet
+**Current limitations:** Timer1/2, the slave modes of SPI and TWI, watchdog, analogue comparator and external interrupts are not yet
 emulated. Their labels on the pinout do not mean they are available. Further microcontrollers, including the
 ATmega2560, as well as ARM and RISC-V targets are planned.
 
@@ -98,7 +99,7 @@ cmake --build build -j
 ```
 
 The **Open an example…** menu loads a [prebuilt firmware](firmware/README.md) with its circuit: LEDs and PWM, the
-7-segment counter, LCD1602 character display, buttons, serial echo, Timer0 interrupts. No AVR compiler is needed.
+7-segment counter, LCD1602 character display (parallel and I2C), buttons, serial echo, Timer0 interrupts. No AVR compiler is needed.
 
 To try your own code, give the path of your ATmega328P binary on the command line, or use **Load firmware…** in the
 application. You do not need to flash a physical board.
