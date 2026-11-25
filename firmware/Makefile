@@ -8,7 +8,7 @@ CC     := avr-gcc
 OBJCOPY:= avr-objcopy
 CFLAGS := -mmcu=$(MCU) -DF_CPU=$(F_CPU) -Os -g -std=gnu11 -Wall -Wextra -Werror
 
-FIRMWARE := blink uart_echo timer0_isr pwm demo counter buttons pwm_setpoint
+FIRMWARE := blink uart_echo timer0_isr pwm demo counter buttons pwm_setpoint tft_spi tft_parallel
 # Variants are built for the tests only and are not committed: blink with a 250 ms half-period (2 Hz).
 VARIANTS := blink_250ms
 ELF := $(FIRMWARE:%=$(BUILD)/%.elf)

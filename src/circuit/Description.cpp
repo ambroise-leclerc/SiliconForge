@@ -67,6 +67,10 @@ ElementRule ruleFor(std::string_view type) {
         return {2, {}, "setpoint", "number", {{"waveform", "number"}, {"frequency", "number"}, {"amplitude", "number"}, {"offset", "number"}, {"duty", "number"}, {"period", "number"}, {"sampleCount", "number"}, {"currentLimit", "number"}, {"enabled", "boolean"}, {"outputVoltage", "number"}, {"outputCurrent", "number"}, {"mode", "number"}}};
     if (type == "meter")
         return {2, {}, "voltage", "number"};
+    if (type == "tft-spi")
+        return {8, {}, "revision", "number"};
+    if (type == "tft-parallel")
+        return {15, {}, "revision", "number"};
     if (type == "variable-resistor")
         return {2, {}, "resistance", "number", {{"voltage", "number"}, {"current", "number"}}};
     return {2, {}, "", ""};  // wire
@@ -115,6 +119,29 @@ void checkFootprint(const Json& component, const std::set<std::string>& terminal
     }
 }
 
+/// A display decodes its wires by name and builds the controller its `controller` property names: the terminals must be
+/// those names, and the property a string that can only name a modelled controller.
+void checkDisplay(const Json& component, const std::string& type, const Json& between, const std::string& path) {
+    std::set<std::string> expected{"cs", "reset", "vcc", "gnd"};
+    if (type == "tft-spi")
+        expected.insert({"dc", "sdi", "sck", "led"});
+    else {
+        expected.insert({"rs", "wr", "rd"});
+        for (unsigned bit = 0; bit < 8; ++bit)
+            expected.insert("d" + std::to_string(bit));
+    }
+    for (const auto& name : between)
+        expected.erase(name.get<std::string>());
+    if (!expected.empty())
+        fail(path + "/between", "A " + type + " needs the terminal '" + *expected.begin() + "'");
+    const auto& properties = component.at("properties");
+    if (!properties.contains("controller") || properties.at("controller").at("type") != "string" || !properties.at("controller").contains("enum"))
+        fail(path + "/type", "A " + type + " needs the string property 'controller', with the controllers it may name as its enum");
+    for (const auto& name : properties.at("controller").at("enum"))
+        if (name != "ili9341" && name != "ili9481")
+            fail("/properties/controller/enum", "Unknown display controller: " + name.get<std::string>() + " (ili9341 or ili9481)");
+}
+
 void checkModel(const Json& component, const std::set<std::string>& terminals) {
     const auto&           elements   = component.at("model").at("elements");
     const auto&           properties = component.at("properties");
@@ -156,6 +183,8 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
             if (!state.contains(key) || state.at(key).at("type") != std::string(rule.stateType))
                 fail(path + "/type", "A " + type + " needs the " + std::string(rule.stateType) + " state '" + key + "'");
         }
+        if (type == "tft-spi" || type == "tft-parallel")
+            checkDisplay(component, type, between, path);
         if (type == "variable-resistor") {
             // The resistance divides: it must be above zero in every value the state can take.
             const auto  key   = name.empty() ? std::string("resistance") : name + ".resistance";

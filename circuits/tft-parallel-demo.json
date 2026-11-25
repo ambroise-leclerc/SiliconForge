@@ -1,0 +1,133 @@
+{
+  "formatVersion": 1,
+  "name": "TFT parallel demo",
+  "description": "A MCUFRIEND 3.5\" shield (ILI9481, 320 x 480) on its 8-bit parallel bus, wired as on the Uno: RD A0, WR A1, RS A2, CS A3, RESET A4, D0-D7 on D8, D9, D2-D7. With tft_parallel.hex the controller is initialised and a window of four colour quadrants is painted.",
+  "board": {
+    "type": "breadboard",
+    "columns": 36
+  },
+  "chip": {
+    "mcu": "atmega328p",
+    "column": 6
+  },
+  "components": [
+    {
+      "id": "tft",
+      "type": "tft-mcufriend",
+      "at": {
+        "gnd": "j21",
+        "vcc": "j22",
+        "cs": "j23",
+        "rs": "j24",
+        "wr": "j25",
+        "rd": "j26",
+        "reset": "j27",
+        "d0": "j28",
+        "d1": "j29",
+        "d2": "j30",
+        "d3": "j31",
+        "d4": "j32",
+        "d5": "j33",
+        "d6": "j34",
+        "d7": "j35"
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "b12",
+      "to": "B+12",
+      "color": "red"
+    },
+    {
+      "from": "a13",
+      "to": "B-13",
+      "color": "black"
+    },
+    {
+      "from": "i14",
+      "to": "T+14",
+      "color": "red"
+    },
+    {
+      "from": "j12",
+      "to": "T-12",
+      "color": "black"
+    },
+    {
+      "from": "h21",
+      "to": "T-21",
+      "color": "black"
+    },
+    {
+      "from": "h22",
+      "to": "T+22",
+      "color": "red"
+    },
+    {
+      "from": "h8",
+      "to": "h23",
+      "color": "orange"
+    },
+    {
+      "from": "h9",
+      "to": "h24",
+      "color": "yellow"
+    },
+    {
+      "from": "h10",
+      "to": "h25",
+      "color": "green"
+    },
+    {
+      "from": "h11",
+      "to": "h26",
+      "color": "blue"
+    },
+    {
+      "from": "h7",
+      "to": "h27",
+      "color": "white"
+    },
+    {
+      "from": "a19",
+      "to": "h28",
+      "color": "gray"
+    },
+    {
+      "from": "h19",
+      "to": "h29",
+      "color": "gray"
+    },
+    {
+      "from": "a9",
+      "to": "h30",
+      "color": "gray"
+    },
+    {
+      "from": "a10",
+      "to": "h31",
+      "color": "gray"
+    },
+    {
+      "from": "a11",
+      "to": "h32",
+      "color": "gray"
+    },
+    {
+      "from": "a16",
+      "to": "h33",
+      "color": "gray"
+    },
+    {
+      "from": "a17",
+      "to": "h34",
+      "color": "gray"
+    },
+    {
+      "from": "a18",
+      "to": "h35",
+      "color": "gray"
+    }
+  ]
+}

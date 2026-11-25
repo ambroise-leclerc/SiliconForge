@@ -28,7 +28,10 @@
 #include <cstdint>
 #include <format>
 #include <map>
+#include <fstream>
+#include <memory>
 #include <mutex>
+#include <variant>
 #include <optional>
 #include <string>
 #include <thread>
@@ -63,6 +66,7 @@ struct Example {
     std::string_view circuit;
     std::string_view firmware;
     std::string_view description;
+    std::string_view analyser = {};  ///< JSON: how to set the logic analyser to watch what the firmware does ({"pins", "trigger", "rising", "span"}).
 };
 inline constexpr Example examples[] = {
     {"demo", "Blink + breathing LED", "arduino-demo", "demo.hex", "Red LED at 1 Hz on D13, green LED breathing with a 7.8 kHz PWM on D6"},
@@ -72,6 +76,8 @@ inline constexpr Example examples[] = {
     {"pwm", "PWM 62.5 kHz", "arduino-demo", "pwm.hex", "Timer0 Fast PWM: 25 % on D6 and 75 % on D5"},
     {"pwm_setpoint", "PWM setpoint", "arduino-demo", "pwm_setpoint.hex", "D6 at 25 %, 75 % while the D2 button is held; D13 acknowledges"},
     {"blink", "Blink", "arduino-demo", "blink.hex", "The LED on D13 at 1 Hz"},
+    {"tft_spi", "SPI display ILI9341", "tft-spi-demo", "tft_spi.hex", "KMRTM28028 module (ILI9341, 240 x 320) on the hardware SPI: initialisation, then four colour quadrants painted in a window",
+     R"({"pins": ["D8", "D9", "D10", "D11", "D13"], "trigger": "D9", "rising": true, "span": 0.000012})"},
     {"timer0_isr", "Timer interrupt", "arduino-demo", "timer0_isr.hex", "A Timer0 interrupt service routine toggling a pin"},
 };
 
@@ -895,10 +901,18 @@ private:
             }
             simulation.access([&](Mcu& mcu) { moveComponent(mcu, id, parsed); });
         });
+        // The pixels of a display of the circuit ({width, height, revision, rgb565}, "null" for another component): the
+        // page asks for them when the `revision` state of the display changes.
+        app.cppFunction("sf.screen", [this](std::string id) {
+            return simulation.access([&](Mcu&) { return circuit ? circuit->screenImage(id).dump() : std::string{"null"}; });
+        });
         app.cppFunction("sf.examples", [] {
             auto list = nlohmann::json::array();
-            for (const auto& example : examples)
-                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"description", example.description}});
+            for (const auto& example : examples) {
+                list.push_back({{"id", example.id}, {"title", example.title}, {"circuit", example.circuit}, {"firmware", example.firmware}, {"description", example.description}});
+                if (!example.analyser.empty())
+                    list.back()["analyser"] = nlohmann::json::parse(example.analyser);
+            }
             return list.dump();
         });
         app.cppFunction("sf.loadExample", [this](std::string id) {
@@ -996,7 +1010,9 @@ private:
         // In a circuit, the voltage is applied by turning the potentiometer that feeds the pin, when there is one.
         app.cppFunction("sf.setVoltage", [this](std::string name, double volts) { return setVoltage(name, volts); });
         // Firmware sent by the browser (Intel HEX or ELF content). Rejects with a BridgeError when it cannot be loaded.
-        app.cppFunction("sf.loadFirmware", [this](std::string name, std::vector<std::uint8_t> bytes) { loadFirmware(std::move(name), bytes); });
+        app.cppFunction("sf.loadFirmware", [this](std::string name, std::vector<std::uint8_t> bytes) {
+            loadFirmware(std::move(name), bytes);
+        });
         app.cppFunction("sf.addBreakpoint", [this](double address) {
             simulation.access([&](Mcu& mcu) { mcu.debugger().addBreakpoint(static_cast<Address>(address)); });
         });

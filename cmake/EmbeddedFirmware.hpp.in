@@ -12,6 +12,17 @@ std::string_view view(const unsigned char (&bytes)[N]) {
 /// Every firmware/prebuilt/<name>.hex of the source tree, by file name.
 inline const std::vector<std::pair<std::string_view, std::string_view>> firmwares = {
 @SILICONFORGE_FIRMWARE_VIEWS@};
+@SILICONFORGE_SOURCE_ARRAYS@
+/// Every firmware/src/<name>.c of the source tree, by file name.
+inline const std::vector<std::pair<std::string_view, std::string_view>> sources = {
+@SILICONFORGE_SOURCE_VIEWS@};
+/// The C source of an example firmware ("blink.c"), empty when it is unknown.
+inline std::string_view source(std::string_view name) {
+    for (const auto& [file, text] : sources)
+        if (file == name)
+            return text;
+    return {};
+}
 /// The Intel HEX text of an example firmware ("blink.hex"), empty when it is unknown.
 inline std::string_view firmware(std::string_view name) {
     for (const auto& [file, text] : firmwares)

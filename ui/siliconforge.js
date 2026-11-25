@@ -58,11 +58,14 @@
       await call("sf.loadExample", id);
       serial = "";
       $("serial-output").textContent = "";
+      await watchWithAnalyser(id);
     },
     /** State of a component of the circuit in the last frame: {brightness}, {pressed}, {position, voltage}... */
     component: (id) => state?.components?.[id],
     /** What the user does to a component: setComponent("button-d2", "pressed", 1), ("pot-a0", "position", 0.5). */
     setComponent: (id, name, value) => call("sf.component.set", id, name, Number(value)),
+    /** The pixels of a display: {width, height, revision, rgb565 (base64)}, null for another component. */
+    screen: async (id) => JSON.parse(await call("sf.screen", id)),
     /**
      * Moves terminals of a component, or of a wire ("wire-3"), to other holes: moveComponent("r-d13", {b: "h20"}).
      * The terminals not named stay. Rejects with siliconforge.invalidPlacement and the rule broken (length, hole taken...).
@@ -203,6 +206,25 @@
     api.setPin(name, next);
   }
 
+  /** Sets the logic analyser of an example that says what to watch: its channels, a single trigger and a time base. */
+  async function watchWithAnalyser(id) {
+    try {
+      const example = (await api.examples()).find((entry) => entry.id === id);
+      const wanted = example?.analyser;
+      if (!wanted || !instruments) return;
+      // The state of the new chip and circuit comes with a later frame: its pins are the ones to look up.
+      for (let wait = 0; wait < 60 && state?.firmware !== example.firmware; ++wait) await new Promise((resolve) => setTimeout(resolve, 50));
+      const pins = state?.pins;
+      if (!pins) return;
+      const index = (name) => pins.findIndex((pin) => pin.name === name || pin.label === name);  // "D9" or "PB1"
+      const channels = wanted.pins.map(index).filter((i) => i >= 0).sort((a, b) => a - b);
+      instruments.set({mode: "logic", auto: false, channels, span: wanted.span, live: true, triggered: null, cursors: [null, null],
+                       trigger: {source: index(wanted.trigger), rising: wanted.rising !== false, single: true}});
+    } catch (error) {
+      console.warn(error.message ?? error);
+    }
+  }
+
   // Board views (breadboard, pinout) built from the chip description and the circuit, once a state names them -----
   const viewContext = {
     pin: (name) => api.pin(name),
@@ -212,6 +234,7 @@
     channels: () => (devices?.analyserVisible ? instruments?.channels() : []),
     channelName: () => (instruments?.view.mode === "scope" ? "Oscilloscope" : "Logic analyser"),
     setComponent: (id, name, value) => api.setComponent(id, name, value).catch((error) => console.warn(error.message)),
+    screen: (id) => api.screen(id),
     moveComponent: (id, holes) => api.moveComponent(id, holes).then(() => showCircuitError(null), (error) => {
       showCircuitError(new Error(`Cannot move ${id}: ${error.message}`));
       throw error;

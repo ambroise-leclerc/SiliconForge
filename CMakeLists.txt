@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.31)
 
+# `mkdir build && cd build && cmake .. && cmake --build .` gives an optimised build. Set before project(): with MSVC,
+# project() itself sets the build type to Debug when none is given.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR AND NOT DEFINED CMAKE_BUILD_TYPE AND NOT DEFINED ENV{CMAKE_BUILD_TYPE})
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type")
+endif()
+
 project(SiliconForge
     VERSION 0.1.0
     DESCRIPTION "Microcontroller emulator for fast firmware iteration, with a WebFront user interface"
@@ -22,10 +28,6 @@ if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
     # No C++20 modules here; module scanning adds -fmodules-ts, which makes GCC 16 crash on stdexec (WebFront).
     set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
-    # `mkdir build && cd build && cmake .. && cmake --build .` gives an optimised build.
-    if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
-        set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
-    endif()
 endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)

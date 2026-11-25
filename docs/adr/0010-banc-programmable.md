@@ -46,3 +46,14 @@ temporelle (un cycle ; 64 pas par période d’un sinus ou d’un triangle) et s
 une demande hors capacité est refusée avant l’essai, y compris la suite d’un scénario, rejouée dans l’ordre. Le modèle
 reste résistif : la voie est une source idéale qui fournit et absorbe du courant, sans impédance de sortie, et une
 charge au-delà de son courant nominal est signalée comme une surcharge.
+
+## Mise à jour du 2026-11-21 (#64)
+
+Les écrans de référence sont ceux que la personne utilise : le module KMRTM28028 (ILI9341, 240 × 320, SPI 4 fils) et
+le shield MCUFRIEND 3,5" (ILI9481, 320 × 480, bus parallèle 8 bits). Le second n’est pas SPI ni I²C : le modèle de
+bus du composant a donc deux façades, SPI et 8080, sur un contrôleur commun qui suit les commandes qui comptent pour
+les pixels (fenêtre, écriture mémoire, orientation, format, veille, inversion, resets). Le MCU gagne un périphérique SPI
+maître (`avr.spi`) dont chaque front est daté au cycle ; le composant lit les niveaux des nets à chaque changement de
+broche, sans toucher au modèle résistif. Les transactions du bus (commande, cadence, octets, somme) se vérifient
+avec un firmware connu avant de qualifier l’écran ; l’étape `screen` d’un scénario compare ensuite le tampon reconstruit à
+une image attendue. Le bus I²C n’est pas modélisé : aucun écran de référence ne l’utilise.

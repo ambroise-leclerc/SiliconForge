@@ -15,7 +15,7 @@ window.SiliconForgeInstruments = (root, host) => {
     light: ["#b58900", "#0b84c9", "#c2349b", "#2a9d3f", "#d9730d", "#4a5bd6", "#d1344a", "#5c8f1f", "#7c4ddb", "#1a9c8b"],
   };
   let palette = palettes.dark;
-  const maxSamples = 200000;  // Per channel; the older half is dropped beyond.
+  const maxSamples = 600000;  // Per channel (the 8 MHz SPI clock of a display refresh holds ~300 000); the older half is dropped beyond.
   const supply = 5;
   const bauds = [300, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 250000, 500000, 1000000];
 
@@ -32,10 +32,19 @@ window.SiliconForgeInstruments = (root, host) => {
     return entry;
   };
 
-  /** Fetches what was recorded since the last call. Resolves once the page holds the whole capture. */
-  function poll() {
+  /**
+   * Fetches what was recorded since the last call, for at most `budget` milliseconds (unless `all`), so that the page keeps drawing
+   * whatever the firmware does. Resolves once the page holds the whole capture, or once it has used its budget:
+   * the next frame goes on. A firmware that outruns the page (a display refreshed at 8 MHz makes millions of edges a
+   * second) does not make it fall behind for ever: beyond `backlog` samples behind, the page jumps to the most recent
+   * ones and says that the capture is truncated.
+   */
+  const budget = 12;
+  const backlog = 200000, kept = 100000;
+  function poll(all = false) {
     if (polling) return polling;
     polling = (async () => {
+      const started = performance.now();
       for (;;) {
         const [epoch, first, next, now, at, pins, volts, states] = await host.call("sf.signals", capture.epoch, capture.cursor);
         if (epoch !== capture.epoch) {
@@ -43,6 +52,8 @@ window.SiliconForgeInstruments = (root, host) => {
           capture.channels.clear();
           capture.lost = false;
           view.triggered = null;
+          // A new capture (reset, new firmware) re-arms a single trigger that had frozen the view on the old one.
+          if (view.trigger.single && view.trigger.source >= 0 && !view.live) { view.live = true; syncControls(); }
         } else if (first > capture.cursor) {
           capture.lost = true;  // The ring overtook this page: there is a hole in what it holds.
         }
@@ -57,6 +68,12 @@ window.SiliconForgeInstruments = (root, host) => {
         capture.cursor = next;
         capture.now = now / capture.clockHz;
         if (at.length < 32 * 1024) break;
+        if (!all && performance.now() - started > budget) {
+          // Still behind: ask where the capture is (a cursor far ahead returns the end of it) and skip what is too old.
+          const [, , written] = await host.call("sf.signals", capture.epoch, Number.MAX_SAFE_INTEGER);
+          if (written - capture.cursor > backlog) { capture.cursor = written - kept; capture.lost = true; }
+          break;
+        }
       }
     })().finally(() => { polling = null; draw(); });
     return polling;
@@ -629,7 +646,7 @@ window.SiliconForgeInstruments = (root, host) => {
     update() { listPins(); poll(); },
     // Automation API (window.siliconForge.instruments) --------------------------------------------------------------
     /** Resolves once the page holds everything recorded so far. */
-    sync: () => poll().then(() => poll()),
+    sync: async () => { await poll(true); await poll(true); },
     /** The recorded changes of a pin: {t: seconds[], v: volts[], s: states[]}. */
     samples: (name) => capture.channels.get(pinIndex(name)) ?? {t: [], v: [], s: []},
     measure, decodeUart, vcd, shown,

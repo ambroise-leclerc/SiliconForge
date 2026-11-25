@@ -6,6 +6,7 @@
 #include <siliconforge/mcu/Description.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -62,6 +63,8 @@ struct TestApp {
     std::function<Signals(double, double)> signals;
     std::function<std::vector<std::string>()> circuits;
     std::function<std::string()> circuit;
+    std::function<std::string()> filesList;
+    std::function<std::string(std::string)> filesRead;
     template <typename F>
     void cppFunction(std::string_view name, F f) {
         if constexpr (std::is_invocable_v<F, std::string>) {
@@ -73,6 +76,10 @@ struct TestApp {
                 selectCircuit = std::move(f);
             else if (name == "sf.loadExample")
                 loadExample = std::move(f);
+            else if constexpr (std::is_invocable_r_v<std::string, F, std::string>) {
+                if (name == "sf.files.read")
+                    filesRead = std::move(f);
+            }
         } else if constexpr (std::is_invocable_v<F, std::string, std::vector<std::uint8_t>>) {
             if (name == "sf.loadFirmware")
                 loadFirmware = std::move(f);
@@ -97,6 +104,8 @@ struct TestApp {
                 chip = std::move(f);
             else if (name == "sf.circuit")
                 circuit = std::move(f);
+            else if (name == "sf.files.list")
+                filesList = std::move(f);
         } else if constexpr (std::is_invocable_r_v<void, F>) {
             if (name == "sf.reset")
                 reset = std::move(f);
@@ -439,4 +448,15 @@ const Scenario anExampleLoadsItsCircuitAndIts{"An example loads its circuit and 
         check(std::get<3>(restarted) == 0);
         check(std::get<4>(restarted).size() == simulation.access([](Mcu& mcu) { return mcu.pins().size(); }));  // One starting point per pin
     });
+}};
+
+const Scenario theSpiDisplayExampleLoadsThe{"The SPI display example loads the ILI9341 module and paints its window", {"app", "bridge", "tft"}, [] {
+    app::Simulation simulation{mcu::create("atmega328p")};
+    TestApp web;
+    app::WebBridge bridge{web, simulation, ""};
+    web.loadExample("tft_spi");
+    simulation.pause();
+    check(nlohmann::json::parse(web.circuit()).at("id") == "tft-spi-demo");
+    simulation.access([](Mcu& mcu) { mcu.run(mcu.cyclesFor(std::chrono::milliseconds{1500}) - mcu.cycles()); });
+    check(simulation.access([](Mcu& mcu) { return mcu.pin("D12")->level(); }));  // The firmware raises D12 once the window is painted
 }};

@@ -107,6 +107,25 @@ fronts montants, ou quand ses fronts tombent tous sur le même cycle (plusieurs 
 ne couvrent donc aucune durée. La valeur est alors absente, l’explication figure dans le rapport, et une mesure qui a un attendu
 échoue.
 
+## Écran
+
+Une étape `screen` compare les pixels d’un module TFT du circuit (`tft-kmrtm28028`, `tft-mcufriend`, voir
+[Circuits](CIRCUITS.md#écrans-tft)) à une image, à l’instant de l’étape : les écritures du firmware jusque-là y sont.
+
+```json
+{"label": "L’écran montre les quadrants", "screen": {"component": "tft", "image": "tft-spi-expected.ppm", "tolerance": 0}}
+```
+
+L’image est un fichier PPM (P3 ou P6, 8 bits par canal) de la taille exacte de l’écran, relatif au scénario ; son
+empreinte SHA-256 figure parmi les entrées du rapport (`role: "image"`). Les couleurs sont comparées comme le contrôleur
+les mémorise : 5 bits de rouge, 6 de vert, 5 de bleu, ou 6 bits par canal pour un pixel écrit en 18 bits. `tolerance` est le nombre de pixels qui peuvent différer (0 par
+défaut). Le rapport garde, dans `screens`, le nombre de pixels différents et la position du premier, l’instant prévu
+(`at`) et celui où l’écran a été lu (`observedAt`) : le cœur s’arrête à la fin d’une instruction, ce qui peut dépasser
+l’instant prévu de quelques cycles, et les pixels écrits entre les deux sont dans l’image comparée. L’étape échoue
+au-delà de la tolérance. `scenarios/tft-spi.json` et `scenarios/tft-parallel.json` en sont des exemples. Une image qui n’a
+pas la taille de l’écran est refusée avant l’essai (`capacity`), un composant qui n’est pas un écran aussi
+(`resource`), un fichier illisible (`unreadable`).
+
 ## Ce qui est refusé avant l’essai
 
 `siliconforge bench check` et `run` vérifient tout le scénario avant d’exécuter la moindre instruction. Chaque refus

@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 #include <siliconforge/circuit/Description.hpp>
+#include <siliconforge/circuit/Tft.hpp>
 #include <siliconforge/core/Mcu.hpp>
 
 #include <expected>
@@ -88,6 +89,13 @@ public:
     /// the time resolution of one clock cycle, and, with an MCU attached, the highest frequency of each wave at its
     /// clock. nullopt for a component that is not a generator.
     [[nodiscard]] std::optional<nlohmann::json> limits(std::string_view id) const;
+
+    /// The controller of a TFT module (`tft-spi` or `tft-parallel` component): its pixels, its state and what its bus
+    /// carried. nullptr when the component is not a display.
+    [[nodiscard]] const Tft* display(std::string_view id) const;
+    /// What a display shows, for the page to fetch when the `revision` state of the component changes: {width, height,
+    /// revision, rgb565 (base64)}, null when `id` is not a display. Too large to travel in every frame.
+    [[nodiscard]] nlohmann::json screenImage(std::string_view id) const;
 
     /// A probe applies `volts` to the net of an MCU pin, like an ideal source; nullopt removes it. Returns false for a
     /// pin that is not on the board.

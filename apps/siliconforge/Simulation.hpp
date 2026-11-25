@@ -33,14 +33,14 @@ public:
     /// Runs `function(Mcu&)` under the simulation lock and returns its result.
     template <typename Function>
     decltype(auto) access(Function&& function) {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         return std::forward<Function>(function)(*device);
     }
 
     /// Runs function(Mcu&, optional<StopReason>) with both values protected by the simulation lock.
     template <typename Function>
     decltype(auto) snapshot(Function&& function) {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         return std::forward<Function>(function)(*device, lastStop);
     }
 
@@ -48,7 +48,7 @@ public:
     /// The initializer must prepare any external state before publishing it.
     template <typename Initialize>
     void replace(std::unique_ptr<Mcu> next, Initialize&& initialize) {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         initialize(*next);
         running = false;
         device  = std::move(next);
@@ -58,7 +58,7 @@ public:
 
     void run() {
         {
-            std::scoped_lock lock{mutex};
+            const Turn lock{*this};
             running = true;
             lastStop.reset();
             paceFrom(std::chrono::steady_clock::now());
@@ -67,13 +67,13 @@ public:
     }
 
     void pause() {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         running = false;
     }
 
     /// Executes one instruction while paused.
     void step() {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         running  = false;
         lastStop = device->step().reason;
     }
@@ -82,7 +82,7 @@ public:
     /// what they accumulated before the reset without the simulation running in between.
     template <typename Function>
     void reset(Function&& afterReset) {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         device->reset();
         std::forward<Function>(afterReset)(*device);
         lastStop.reset();
@@ -90,7 +90,7 @@ public:
     }
 
     void reset() {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         device->reset();
         lastStop.reset();
         paceFrom(std::chrono::steady_clock::now());
@@ -98,7 +98,7 @@ public:
 
     /// 1.0 is real time, 0 means as fast as possible.
     void setSpeed(double factor) {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         speed = factor;
         paceFrom(std::chrono::steady_clock::now());
     }
@@ -106,11 +106,33 @@ public:
     [[nodiscard]] bool isRunning() const noexcept { return running; }
     [[nodiscard]] double speedFactor() const noexcept { return speed; }
     [[nodiscard]] std::optional<StopReason> stopReason() const {
-        std::scoped_lock lock{mutex};
+        const Turn lock{*this};
         return lastStop;
     }
 
 private:
+    /// The simulation lock, taken on behalf of another thread. While one waits for it the emulation thread lets it go
+    /// first: std::mutex is not fair, and a thread that unlocks and locks again at once (a simulation that cannot keep
+    /// up with real time never sleeps) would keep the interface waiting for as long as it runs behind.
+    class Turn {
+    public:
+        explicit Turn(const Simulation& simulation) : owner(simulation) {
+            ++owner.waiting;
+            held = std::unique_lock{owner.mutex};
+            --owner.waiting;
+        }
+
+    private:
+        const Simulation&           owner;
+        std::unique_lock<std::mutex> held;
+    };
+
+    /// Gives the lock to the threads that asked for it, after the emulation thread released it.
+    void letOthersIn() const {
+        while (waiting.load() > 0)
+            std::this_thread::yield();
+    }
+
     void paceFrom(std::chrono::steady_clock::time_point now) {
         paceWall   = now;
         paceCycles = device->cycles();
@@ -132,19 +154,22 @@ private:
             }
             if (speed <= 0) {
                 lock.unlock();
-                std::this_thread::yield();  // Let the UI and the controls take the lock between slices.
+                letOthersIn();  // Let the UI and the controls take the lock between slices.
+                std::this_thread::yield();
                 continue;
             }
             // Real-time pacing: sleep until the wall clock catches up with the simulated time.
             const auto simulated = static_cast<double>(device->cycles() - paceCycles) / static_cast<double>(device->clockHz()) / speed;
             const auto target    = paceWall + std::chrono::duration_cast<std::chrono::steady_clock::duration>(std::chrono::duration<double>(simulated));
             lock.unlock();
+            letOthersIn();
             std::this_thread::sleep_until(target);
         }
     }
 
     std::unique_ptr<Mcu>                  device;
     mutable std::mutex                    mutex;
+    mutable std::atomic<int>              waiting{0};  // Threads blocked on the lock, see Turn
     std::condition_variable_any           wakeUp;
     std::atomic<bool>                     running{false};
     std::atomic<double>                   speed{1.0};

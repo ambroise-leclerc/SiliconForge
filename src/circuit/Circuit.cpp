@@ -1,4 +1,5 @@
 #include <siliconforge/circuit/Circuit.hpp>
+#include <siliconforge/circuit/Tft.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -97,7 +98,7 @@ struct Circuit::Model {
         std::vector<int>        terminals;  ///< Nodes, in the order of the type's terminals.
         std::string             pin;        ///< MCU pin the component is wired to, when there is one.
     };
-    enum class Kind { Wire, Resistor, Led, Switch, Potentiometer, Supply, Load, Meter };
+    enum class Kind { Wire, Resistor, Led, Switch, Potentiometer, Supply, Load, Meter, Display };
     struct Element {
         Kind        kind;
         int         nodes[3]{-1, -1, -1};
@@ -111,6 +112,7 @@ struct Circuit::Model {
         bool        generator{false};  ///< A supply whose setpoint (stateIndex) follows a wave scheduled on the MCU clock.
         int         waveformIndex{-1}, frequencyIndex{-1}, amplitudeIndex{-1}, offsetIndex{-1}, dutyIndex{-1}, periodIndex{-1}, countIndex{-1};
         int         run{-1};           ///< Generator: index in Model::runs.
+        int         screen{-1};        ///< Display: index in Model::screens.
         double      resistance{0};
         double      forwardVoltage{0};
         double      nominalCurrent{1};
@@ -139,6 +141,16 @@ struct Circuit::Model {
         std::vector<std::string> shorts;
     };
 
+    /// A TFT module: the nets of its terminals and the controller that decodes the wires (#64). It draws no current and
+    /// drives nothing: the model reads the levels of the nets.
+    struct Screen {
+        std::size_t                component{0};
+        bool                       parallel{false};
+        std::map<std::string, int> node;   ///< Terminal name -> node.
+        std::map<std::string, int> state;  ///< State entry name -> index in the component.
+        Tft                        tft;
+    };
+
     /// A generator running: where its wave started, the call scheduled for its next step, its arbitrary samples.
     struct Run {
         Cycles             origin{0};
@@ -147,6 +159,7 @@ struct Circuit::Model {
     };
     Circuit*                         owner{nullptr};
     std::vector<Run>                 runs;
+    std::vector<Screen>              screens;
     unsigned                         columns{0};
     unsigned                         chipColumn{0};
     std::vector<Component>           components;
@@ -520,7 +533,7 @@ struct Circuit::Model {
                 row[target] = static_cast<int>(unknowns++);
         };
         for (const auto& element : elements) {
-            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Supply || element.kind == Kind::Meter)
+            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Supply || element.kind == Kind::Meter || element.kind == Kind::Display)
                 continue;
             touch(element.nodes[0]);
             touch(element.nodes[1]);
@@ -639,8 +652,8 @@ struct Circuit::Model {
         // so that an input left to its pull-up stays "released" for the MCU.
         Sets reach{netCount};
         for (const auto& element : elements) {
-            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Meter)
-                continue;  // A voltmeter draws no current: it joins nothing.
+            if (element.kind == Kind::Wire || element.kind == Kind::Switch || element.kind == Kind::Meter || element.kind == Kind::Display)
+                continue;  // A voltmeter or a display draws no current: it joins nothing.
             if (element.kind == Kind::Supply && !active[static_cast<std::size_t>(&element - elements.data())])
                 continue;  // An output that is off is an open circuit.
             reach.unite(static_cast<int>(net(element.nodes[0])), static_cast<int>(net(element.nodes[1])));
@@ -775,6 +788,53 @@ struct Circuit::Model {
         }
     }
 
+    /// Feeds the controller of every display with the levels of its nets, at the present cycle of the MCU.
+    void observeScreens(const Solution& solution) {
+        const auto at = mcu ? mcu->cycles() : Cycles{0};
+        for (auto& screen : screens) {
+            const auto volts = [&](const char* name) { return solution.voltage[net(screen.node.at(name))]; };
+            const auto vcc = volts("vcc"), gnd = volts("gnd");
+            const bool powered = vcc - gnd >= 2.5 && std::abs(gnd) < 0.5;
+            screen.tft.power(powered);
+            auto& states = components[screen.component].state;
+            const auto put = [&](const char* name, double value) {
+                if (const auto found = screen.state.find(name); found != screen.state.end())
+                    states[static_cast<std::size_t>(found->second)].value = value;
+            };
+            if (powered) {
+                const auto threshold = gnd + (vcc - gnd) / 2;
+                const auto high = [&](const char* name) { return volts(name) > threshold; };
+                // A reset left unconnected is held high by the module.
+                const bool reset = !solution.driven[net(screen.node.at("reset"))] || high("reset");
+                if (screen.parallel) {
+                    std::uint8_t data = 0;
+                    for (unsigned bit = 0; bit < 8; ++bit)
+                        data = static_cast<std::uint8_t>(data | (high(std::format("d{}", bit).c_str()) ? 1u << bit : 0u));
+                    // A read strobe left unconnected stays high: the module only writes.
+                    const bool read = !solution.driven[net(screen.node.at("rd"))] || high("rd");
+                    screen.tft.parallel(high("cs"), high("rs"), high("wr"), read, reset, data, at);
+                } else {
+                    screen.tft.spi(high("cs"), high("dc"), high("sck"), high("sdi"), reset, at);
+                }
+            }
+            const auto& tft = screen.tft;
+            put("powered", powered ? 1 : 0);
+            // The shield has no backlight pin: its backlight is on with the supply.
+            const bool lit = powered && (screen.parallel || volts("led") - gnd > (vcc - gnd) / 2);
+            screen.tft.backlight(lit);  // A dark backlight leaves the panel black, for the scenarios and the view alike
+            put("backlight", lit ? 1 : 0);
+            put("displayOn", tft.displayOn() ? 1 : 0);
+            put("sleeping", tft.sleeping() ? 1 : 0);
+            put("commands", static_cast<double>(tft.commands()));
+            put("dataBytes", static_cast<double>(tft.dataBytes()));
+            put("pixelsWritten", static_cast<double>(tft.pixelsWritten()));
+            put("unknown", static_cast<double>(tft.unknown()));
+            put("unsupported", static_cast<double>(tft.unsupported()));
+            put("framing", static_cast<double>(tft.framing()));
+            put("revision", static_cast<double>(tft.revision()));
+        }
+    }
+
     void drivePins(const Solution& solution, double supplyVolts) {
         for (auto& entry : chip) {
             if (!entry.pin || entry.pin->isOutput())
@@ -860,6 +920,23 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
         const auto number = [&](const char* name) { return component.properties.at(name).get<double>(); };
         for (const auto& described : type.at("model").at("elements")) {
             const std::string kind   = described.at("type");
+            if (kind == "tft-spi" || kind == "tft-parallel") {
+                Model::Screen screen;
+                screen.component = model.components.size();
+                screen.parallel  = kind == "tft-parallel";
+                screen.tft       = Tft{component.properties.at("controller") == "ili9481" ? Tft::Controller::Ili9481 : Tft::Controller::Ili9341};
+                for (const auto& name : described.at("between"))
+                    screen.node[name.get<std::string>()] = terminals.at(name.get<std::string>());
+                for (std::size_t i = 0; i < component.state.size(); ++i)
+                    screen.state[component.state[i].name] = static_cast<int>(i);
+                Model::Element element;
+                element.kind      = Model::Kind::Display;
+                element.component = model.components.size();
+                element.screen    = static_cast<int>(model.screens.size());
+                model.screens.push_back(std::move(screen));
+                model.elements.push_back(element);
+                continue;
+            }
             const std::string prefix = described.contains("name") ? described.at("name").get<std::string>() + "." : std::string{};
             Model::Element    element;
             element.component = model.components.size();
@@ -1029,6 +1106,7 @@ void Circuit::update() {
         model->fixed.clear();  // Only valid right after a solve; drive() solves again when it needs it.
     const auto& solution = found->second;
     model->apply(solution);
+    model->observeScreens(solution);
     shortCircuits = solution.shorts;
     model->drivePins(solution, supply);
     model->solving = false;
@@ -1097,6 +1175,44 @@ std::vector<std::string> Circuit::componentIds() const {
 
 bool Circuit::has(std::string_view id) const noexcept {
     return std::ranges::find(model->components, id, &Model::Component::id) != model->components.end();
+}
+
+const Tft* Circuit::display(std::string_view id) const {
+    const auto component = std::ranges::find(model->components, id, &Model::Component::id);
+    if (component == model->components.end())
+        return nullptr;
+    const auto index = static_cast<std::size_t>(component - model->components.begin());
+    for (const auto& screen : model->screens)
+        if (screen.component == index)
+            return &screen.tft;
+    return nullptr;
+}
+
+nlohmann::json Circuit::screenImage(std::string_view id) const {
+    const auto* tft = display(id);
+    if (tft == nullptr)
+        return nullptr;
+    // What the panel shows, as RGB565 in base64.
+    static constexpr std::string_view alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const auto                        shown    = tft->shown();
+    std::string                       bytes;
+    bytes.reserve(shown.size() * 2 + 2);
+    for (const auto pixel : shown) {
+        const auto word = static_cast<unsigned>(((pixel >> 19) & 0x1F) << 11 | ((pixel >> 10) & 0x3F) << 5 | ((pixel >> 3) & 0x1F));
+        bytes += static_cast<char>(word >> 8);
+        bytes += static_cast<char>(word & 0xFF);
+    }
+    std::string text;
+    for (std::size_t i = 0; i < bytes.size(); i += 3) {
+        const auto chunk = static_cast<unsigned>(static_cast<unsigned char>(bytes[i])) << 16
+                           | (i + 1 < bytes.size() ? static_cast<unsigned>(static_cast<unsigned char>(bytes[i + 1])) << 8 : 0u)
+                           | (i + 2 < bytes.size() ? static_cast<unsigned>(static_cast<unsigned char>(bytes[i + 2])) : 0u);
+        text += alphabet[(chunk >> 18) & 63];
+        text += alphabet[(chunk >> 12) & 63];
+        text += i + 1 < bytes.size() ? alphabet[(chunk >> 6) & 63] : '=';
+        text += i + 2 < bytes.size() ? alphabet[chunk & 63] : '=';
+    }
+    return {{"width", tft->width()}, {"height", tft->height()}, {"revision", tft->revision()}, {"rgb565", std::move(text)}};
 }
 
 std::optional<double> Circuit::state(std::string_view id, std::string_view name) const {
