@@ -218,6 +218,15 @@ const Scenario componentDescriptionsAreCheckedBeyondTheSchema{"Component descrip
         wide["properties"]["columns"]["default"]     = 41;
         expectComponentError(wide, "/properties/columns/default", "up to 40 columns");
     });
+    section("a character LCD with an I2C backpack has its four pins and the address of a PCF8574", [&] {
+        check(circuit::validateComponent(component("lcd1602-i2c")).has_value());
+        auto address                              = component("lcd1602-i2c");
+        address["properties"]["address"]["default"] = 48;  // Between the PCF8574 and the PCF8574A
+        expectComponentError(address, "/properties/address/default", "0x20 to 0x27");
+        auto noTrimmer = component("lcd1602-i2c");
+        noTrimmer["state"].erase("trimmer");
+        expectComponentError(noTrimmer, "/model/elements/0/type", "number state 'trimmer'");
+    });
     section("an element has the terminal count of its type", [&] {
         auto d                               = component("potentiometer");
         d["model"]["elements"][0]["between"] = {"a", "b"};

@@ -1,4 +1,5 @@
 #include <siliconforge/circuit/Circuit.hpp>
+#include <siliconforge/circuit/Pcf8574.hpp>
 #include <siliconforge/circuit/Tft.hpp>
 
 #include <algorithm>
@@ -152,12 +153,14 @@ struct Circuit::Model {
     };
 
     /// A character LCD: the nets of its terminals and its HD44780. It draws no current; it drives D0-D7 (or D4-D7) only
-    /// during a read cycle, which drivePins hands to the MCU inputs wired to them.
+    /// during a read cycle, which drivePins hands to the MCU inputs wired to them. With an I2C backpack, a PCF8574 drives
+    /// the LCD from the bus instead: P0 RS, P1 R/W, P2 E, P3 the backlight, P4-P7 D4-D7, as on the common modules.
     struct Lcd {
         std::size_t                component{0};
         std::map<std::string, int> node;   ///< Terminal name -> node.
         std::map<std::string, int> state;  ///< State entry name -> index in the component.
         Hd44780                    controller;
+        std::optional<Pcf8574>     backpack;
     };
 
     /// A generator running: where its wave started, the call scheduled for its next step, its arbitrary samples.
@@ -853,11 +856,60 @@ struct Circuit::Model {
         for (auto& lcd : lcds) {
             const auto volts = [&](const char* name) { return solution.voltage[net(lcd.node.at(name))]; };
             const auto driven = [&](const char* name) { return solution.driven[net(lcd.node.at(name))] != 0; };
-            const auto vdd = volts("vdd"), vss = volts("vss");
+            const bool i2c = lcd.backpack.has_value();
+            const auto vdd = volts(i2c ? "vcc" : "vdd"), vss = volts(i2c ? "gnd" : "vss");
             const bool powered = vdd - vss >= 2.7 && std::abs(vss) < 0.5;
             auto&      controller = lcd.controller;
             controller.power(powered, seconds);
-            if (powered) {
+            auto& states = components[lcd.component].state;
+            const auto put = [&](const char* name, double value) {
+                if (const auto found = lcd.state.find(name); found != lcd.state.end())
+                    states[static_cast<std::size_t>(found->second)].value = value;
+            };
+            const auto get = [&](const char* name, double otherwise) {
+                const auto found = lcd.state.find(name);
+                return found == lcd.state.end() ? otherwise : states[static_cast<std::size_t>(found->second)].value;
+            };
+            double contrast = 0, backlight = 0;
+            if (i2c) {
+                auto& chip = *lcd.backpack;
+                chip.power(powered);
+                if (powered) {
+                    const auto threshold = vss + (vdd - vss) / 2;
+                    // The pull-ups of the module hold a line nothing drives high.
+                    const auto line = [&](const char* name) {
+                        const auto target = net(lcd.node.at(name));
+                        return !solution.driven[target] || solution.voltage[target] > threshold;
+                    };
+                    // What P0-P7 read: the port, a one pulled low where the LCD drives a zero on D4-D7 (D0-D3 are not wired).
+                    const auto pins = [&] {
+                        auto value = chip.port();
+                        if (const auto output = controller.output()) {
+                            const auto mask = static_cast<std::uint8_t>(output->mask & 0xF0);
+                            value           = static_cast<std::uint8_t>((value & ~mask) | (value & output->value & mask));
+                        }
+                        return value;
+                    };
+                    const auto written = [&](std::uint8_t port) {
+                        controller.bus((port & 0x01) != 0, (port & 0x02) != 0, (port & 0x04) != 0, static_cast<std::uint8_t>(port & 0xF0), seconds);
+                    };
+                    chip.bus(line("scl"), line("sda") && !chip.pullsSda(), pins, written);
+                    for (const auto* name : {"sda", "scl"}) {
+                        const auto target = net(lcd.node.at(name));
+                        if (name == std::string_view{"sda"} && chip.pullsSda())
+                            busDrive[target] = vss;
+                        else if (!solution.driven[target])
+                            busDrive[target] = vdd;  // The pull-up of the module
+                    }
+                }
+                // The trimmer of the backpack sets V0 between GND and VCC; P3 switches the backlight through a transistor.
+                const double v0 = get("trimmer", 0.1) * (vdd - vss);
+                contrast        = powered ? std::clamp((vdd - vss - v0 - 3.0) / 1.5, 0.0, 1.0) : 0.0;
+                backlight       = powered && (chip.port() & 0x08) ? 1.0 : 0.0;
+                put("port", chip.port());
+                put("i2cWrites", static_cast<double>(chip.writes()));
+                put("i2cReads", static_cast<double>(chip.reads()));
+            } else if (powered) {
                 const auto threshold = vss + (vdd - vss) / 2;
                 const auto high = [&](const char* name) { return volts(name) > threshold; };
                 std::uint8_t data = 0;
@@ -869,16 +921,13 @@ struct Circuit::Model {
                         if (output->mask & (1u << bit))
                             busDrive[net(lcd.node.at(std::format("d{}", bit)))] = output->value & (1u << bit) ? vdd : vss;
             }
-            // The liquid crystal is driven by VDD - V0: about 4.5 V on a 5 V module gives a sharp text, below 3 V it does
-            // not turn. A V0 left unconnected shows nothing.
-            const double contrast = powered && driven("v0") ? std::clamp((vdd - volts("v0") - 3.0) / 1.5, 0.0, 1.0) : 0.0;
-            // The backlight is a LED with its resistor on the module, between A and K.
-            const double backlight = std::clamp((volts("a") - volts("k") - 2.6) / 2.0, 0.0, 1.0);
-            auto& states = components[lcd.component].state;
-            const auto put = [&](const char* name, double value) {
-                if (const auto found = lcd.state.find(name); found != lcd.state.end())
-                    states[static_cast<std::size_t>(found->second)].value = value;
-            };
+            if (!i2c) {
+                // The liquid crystal is driven by VDD - V0: about 4.5 V on a 5 V module gives a sharp text, below 3 V it
+                // does not turn. A V0 left unconnected shows nothing.
+                contrast = powered && driven("v0") ? std::clamp((vdd - volts("v0") - 3.0) / 1.5, 0.0, 1.0) : 0.0;
+                // The backlight is a LED with its resistor on the module, between A and K.
+                backlight = std::clamp((volts("a") - volts("k") - 2.6) / 2.0, 0.0, 1.0);
+            }
             put("powered", powered ? 1 : 0);
             put("contrast", contrast);
             put("backlight", backlight);
@@ -999,8 +1048,10 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
                 model.elements.push_back(element);
                 continue;
             }
-            if (kind == "hd44780") {
+            if (kind == "hd44780" || kind == "hd44780-i2c") {
                 Model::Lcd lcd;
+                if (kind == "hd44780-i2c")
+                    lcd.backpack = Pcf8574{static_cast<std::uint8_t>(component.properties.at("address").get<double>())};
                 lcd.component  = model.components.size();
                 const auto rows = component.properties.at("rows").get<double>() >= 2 ? 2u : 1u;
                 lcd.controller = Hd44780{static_cast<unsigned>(std::clamp(component.properties.at("columns").get<double>(), 1.0, rows == 2 ? 40.0 : 80.0)), rows};

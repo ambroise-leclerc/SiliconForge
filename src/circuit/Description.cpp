@@ -73,6 +73,8 @@ ElementRule ruleFor(std::string_view type) {
         return {15, {}, "revision", "number"};
     if (type == "hd44780")
         return {16, {"columns", "rows"}, "revision", "number"};
+    if (type == "hd44780-i2c")
+        return {4, {"columns", "rows", "address"}, "revision", "number", {{"trimmer", "number"}}};
     if (type == "variable-resistor")
         return {2, {}, "resistance", "number", {{"voltage", "number"}, {"current", "number"}}};
     return {2, {}, "", ""};  // wire
@@ -123,28 +125,36 @@ void checkFootprint(const Json& component, const std::set<std::string>& terminal
 
 /// A character LCD decodes its wires by name, and shows at most the 80 characters of the DDRAM of its controller, on one
 /// row or two (four on a module with two controllers, which this model does not have).
-void checkCharacterDisplay(const Json& component, const Json& between, const std::string& path) {
-    std::set<std::string> expected{"vss", "vdd", "v0", "rs", "rw", "e", "a", "k"};
-    for (unsigned bit = 0; bit < 8; ++bit)
+/// With an I2C backpack, the four pins of the backpack and the address of its PCF8574 (0x20-0x27) or PCF8574A (0x38-0x3F).
+void checkCharacterDisplay(const Json& component, const std::string& type, const Json& between, const std::string& path) {
+    const bool            i2c = type == "hd44780-i2c";
+    std::set<std::string> expected = i2c ? std::set<std::string>{"gnd", "vcc", "sda", "scl"} : std::set<std::string>{"vss", "vdd", "v0", "rs", "rw", "e", "a", "k"};
+    for (unsigned bit = 0; !i2c && bit < 8; ++bit)
         expected.insert("d" + std::to_string(bit));
     for (const auto& name : between)
         expected.erase(name.get<std::string>());
     if (!expected.empty())
-        fail(path + "/between", "A hd44780 needs the terminal '" + *expected.begin() + "'");
+        fail(path + "/between", "A " + type + " needs the terminal '" + *expected.begin() + "'");
     const auto& properties = component.at("properties");
+    if (i2c) {
+        const auto address = properties.at("address").at("default").get<double>();
+        const bool plain = address >= 0x20 && address <= 0x27, a = address >= 0x38 && address <= 0x3F;
+        if ((!plain && !a) || address != static_cast<double>(static_cast<int>(address)))
+            fail("/properties/address/default", "A PCF8574 answers 0x20 to 0x27 (32 to 39), a PCF8574A 0x38 to 0x3F (56 to 63)");
+    }
     const auto  columns    = properties.at("columns").at("default").get<double>();
     const auto  rows       = properties.at("rows").at("default").get<double>();
     if (rows != 1 && rows != 2)
-        fail("/properties/rows/default", "A hd44780 shows one row or two");
+        fail("/properties/rows/default", "A " + type + " shows one row or two");
     if (columns < 1 || columns > (rows == 1 ? 80 : 40) || columns != static_cast<double>(static_cast<int>(columns)))
-        fail("/properties/columns/default", "A hd44780 shows up to 40 columns on two rows, 80 on one");
+        fail("/properties/columns/default", "A " + type + " shows up to 40 columns on two rows, 80 on one");
 }
 
 /// A display decodes its wires by name and builds the controller its `controller` property names: the terminals must be
 /// those names, and the property a string that can only name a modelled controller.
 void checkDisplay(const Json& component, const std::string& type, const Json& between, const std::string& path) {
-    if (type == "hd44780") {
-        checkCharacterDisplay(component, between, path);
+    if (type == "hd44780" || type == "hd44780-i2c") {
+        checkCharacterDisplay(component, type, between, path);
         return;
     }
     std::set<std::string> expected{"cs", "reset", "vcc", "gnd"};
@@ -208,7 +218,7 @@ void checkModel(const Json& component, const std::set<std::string>& terminals) {
             if (!state.contains(key) || state.at(key).at("type") != std::string(rule.stateType))
                 fail(path + "/type", "A " + type + " needs the " + std::string(rule.stateType) + " state '" + key + "'");
         }
-        if (type == "tft-spi" || type == "tft-parallel" || type == "hd44780")
+        if (type == "tft-spi" || type == "tft-parallel" || type == "hd44780" || type == "hd44780-i2c")
             checkDisplay(component, type, between, path);
         if (type == "variable-resistor") {
             // The resistance divides: it must be above zero in every value the state can take.
