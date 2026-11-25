@@ -1796,6 +1796,7 @@
               "avr.timer8",
               "avr.usart",
               "avr.spi",
+              "avr.twi",
               "avr.eeprom",
               "avr.adc"
             ]
@@ -2217,6 +2218,88 @@
                 "mosi",
                 "miso",
                 "sck"
+              ],
+              "additionalProperties": false
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "avr.twi"
+                }
+              }
+            },
+            "then": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "const": "avr.twi"
+                },
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "registers": {
+                  "type": "object",
+                  "properties": {
+                    "twbr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "twsr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "twar": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "twdr": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "twcr": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "required": [
+                    "twbr",
+                    "twsr",
+                    "twar",
+                    "twdr",
+                    "twcr"
+                  ],
+                  "additionalProperties": false
+                },
+                "vector": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "port": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sda": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "scl": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                }
+              },
+              "required": [
+                "type",
+                "name",
+                "registers",
+                "vector",
+                "port",
+                "sda",
+                "scl"
               ],
               "additionalProperties": false
             }

@@ -923,7 +923,7 @@
     },
     "TWAR": {
       "address": 186,
-      "reset": 0,
+      "reset": 254,
       "bits": {
         "TWA": 254,
         "TWGCE": 1
@@ -949,12 +949,12 @@
     },
     "TWDR": {
       "address": 187,
-      "reset": 0,
+      "reset": 255,
       "bits": {}
     },
     "TWSR": {
       "address": 185,
-      "reset": 0,
+      "reset": 248,
       "bits": {
         "TWS": 248,
         "TWPS": 3
@@ -1164,6 +1164,21 @@
       "miso": 4,
       "sck": 5,
       "ss": 2
+    },
+    {
+      "type": "avr.twi",
+      "name": "TWI",
+      "registers": {
+        "twbr": "TWBR",
+        "twsr": "TWSR",
+        "twar": "TWAR",
+        "twdr": "TWDR",
+        "twcr": "TWCR"
+      },
+      "vector": "TWI",
+      "port": "PORTC",
+      "sda": 4,
+      "scl": 5
     },
     {
       "type": "avr.eeprom",

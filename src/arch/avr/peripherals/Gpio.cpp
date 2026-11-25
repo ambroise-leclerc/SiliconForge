@@ -33,6 +33,7 @@ void GpioPort::reset(bool preserveRegisters) {
     }
     levelOverrides.fill(std::nullopt);
     outputOverrides.fill(std::nullopt);
+    drainOverrides.fill(std::nullopt);
     refresh();
 }
 
@@ -43,6 +44,11 @@ void GpioPort::overrideLevel(unsigned bit, std::optional<bool> level) {
 
 void GpioPort::forceOutput(unsigned bit, std::optional<bool> level) {
     outputOverrides[bit] = level;
+    update(bit);
+}
+
+void GpioPort::openDrain(unsigned bit, std::optional<bool> level) {
+    drainOverrides[bit] = level;
     update(bit);
 }
 
@@ -68,8 +74,13 @@ void GpioPort::update(unsigned bit) {
         pin->configure(true, *outputOverrides[bit], false);
         return;
     }
-    const bool output    = data.raw(regs.ddr) & mask;
     const bool portValue = data.raw(regs.port) & mask;
+    if (drainOverrides[bit]) {
+        const bool released = *drainOverrides[bit];
+        pin->configure(!released, false, released && portValue && !(data.raw(mcucr) & pullUpDisable));
+        return;
+    }
+    const bool output    = data.raw(regs.ddr) & mask;
     const bool level     = levelOverrides[bit].value_or(portValue);
     const bool pullUp    = !output && portValue && !(data.raw(mcucr) & pullUpDisable);
     pin->configure(output, level, pullUp);

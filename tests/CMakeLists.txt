@@ -35,6 +35,7 @@ add_executable(siliconforge_tests
     unit/TftTests.cpp
     unit/Hd44780Tests.cpp
     unit/SpiTests.cpp
+    unit/TwiTests.cpp
     unit/SignalRecorderTests.cpp
     unit/LoaderTests.cpp
     unit/SchedulerTests.cpp

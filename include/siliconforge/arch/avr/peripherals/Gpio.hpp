@@ -11,7 +11,8 @@ namespace siliconforge::avr {
 /// One 8-bit AVR I/O port (PINx, DDRx, PORTx).
 ///
 /// Alternate functions take a pin over through overrides: a timer output compare drives the level while DDR keeps
-/// the direction (`overrideLevel`), a USART transmitter forces the pin to be an output (`forceOutput`).
+/// the direction (`overrideLevel`), a USART transmitter forces the pin to be an output (`forceOutput`), the TWI drives
+/// its lines as open drain (`openDrain`).
 class GpioPort {
 public:
     struct Registers {
@@ -28,6 +29,9 @@ public:
 
     void overrideLevel(unsigned bit, std::optional<bool> level);
     void forceOutput(unsigned bit, std::optional<bool> level);
+    /// Open drain: false pulls the pin low, true releases it (an input, with the pull-up PORTx and PUD give it), nullopt
+    /// gives it back to DDRx and PORTx.
+    void openDrain(unsigned bit, std::optional<bool> level);
 
     /// Re-evaluates every pin, e.g. after a change of MCUCR.PUD.
     void refresh();
@@ -47,6 +51,7 @@ private:
     Address                            mcucr;
     std::array<std::optional<bool>, 8> levelOverrides;
     std::array<std::optional<bool>, 8> outputOverrides;
+    std::array<std::optional<bool>, 8> drainOverrides;
 };
 
 }  // namespace siliconforge::avr
