@@ -52,6 +52,7 @@ describe("The agent in the window", () => {
     await webFront.ready;
     await agent().ready;
     await sf().terminal.ready;
+    document.documentElement.dataset.theme = "dark";  // Like the other captures of the README
     tab("terminal-toggle").click();
     await sf().terminal.open("shell");
   });

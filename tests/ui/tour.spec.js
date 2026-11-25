@@ -65,6 +65,7 @@ describe("Tour of the interface", () => {
   }, 40000);
 
   it("shows the supply, the load and the multimeter side by side", async () => {
+    await sf().loadExample("demo");  // The demonstration firmware, not the display one, in the header of the capture
     await sf().selectCircuit("bench-demo");
     await sf().waitFor(() => sf().devices?.faceplate("psu") && sf().devices.faceplate("load") && sf().devices.faceplate("dmm"), 20000);
     await sf().setComponent("load", "resistance", 100);
