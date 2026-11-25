@@ -2,6 +2,7 @@
 
 #include <nlohmann/json.hpp>
 #include <siliconforge/circuit/Description.hpp>
+#include <siliconforge/circuit/Hd44780.hpp>
 #include <siliconforge/circuit/Tft.hpp>
 #include <siliconforge/core/Mcu.hpp>
 
@@ -93,8 +94,13 @@ public:
     /// The controller of a TFT module (`tft-spi` or `tft-parallel` component): its pixels, its state and what its bus
     /// carried. nullptr when the component is not a display.
     [[nodiscard]] const Tft* display(std::string_view id) const;
+    /// The controller of a character LCD (`hd44780` component): its memory, its state and the text it shows. nullptr when
+    /// the component is not one.
+    [[nodiscard]] const Hd44780* characterDisplay(std::string_view id) const;
     /// What a display shows, for the page to fetch when the `revision` state of the component changes: {width, height,
-    /// revision, rgb565 (base64)}, null when `id` is not a display. Too large to travel in every frame.
+    /// revision, rgb565 (base64)} for a TFT; {columns, rows, revision, on, cells, cursor, blink, text} for a character LCD,
+    /// `cells` giving the eight rows of dots of each cell, row by row, and `cursor` its [column, row] or null. Null when
+    /// `id` is not a display. Too large to travel in every frame.
     [[nodiscard]] nlohmann::json screenImage(std::string_view id) const;
 
     /// A probe applies `volts` to the net of an MCU pin, like an ideal source; nullopt removes it. Returns false for a

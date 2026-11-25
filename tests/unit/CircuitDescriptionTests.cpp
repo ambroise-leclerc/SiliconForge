@@ -198,6 +198,26 @@ const Scenario componentDescriptionsAreCheckedBeyondTheSchema{"Component descrip
         unknown["properties"]["controller"]["enum"] = {"ili9341", "st7789"};
         expectComponentError(unknown, "/properties/controller/enum", "Unknown display controller: st7789");
     });
+    section("a character LCD has the terminals of its header, and at most two rows of 40 columns", [&] {
+        check(circuit::validateComponent(component("lcd1602")).has_value());
+        auto renamed = component("lcd1602");
+        renamed["model"]["elements"][0]["between"][2] = "vo";
+        renamed["terminals"][2]["name"]              = "vo";
+        renamed["footprint"]["offsets"]["vo"]         = renamed["footprint"]["offsets"]["v0"];
+        renamed["footprint"]["offsets"].erase("v0");
+        expectComponentError(renamed, "/model/elements/0/between", "needs the terminal 'v0'");
+        auto noRows = component("lcd1602");
+        noRows["properties"].erase("rows");
+        expectComponentError(noRows, "/model/elements/0/type", "numeric property 'rows'");
+        auto fourRows                              = component("lcd1602");
+        fourRows["properties"]["rows"]["maximum"] = 4;  // Beyond what the property allows would be refused first
+        fourRows["properties"]["rows"]["default"] = 4;
+        expectComponentError(fourRows, "/properties/rows/default", "one row or two");
+        auto wide                                     = component("lcd1602");
+        wide["properties"]["columns"]["maximum"]     = 80;
+        wide["properties"]["columns"]["default"]     = 41;
+        expectComponentError(wide, "/properties/columns/default", "up to 40 columns");
+    });
     section("an element has the terminal count of its type", [&] {
         auto d                               = component("potentiometer");
         d["model"]["elements"][0]["between"] = {"a", "b"};
