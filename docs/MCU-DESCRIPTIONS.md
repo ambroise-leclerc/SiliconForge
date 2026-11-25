@@ -127,6 +127,7 @@ Les fabriques AVR enregistrées sont :
 | `avr.usart` | registres, trois vecteurs, GPIO RX/TX, diviseurs normal/U2X, profondeur FIFO |
 | `avr.adc` | registres, vecteur, canaux, prescalers, durées de conversion |
 | `avr.spi` | registres SPCR/SPSR/SPDR, vecteur de fin de transfert, GPIO MOSI/MISO/SCK et SS (facultatif : une broche SS en entrée à l’état bas fait perdre le mode maître, MSTR s’efface et SPIF se lève) ; maître seulement (#64) |
+| `avr.twi` | registres TWBR/TWSR/TWAR/TWDR/TWCR, vecteur TWI, GPIO SDA et SCL ; maître seulement : START, START répété, STOP, émission et réception avec les codes d’état de la fiche technique, lignes à drain ouvert, perte d’arbitrage, TWWC |
 | `avr.eeprom` | registres, vecteur, `writeTimeNs`, `readCycles` |
 
 Un type inconnu est refusé explicitement. Les registres des fonctions qui ne sont pas

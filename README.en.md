@@ -119,13 +119,14 @@ driver draws what is expected. A screen that is off, asleep or without backlight
 
 A circuit is a JSON file describing the chip, the components plugged in the holes of the board and the wires.
 Several circuits are provided: LEDs and a potentiometer, a 7-segment display, an LED and two buttons, a power bench,
-a signal generator, SPI and parallel screens. Load your own with `--circuit circuit.json`, **Load circuit…** or drag
-and drop.
+a signal generator, SPI and parallel screens, an LCD1602 character display, parallel and over I2C. Load your own with
+`--circuit circuit.json`, **Load circuit…** or drag and drop.
 
 The available components are the LED, the resistor, the push button, the potentiometer, the 7-segment display, the
-crystal, the programmable supply, the variable load, the multimeter, the signal generator and the two TFT screens.
-The [circuits guide](docs/CIRCUITS.md) (in French) explains how to add one. Graphical editing of the circuit is one
-of the next steps.
+crystal, the programmable supply, the variable load, the multimeter, the signal generator, the two TFT screens and
+the LCD1602 character display (HD44780), parallel or behind an I2C backpack (PCF8574). The
+[circuits guide](docs/CIRCUITS.md) (in French) explains how to add one. Graphical editing of the circuit is one of the
+next steps.
 
 ## Check the pins
 
@@ -147,9 +148,10 @@ The pinout also labels functions of the physical chip that are not yet simulated
 | PWM and timing | Timer0: normal, CTC, Fast PWM and Phase Correct PWM |
 | Serial communication | Asynchronous USART0, sending and receiving through the serial monitor, frames visible bit by bit on TXD |
 | SPI | Master mode, clock edges and data timed to the cycle, loss of master mode through SS |
+| TWI (I²C) | Master mode, open-drain lines, edges timed to the cycle, repeated START, status codes, arbitration loss |
 | Circuits | Resistive electrical model: LEDs, resistors, buttons, potentiometers, 7-segment display, short-circuit detection |
 | Bench devices | Current-limited power supply, variable load, multimeter, signal generator (periodic or arbitrary) |
-| Screens | ILI9341 over SPI and ILI9481 over a parallel bus: windows, orientation, RGB565 and 18-bit, sleep, backlight |
+| Screens | ILI9341 over SPI and ILI9481 over a parallel bus: windows, orientation, RGB565 and 18-bit, sleep, backlight; LCD1602 character display (HD44780) in 4 or 8 bits or through a PCF8574 I2C backpack, busy flag, CGRAM, contrast |
 | Instruments | Cycle-exact logic analyser and oscilloscope, measurements, cursors, trigger, UART decoder, VCD export |
 | Analogue conversion | Single conversions on A0–A5 and the internal reference |
 | Bench scenarios | Versioned tests run without a window or in the Bench panel: stimuli scheduled in cycles, bounded waits, measurements with a verdict, screen comparison, reproducible report and trace |
@@ -166,9 +168,9 @@ in three ways:
 
 See the [qualification matrix (French)](docs/qualification/README.md).
 
-**Current limitations:** Timer1/2, SPI slave mode, I²C/TWI, watchdog, analogue comparator and external interrupts are
-not yet emulated. Their labels on the pinout do not mean they are available. Further microcontrollers, including the
-ATmega2560, as well as ARM and RISC-V targets are planned.
+**Current limitations:** Timer1/2, the slave modes of SPI and TWI, watchdog, analogue comparator and external
+interrupts are not yet emulated. Their labels on the pinout do not mean they are available. Further microcontrollers,
+including the ATmega2560, as well as ARM and RISC-V targets are planned.
 
 ## Try SiliconForge
 
@@ -189,7 +191,8 @@ cmake --build build -j
 ```
 
 The **Open an example…** menu loads a [prebuilt firmware](firmware/README.md) with its circuit: LEDs and PWM, the
-7-segment counter, buttons, serial echo, PWM setpoint, SPI screen, Timer0 interrupts. No AVR compiler is needed.
+7-segment counter, buttons, serial echo, PWM setpoint, SPI screen, LCD1602 character display (parallel and I2C),
+Timer0 interrupts. No AVR compiler is needed.
 
 To try your own code, give the path of your ATmega328P binary on the command line, or use **Load firmware…** in the
 application. You do not need to flash a physical board.

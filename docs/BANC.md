@@ -126,6 +126,22 @@ au-delà de la tolérance. `scenarios/tft-spi.json` et `scenarios/tft-parallel.j
 pas la taille de l’écran est refusée avant l’essai (`capacity`), un composant qui n’est pas un écran aussi
 (`resource`), un fichier illisible (`unreadable`).
 
+Pour un afficheur LCD à caractères (`lcd1602`, voir [Circuits](CIRCUITS.md#afficheur-lcd-à-caractères)), l’étape
+compare le texte affiché, rangée par rangée depuis le haut :
+
+```json
+{"label": "Le message", "screen": {"component": "lcd", "text": ["Hello, world! \u0000", "Seconds: 0"]}}
+```
+
+Les espaces en fin de rangée ne comptent pas et une rangée non donnée est attendue blanche ; le curseur est ignoré, un
+affichage éteint est blanc. Les caractères de la ROM s’écrivent comme ils s’affichent (`¥` pour 0x5C, katakana
+demi-chasse pour 0xA1-0xDF), ceux de la CGRAM en `\u0000` à `\u0007`. Le rapport donne, dans `screens`, les rangées
+attendues (`text`) et affichées (`shown`), le nombre de rangées différentes et la colonne et la rangée de la première
+différence. Plus de rangées que l’afficheur n’en a sont refusées par le schéma, une rangée trop longue avant l’essai
+(`capacity`), un composant qui n’est pas un afficheur à caractères aussi (`resource`). `scenarios/lcd1602.json` et
+`scenarios/lcd1602-i2c.json` (le même afficheur derrière un module I2C) en sont des exemples ; ils vérifient aussi
+qu’aucune écriture n’a été perdue (`early` en dessous de 0,5).
+
 ## Ce qui est refusé avant l’essai
 
 `siliconforge bench check` et `run` vérifient tout le scénario avant d’exécuter la moindre instruction. Chaque refus

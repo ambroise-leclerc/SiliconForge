@@ -81,6 +81,7 @@ add_library(SiliconForge_avr STATIC
     arch/avr/peripherals/Gpio.cpp
     arch/avr/peripherals/Timer8.cpp
     arch/avr/peripherals/Spi.cpp
+    arch/avr/peripherals/Twi.cpp
     arch/avr/peripherals/Usart.cpp)
 add_library(SiliconForge::avr ALIAS SiliconForge_avr)
 target_link_libraries(SiliconForge_avr PUBLIC SiliconForge::core nlohmann_json::nlohmann_json PRIVATE SiliconForge_options)
@@ -98,6 +99,8 @@ target_include_directories(SiliconForge_mcu PRIVATE "${CMAKE_CURRENT_BINARY_DIR}
 add_library(SiliconForge_circuit STATIC
     circuit/Description.cpp
     circuit/Tft.cpp
+    circuit/Hd44780.cpp
+    circuit/Pcf8574.cpp
     circuit/Circuit.cpp)
 add_library(SiliconForge::circuit ALIAS SiliconForge_circuit)
 target_link_libraries(SiliconForge_circuit PUBLIC SiliconForge::core nlohmann_json::nlohmann_json PRIVATE SiliconForge_options nlohmann_json_schema_validator)

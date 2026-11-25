@@ -1,4 +1,5 @@
 #include <siliconforge/circuit/Circuit.hpp>
+#include <siliconforge/circuit/Pcf8574.hpp>
 #include <siliconforge/circuit/Tft.hpp>
 
 #include <algorithm>
@@ -151,6 +152,17 @@ struct Circuit::Model {
         Tft                        tft;
     };
 
+    /// A character LCD: the nets of its terminals and its HD44780. It draws no current; it drives D0-D7 (or D4-D7) only
+    /// during a read cycle, which drivePins hands to the MCU inputs wired to them. With an I2C backpack, a PCF8574 drives
+    /// the LCD from the bus instead: P0 RS, P1 R/W, P2 E, P3 the backlight, P4-P7 D4-D7, as on the common modules.
+    struct Lcd {
+        std::size_t                component{0};
+        std::map<std::string, int> node;   ///< Terminal name -> node.
+        std::map<std::string, int> state;  ///< State entry name -> index in the component.
+        Hd44780                    controller;
+        std::optional<Pcf8574>     backpack;
+    };
+
     /// A generator running: where its wave started, the call scheduled for its next step, its arbitrary samples.
     struct Run {
         Cycles             origin{0};
@@ -160,6 +172,8 @@ struct Circuit::Model {
     Circuit*                         owner{nullptr};
     std::vector<Run>                 runs;
     std::vector<Screen>              screens;
+    std::vector<Lcd>                 lcds;
+    std::map<std::size_t, double>    busDrive;  ///< Net -> volts: what a character LCD drives during a read cycle.
     unsigned                         columns{0};
     unsigned                         chipColumn{0};
     std::vector<Component>           components;
@@ -835,13 +849,117 @@ struct Circuit::Model {
         }
     }
 
+    /// Feeds the controller of every character LCD with the levels of its nets, and notes what it drives back.
+    void observeLcds(const Solution& solution) {
+        busDrive.clear();
+        const auto seconds = mcu ? static_cast<double>(mcu->cycles()) / static_cast<double>(mcu->clockHz()) : 0.0;
+        // SDA is open drain: a line any backpack pulls low is low for every device on it (a wired AND), whatever the
+        // order in which the modules are visited.
+        std::set<std::size_t> pulledLow;
+        for (const auto& lcd : lcds)
+            if (lcd.backpack && lcd.backpack->pullsSda())
+                pulledLow.insert(net(lcd.node.at("sda")));
+        for (auto& lcd : lcds) {
+            const auto volts = [&](const char* name) { return solution.voltage[net(lcd.node.at(name))]; };
+            const auto driven = [&](const char* name) { return solution.driven[net(lcd.node.at(name))] != 0; };
+            const bool i2c = lcd.backpack.has_value();
+            const auto vdd = volts(i2c ? "vcc" : "vdd"), vss = volts(i2c ? "gnd" : "vss");
+            const bool powered = vdd - vss >= 2.7 && std::abs(vss) < 0.5;
+            auto&      controller = lcd.controller;
+            controller.power(powered, seconds);
+            auto& states = components[lcd.component].state;
+            const auto put = [&](const char* name, double value) {
+                if (const auto found = lcd.state.find(name); found != lcd.state.end())
+                    states[static_cast<std::size_t>(found->second)].value = value;
+            };
+            const auto get = [&](const char* name, double otherwise) {
+                const auto found = lcd.state.find(name);
+                return found == lcd.state.end() ? otherwise : states[static_cast<std::size_t>(found->second)].value;
+            };
+            double contrast = 0, backlight = 0;
+            if (i2c) {
+                auto& backpack = *lcd.backpack;
+                backpack.power(powered);
+                if (powered) {
+                    const auto threshold = vss + (vdd - vss) / 2;
+                    // The pull-ups of the module hold a line nothing drives high.
+                    const auto line = [&](const char* name) {
+                        const auto target = net(lcd.node.at(name));
+                        return !solution.driven[target] || solution.voltage[target] > threshold;
+                    };
+                    // What P0-P7 read: the port, a one pulled low where the LCD drives a zero on D4-D7 (D0-D3 are not wired).
+                    const auto pins = [&] {
+                        auto value = backpack.port();
+                        if (const auto output = controller.output()) {
+                            const auto mask = static_cast<std::uint8_t>(output->mask & 0xF0);
+                            value           = static_cast<std::uint8_t>((value & ~mask) | (value & output->value & mask));
+                        }
+                        return value;
+                    };
+                    const auto written = [&](std::uint8_t port) {
+                        controller.bus((port & 0x01) != 0, (port & 0x02) != 0, (port & 0x04) != 0, static_cast<std::uint8_t>(port & 0xF0), seconds);
+                    };
+                    backpack.bus(line("scl"), line("sda") && !pulledLow.contains(net(lcd.node.at("sda"))), pins, written);
+                    // A low level wins over the pull-ups: a module that releases a line never hides another that holds it low.
+                    for (const auto* name : {"sda", "scl"}) {
+                        const auto target = net(lcd.node.at(name));
+                        if (name == std::string_view{"sda"} && backpack.pullsSda())
+                            busDrive[target] = vss;
+                        else if (!solution.driven[target])
+                            busDrive.try_emplace(target, vdd);  // The pull-up of the module, unless the line is already held
+                    }
+                }
+                // The trimmer of the backpack sets V0 between GND and VCC; P3 switches the backlight through a transistor.
+                const double v0 = get("trimmer", 0.1) * (vdd - vss);
+                contrast        = powered ? std::clamp((vdd - vss - v0 - 3.0) / 1.5, 0.0, 1.0) : 0.0;
+                backlight       = powered && (backpack.port() & 0x08) ? 1.0 : 0.0;
+                put("port", backpack.port());
+                put("i2cWrites", static_cast<double>(backpack.writes()));
+                put("i2cReads", static_cast<double>(backpack.reads()));
+            } else if (powered) {
+                const auto threshold = vss + (vdd - vss) / 2;
+                const auto high = [&](const char* name) { return volts(name) > threshold; };
+                std::uint8_t data = 0;
+                for (unsigned bit = 0; bit < 8; ++bit)
+                    data = static_cast<std::uint8_t>(data | (high(std::format("d{}", bit).c_str()) ? 1u << bit : 0u));
+                controller.bus(high("rs"), high("rw"), high("e"), data, seconds);
+                if (const auto output = controller.output())
+                    for (unsigned bit = 0; bit < 8; ++bit)
+                        if (output->mask & (1u << bit))
+                            busDrive[net(lcd.node.at(std::format("d{}", bit)))] = output->value & (1u << bit) ? vdd : vss;
+            }
+            if (!i2c) {
+                // The liquid crystal is driven by VDD - V0: about 4.5 V on a 5 V module gives a sharp text, below 3 V it
+                // does not turn. A V0 left unconnected shows nothing.
+                contrast = powered && driven("v0") ? std::clamp((vdd - volts("v0") - 3.0) / 1.5, 0.0, 1.0) : 0.0;
+                // The backlight is a LED with its resistor on the module, between A and K.
+                backlight = std::clamp((volts("a") - volts("k") - 2.6) / 2.0, 0.0, 1.0);
+            }
+            put("powered", powered ? 1 : 0);
+            put("contrast", contrast);
+            put("backlight", backlight);
+            put("displayOn", controller.displayOn() ? 1 : 0);
+            put("cursor", controller.cursorOn() ? 1 : 0);
+            put("blink", controller.blinkOn() ? 1 : 0);
+            put("dataBits", controller.eightBit() ? 8 : 4);
+            put("lines", controller.twoLines() ? 2 : 1);
+            put("instructions", static_cast<double>(controller.instructions()));
+            put("dataWrites", static_cast<double>(controller.dataWrites()));
+            put("reads", static_cast<double>(controller.reads()));
+            put("early", static_cast<double>(controller.early()));
+            put("timing", static_cast<double>(controller.timing()));
+            put("revision", static_cast<double>(controller.revision()));
+        }
+    }
+
     void drivePins(const Solution& solution, double supplyVolts) {
         for (auto& entry : chip) {
             if (!entry.pin || entry.pin->isOutput())
                 continue;
             const auto target = net(entry.node);
-            if (solution.driven[target]) {
-                const auto volts = solution.voltage[target];
+            const auto read   = busDrive.find(target);  // A character LCD driving the net during a read cycle
+            if (read != busDrive.end() || solution.driven[target]) {
+                const auto volts = read != busDrive.end() ? read->second : solution.voltage[target];
                 if (entry.applied != 2 || entry.appliedVolts != volts) {
                     entry.applied      = 2;
                     entry.appliedVolts = volts;
@@ -934,6 +1052,24 @@ std::expected<std::unique_ptr<Circuit>, LoadError> Circuit::create(Json descript
                 element.component = model.components.size();
                 element.screen    = static_cast<int>(model.screens.size());
                 model.screens.push_back(std::move(screen));
+                model.elements.push_back(element);
+                continue;
+            }
+            if (kind == "hd44780" || kind == "hd44780-i2c") {
+                Model::Lcd lcd;
+                if (kind == "hd44780-i2c")
+                    lcd.backpack = Pcf8574{static_cast<std::uint8_t>(component.properties.at("address").get<double>())};
+                lcd.component  = model.components.size();
+                const auto rows = component.properties.at("rows").get<double>() >= 2 ? 2u : 1u;
+                lcd.controller = Hd44780{static_cast<unsigned>(std::clamp(component.properties.at("columns").get<double>(), 1.0, rows == 2 ? 40.0 : 80.0)), rows};
+                for (const auto& name : described.at("between"))
+                    lcd.node[name.get<std::string>()] = terminals.at(name.get<std::string>());
+                for (std::size_t i = 0; i < component.state.size(); ++i)
+                    lcd.state[component.state[i].name] = static_cast<int>(i);
+                Model::Element element;
+                element.kind      = Model::Kind::Display;
+                element.component = model.components.size();
+                model.lcds.push_back(std::move(lcd));
                 model.elements.push_back(element);
                 continue;
             }
@@ -1107,6 +1243,7 @@ void Circuit::update() {
     const auto& solution = found->second;
     model->apply(solution);
     model->observeScreens(solution);
+    model->observeLcds(solution);
     shortCircuits = solution.shorts;
     model->drivePins(solution, supply);
     model->solving = false;
@@ -1188,7 +1325,35 @@ const Tft* Circuit::display(std::string_view id) const {
     return nullptr;
 }
 
+const Hd44780* Circuit::characterDisplay(std::string_view id) const {
+    const auto component = std::ranges::find(model->components, id, &Model::Component::id);
+    if (component == model->components.end())
+        return nullptr;
+    const auto index = static_cast<std::size_t>(component - model->components.begin());
+    for (const auto& lcd : model->lcds)
+        if (lcd.component == index)
+            return &lcd.controller;
+    return nullptr;
+}
+
 nlohmann::json Circuit::screenImage(std::string_view id) const {
+    if (const auto* lcd = characterDisplay(id)) {
+        auto cells = nlohmann::json::array();
+        for (unsigned row = 0; row < lcd->rows(); ++row)
+            for (unsigned column = 0; column < lcd->columns(); ++column) {
+                const auto code = lcd->codeAt(column, row);
+                cells.push_back(code ? nlohmann::json(lcd->glyph(*code)) : nlohmann::json(std::array<std::uint8_t, 8>{}));
+            }
+        const auto cursor = lcd->cursorCell();
+        return {{"columns", lcd->columns()},
+                {"rows", lcd->rows()},
+                {"revision", lcd->revision()},
+                {"on", lcd->powered() && lcd->displayOn()},
+                {"cells", std::move(cells)},
+                {"cursor", cursor && lcd->cursorOn() ? nlohmann::json{cursor->first, cursor->second} : nlohmann::json(nullptr)},
+                {"blink", cursor && lcd->blinkOn() ? nlohmann::json{cursor->first, cursor->second} : nlohmann::json(nullptr)},
+                {"text", lcd->text()}};
+    }
     const auto* tft = display(id);
     if (tft == nullptr)
         return nullptr;

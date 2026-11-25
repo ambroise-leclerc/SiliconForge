@@ -1,0 +1,43 @@
+{
+  "formatVersion": 1,
+  "name": "lcd1602",
+  "description": "The firmware initialises an LCD1602 in 4-bit mode, polling its busy flag, and writes a greeting and a seconds counter; the text the module shows is checked, and that no write was lost while the controller was busy.",
+  "circuit": "../circuits/lcd1602-demo.json",
+  "firmware": "../firmware/prebuilt/lcd1602.hex",
+  "steps": [
+    {
+      "label": "written",
+      "waitFor": {
+        "pin": "D12",
+        "state": "high"
+      },
+      "timeout": "500ms"
+    },
+    {
+      "label": "the greeting and the counter",
+      "screen": {
+        "component": "lcd",
+        "text": ["Hello, world! \u0000", "Seconds: 0"]
+      }
+    },
+    {
+      "label": "no write lost while the controller was busy",
+      "waitFor": {
+        "component": "lcd",
+        "state": "early",
+        "below": 0.5
+      },
+      "timeout": "1ms"
+    },
+    {
+      "wait": "1050ms"
+    },
+    {
+      "label": "a second later",
+      "screen": {
+        "component": "lcd",
+        "text": ["Hello, world! \u0000", "Seconds: 1"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,252 @@
+{
+  "formatVersion": 1,
+  "type": "lcd1602",
+  "name": "LCD1602 (HD44780)",
+  "description": "A character LCD of 16 columns and 2 rows of 5 x 8 dots, with an HD44780 controller, on its 16-pin header: VSS, VDD, V0 (contrast), RS, R/W, E, D0 to D7, and A and K for the LED backlight. The controller takes D0-D7 at the falling edge of E, or D4-D7 twice in 4-bit mode; with R/W high it drives the bus while E is high (busy flag and address counter, or the character at the address counter). An instruction takes 37 µs, a clear or a return home 1.52 ms, the internal reset 10 ms after power on: a write while the controller is busy is lost and counted (early), and so is an E pulse shorter than 230 ns or closer than 500 ns to the previous one (timing). The text is visible when VDD - V0 is above 3 V (contrast); the backlight lights when A is above K by more than 2.6 V. The module draws no current from the circuit.",
+  "terminals": [
+    {
+      "name": "vss"
+    },
+    {
+      "name": "vdd"
+    },
+    {
+      "name": "v0"
+    },
+    {
+      "name": "rs"
+    },
+    {
+      "name": "rw"
+    },
+    {
+      "name": "e"
+    },
+    {
+      "name": "d0"
+    },
+    {
+      "name": "d1"
+    },
+    {
+      "name": "d2"
+    },
+    {
+      "name": "d3"
+    },
+    {
+      "name": "d4"
+    },
+    {
+      "name": "d5"
+    },
+    {
+      "name": "d6"
+    },
+    {
+      "name": "d7"
+    },
+    {
+      "name": "a"
+    },
+    {
+      "name": "k"
+    }
+  ],
+  "properties": {
+    "columns": {
+      "type": "number",
+      "default": 16,
+      "minimum": 1,
+      "maximum": 40,
+      "description": "Characters per row."
+    },
+    "rows": {
+      "type": "number",
+      "default": 2,
+      "minimum": 1,
+      "maximum": 2,
+      "description": "Rows of characters."
+    },
+    "color": {
+      "type": "string",
+      "default": "green",
+      "enum": [
+        "green",
+        "blue"
+      ],
+      "description": "Dark characters on a yellow-green panel, or white characters on a blue one."
+    }
+  },
+  "footprint": {
+    "kind": "fixed",
+    "description": "The 16 pins of the header, 2.54 mm apart, in one row.",
+    "offsets": {
+      "vss": [
+        0,
+        0
+      ],
+      "vdd": [
+        1,
+        0
+      ],
+      "v0": [
+        2,
+        0
+      ],
+      "rs": [
+        3,
+        0
+      ],
+      "rw": [
+        4,
+        0
+      ],
+      "e": [
+        5,
+        0
+      ],
+      "d0": [
+        6,
+        0
+      ],
+      "d1": [
+        7,
+        0
+      ],
+      "d2": [
+        8,
+        0
+      ],
+      "d3": [
+        9,
+        0
+      ],
+      "d4": [
+        10,
+        0
+      ],
+      "d5": [
+        11,
+        0
+      ],
+      "d6": [
+        12,
+        0
+      ],
+      "d7": [
+        13,
+        0
+      ],
+      "a": [
+        14,
+        0
+      ],
+      "k": [
+        15,
+        0
+      ]
+    }
+  },
+  "model": {
+    "elements": [
+      {
+        "type": "hd44780",
+        "between": [
+          "vss",
+          "vdd",
+          "v0",
+          "rs",
+          "rw",
+          "e",
+          "d0",
+          "d1",
+          "d2",
+          "d3",
+          "d4",
+          "d5",
+          "d6",
+          "d7",
+          "a",
+          "k"
+        ]
+      }
+    ]
+  },
+  "state": {
+    "powered": {
+      "type": "boolean",
+      "default": false,
+      "description": "VDD is at least 2.7 V above VSS."
+    },
+    "contrast": {
+      "type": "number",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "How dark the dots that are on look: 0 below 3 V between VDD and V0 or with V0 unconnected, 1 from 4.5 V."
+    },
+    "backlight": {
+      "type": "number",
+      "default": 0,
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Brightness of the backlight, from the voltage between A and K."
+    },
+    "displayOn": {
+      "type": "boolean",
+      "default": false,
+      "description": "The display is on (display control D)."
+    },
+    "cursor": {
+      "type": "boolean",
+      "default": false,
+      "description": "The underline cursor is shown (display control C)."
+    },
+    "blink": {
+      "type": "boolean",
+      "default": false,
+      "description": "The character at the cursor blinks (display control B)."
+    },
+    "dataBits": {
+      "type": "number",
+      "default": 8,
+      "description": "Width of the interface: 8, or 4 after a function set with DL clear."
+    },
+    "lines": {
+      "type": "number",
+      "default": 1,
+      "description": "Display lines of the function set: 1 after power on, 2 with N set."
+    },
+    "instructions": {
+      "type": "number",
+      "default": 0,
+      "description": "Instructions executed since power on."
+    },
+    "dataWrites": {
+      "type": "number",
+      "default": 0,
+      "description": "Characters or CGRAM rows written since power on."
+    },
+    "reads": {
+      "type": "number",
+      "default": 0,
+      "description": "Reads of the busy flag or of the memory."
+    },
+    "early": {
+      "type": "number",
+      "default": 0,
+      "description": "Writes lost because the controller was still busy, and memory reads while it was."
+    },
+    "timing": {
+      "type": "number",
+      "default": 0,
+      "description": "E pulses shorter than 230 ns, or less than 500 ns after the previous one."
+    },
+    "revision": {
+      "type": "number",
+      "default": 0,
+      "description": "Increases whenever what the panel shows may have changed."
+    }
+  }
+}

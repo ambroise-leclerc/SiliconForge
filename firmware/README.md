@@ -14,6 +14,8 @@ Small avr-gcc programs for the ATmega328P (Arduino Uno, 16 MHz) used by the inte
 | `buttons` | The `led-buttons` circuit: inputs with pull-ups, the LED on D9 follows the D2 button and is latched by D3 |
 | `tft_spi` | The `tft-spi-demo` circuit: a KMRTM28028 (ILI9341) on the hardware SPI, initialised and painted with a window of four colour quadrants; D12 goes high when done; checked by `tests/unit/TftTests.cpp` and `scenarios/tft-spi.json` |
 | `tft_parallel` | The `tft-parallel-demo` circuit: a MCUFRIEND 3.5" shield (ILI9481) on its 8-bit parallel bus, same picture; checked by `scenarios/tft-parallel.json` |
+| `lcd1602` | The `lcd1602-demo` circuit: an LCD1602 (HD44780) on a 4-bit bus with R/W wired, initialised by instruction, then driven by polling its busy flag: `Hello, world!` and a heart from CGRAM, then the seconds on the second row; D12 goes high once the first screen is written; checked by `tests/unit/Hd44780Tests.cpp` and `scenarios/lcd1602.json` |
+| `lcd1602_i2c` | The `lcd1602-i2c-demo` circuit: an LCD1602 behind a PCF8574 backpack at 0x27, driven by the hardware TWI at 100 kHz (every bus status checked; D13 on an unexpected one), the busy flag read back through the expander after a repeated START: `Hello over I2C!`, then the seconds; D12 goes high once the first screen is written; checked by `tests/unit/Hd44780Tests.cpp` and `scenarios/lcd1602-i2c.json` |
 | `pwm_setpoint` | The demonstration circuit: Timer0 Fast PWM on D6 at 25 %, 75 % while the D2 button is held, acknowledged on D13; checked by the bench scenario `scenarios/pwm-setpoint.json` |
 
 The binaries of `prebuilt/` are also embedded in the application, which offers them with their circuit in its

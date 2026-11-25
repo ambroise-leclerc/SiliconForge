@@ -24,7 +24,7 @@ std::expected<void, LoadError> validate(const Json& d) {
                 if (!p.is_object() || !p.contains("type") || !p.at("type").is_string())
                     continue;
                 const std::string type = p.at("type");
-                if (type != "avr.gpio" && type != "avr.timer8" && type != "avr.usart" && type != "avr.spi" && type != "avr.adc" && type != "avr.eeprom")
+                if (type != "avr.gpio" && type != "avr.timer8" && type != "avr.usart" && type != "avr.spi" && type != "avr.twi" && type != "avr.adc" && type != "avr.eeprom")
                     fail("/peripherals/" + std::to_string(i) + "/type", "Unknown peripheral type: " + type);
             }
         // The same embedded Draft-07 schema is used by the runtime and the CTest validation test.

@@ -159,6 +159,7 @@ struct Step {
     std::vector<std::uint32_t> expected;       ///< The expected picture, 0xRRGGBB row by row.
     std::string                imageFile;
     std::size_t                tolerance{0};   ///< Pixels allowed to differ.
+    std::vector<std::string>   expectedText;   ///< A character LCD: the rows expected, as many as it has, without trailing spaces.
     // measure
     std::string           id;
     std::string           quantity;
@@ -528,6 +529,46 @@ std::string base64(std::string_view bytes) {
     return out;
 }
 
+/// A row of text without the spaces at its end.
+std::string trimEnd(std::string_view text) {
+    while (!text.empty() && text.back() == ' ')
+        text.remove_suffix(1);
+    return std::string{text};
+}
+
+/// Whether the UTF-8 sequence at `at` starts a character: neither a continuation byte nor a combining mark (U+0300 to
+/// U+036F, which the ROM of an LCD draws with the letter before it, as in x̄).
+bool startsCharacter(std::string_view text, std::size_t at) {
+    const auto lead = static_cast<u8>(text[at]);
+    if ((lead & 0xC0) == 0x80)
+        return false;
+    return !(at + 1 < text.size() && (lead == 0xCC || (lead == 0xCD && static_cast<u8>(text[at + 1]) < 0xB0)));
+}
+
+/// The characters of a UTF-8 text, as an LCD shows them: one per cell.
+std::size_t characterCount(std::string_view text) {
+    std::size_t count = 0;
+    for (std::size_t i = 0; i < text.size(); ++i)
+        count += startsCharacter(text, i) ? 1 : 0;
+    return count;
+}
+
+/// The first character (counted as characterCount does) where two texts differ.
+std::size_t firstDifference(std::string_view a, std::string_view b) {
+    std::size_t same = 0;
+    while (same < a.size() && same < b.size() && a[same] == b[same])
+        ++same;
+    return characterCount(a.substr(0, same)) - (same < a.size() && same > 0 && !startsCharacter(a, same) ? 1 : 0);
+}
+
+/// A row of LCD text for a message: the characters of CGRAM (U+0000 to U+0007) and the other controls written \uXXXX.
+std::string printable(std::string_view text) {
+    std::string out;
+    for (const char c : text)
+        out += static_cast<u8>(c) < 0x20 ? std::format("\\u{:04X}", static_cast<unsigned>(c)) : std::string(1, c);
+    return out;
+}
+
 /// The bytes as UTF-8 text: valid sequences kept, every other byte replaced by U+FFFD.
 std::string readableText(std::string_view bytes) {
     std::string out;
@@ -835,6 +876,27 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
             step.kind          = Step::Kind::Screen;
             const auto& screen = entry.at("screen");
             step.component     = screen.at("component").get<std::string>();
+            if (screen.contains("text")) {
+                const auto* lcd = (*checkModel)->characterDisplay(step.component);
+                if (!lcd)
+                    reject(Problem::Cause::Resource,
+                           path + "/screen/component",
+                           std::format("{} is not a character display of the circuit: a screen step with text needs a character LCD", step.component),
+                           circuitFile);
+                const auto rows = screen.at("text").get<std::vector<std::string>>();
+                if (rows.size() > lcd->rows())
+                    reject(Problem::Cause::Capacity, path + "/screen/text",
+                           std::format("{} rows of text are expected, and {} has {}", rows.size(), step.component, lcd->rows()));
+                step.expectedText.assign(lcd->rows(), std::string{});
+                for (std::size_t row = 0; row < rows.size(); ++row) {
+                    step.expectedText[row] = trimEnd(rows[row]);
+                    if (const auto length = characterCount(step.expectedText[row]); length > lcd->columns())
+                        reject(Problem::Cause::Capacity, std::format("{}/screen/text/{}", path, row),
+                               std::format("Row {} of the text has {} characters, and {} shows {} per row", row, length, step.component, lcd->columns()));
+                }
+                steps.push_back(std::move(step));
+                continue;
+            }
             step.imageFile     = screen.at("image").get<std::string>();
             step.tolerance     = screen.value("tolerance", std::size_t{0});
             const auto* tft    = (*checkModel)->display(step.component);
@@ -1198,6 +1260,35 @@ Report Scenario::run() {
                 case Step::Kind::Screen: {
                     // The screen as it is now: the writes of the firmware up to this step are in it. The core stops at an
                     // instruction boundary, which can be a few cycles past `begin`: the report gives that cycle too.
+                    if (!step.expectedText.empty()) {
+                        const auto* lcd = model.characterDisplay(step.component);
+                        ScreenCheck check;
+                        check.component  = step.component;
+                        check.label      = step.label;
+                        check.text       = step.expectedText;
+                        check.width      = lcd->columns();
+                        check.height     = lcd->rows();
+                        check.at         = begin;
+                        check.observedAt = device.cycles();
+                        for (const auto& row : lcd->text())
+                            check.shown.push_back(trimEnd(row));
+                        for (std::size_t row = 0; row < check.shown.size(); ++row)
+                            if (check.shown[row] != check.text[row] && check.differing++ == 0) {
+                                check.firstX = firstDifference(check.shown[row], check.text[row]);
+                                check.firstY = row;
+                            }
+                        check.passed  = check.differing == 0;
+                        record.detail = check.passed
+                                            ? std::format("{} shows the {} rows expected", step.component, check.text.size())
+                                            : std::format("{}: row {} shows \"{}\", \"{}\" was expected; it differs from column {}", step.component, check.firstY,
+                                                          printable(check.shown[check.firstY]), printable(check.text[check.firstY]), check.firstX);
+                        if (!check.passed) {
+                            record.outcome = StepRecord::Outcome::Failed;
+                            report.verdict = Verdict::Fail;
+                        }
+                        report.screens.push_back(std::move(check));
+                        break;
+                    }
                     const auto* tft    = model.display(step.component);
                     const auto  shown  = tft->shown();
                     const auto  result = circuit::compareImages(shown, step.expected, tft->width(), tft->fullDepth());
@@ -1309,6 +1400,25 @@ Json toJson(const Report& report, std::string_view traceFile) {
     }
     auto& screens = out["screens"] = Json::array();
     for (const auto& check : report.screens) {
+        if (!check.text.empty()) {
+            Json entry{
+                {"component", check.component},
+                {"text", check.text},
+                {"shown", check.shown},
+                {"columns", check.width},
+                {"rows", check.height},
+                {"differing", check.differing},
+                {"verdict", check.passed ? "pass" : "fail"},
+                {"at", timeJson(check.at, clock)},
+                {"observedAt", timeJson(check.observedAt, clock)}
+            };
+            if (!check.label.empty())
+                entry["label"] = check.label;
+            if (check.differing > 0)
+                entry["first"] = {{"column", check.firstX}, {"row", check.firstY}};
+            screens.push_back(std::move(entry));
+            continue;
+        }
         Json entry{
             {"component", check.component},
             {"image", check.image},

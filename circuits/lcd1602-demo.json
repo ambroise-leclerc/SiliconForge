@@ -1,0 +1,141 @@
+{
+  "formatVersion": 1,
+  "name": "LCD1602 demo",
+  "description": "An LCD1602 (HD44780, 16 x 2) on a 4-bit bus with R/W wired, so that the firmware reads the busy flag: RS D8, R/W D9, E D10, D4-D7 on D4-D7, D0-D3 unconnected. The potentiometer sets the contrast on V0; the backlight is lit from the rails. With lcd1602.hex the module says hello and counts the seconds.",
+  "board": {
+    "type": "breadboard",
+    "columns": 40
+  },
+  "chip": {
+    "mcu": "atmega328p",
+    "column": 6
+  },
+  "components": [
+    {
+      "id": "lcd",
+      "type": "lcd1602",
+      "at": {
+        "vss": "j22",
+        "vdd": "j23",
+        "v0": "j24",
+        "rs": "j25",
+        "rw": "j26",
+        "e": "j27",
+        "d0": "j28",
+        "d1": "j29",
+        "d2": "j30",
+        "d3": "j31",
+        "d4": "j32",
+        "d5": "j33",
+        "d6": "j34",
+        "d7": "j35",
+        "a": "j36",
+        "k": "j37"
+      }
+    },
+    {
+      "id": "contrast",
+      "type": "potentiometer",
+      "at": {
+        "a": "c22",
+        "wiper": "c23",
+        "b": "c24"
+      },
+      "properties": {
+        "resistance": 10000
+      }
+    }
+  ],
+  "wires": [
+    {
+      "from": "b12",
+      "to": "B+12",
+      "color": "red"
+    },
+    {
+      "from": "a13",
+      "to": "B-13",
+      "color": "black"
+    },
+    {
+      "from": "i14",
+      "to": "T+14",
+      "color": "red"
+    },
+    {
+      "from": "j12",
+      "to": "T-12",
+      "color": "black"
+    },
+    {
+      "from": "h22",
+      "to": "T-22",
+      "color": "black"
+    },
+    {
+      "from": "h23",
+      "to": "T+23",
+      "color": "red"
+    },
+    {
+      "from": "a22",
+      "to": "B-22",
+      "color": "black"
+    },
+    {
+      "from": "a24",
+      "to": "B+24",
+      "color": "red"
+    },
+    {
+      "from": "b23",
+      "to": "h24",
+      "color": "orange"
+    },
+    {
+      "from": "a19",
+      "to": "h25",
+      "color": "yellow"
+    },
+    {
+      "from": "h19",
+      "to": "h26",
+      "color": "white"
+    },
+    {
+      "from": "h18",
+      "to": "h27",
+      "color": "green"
+    },
+    {
+      "from": "a11",
+      "to": "h32",
+      "color": "blue"
+    },
+    {
+      "from": "a16",
+      "to": "h33",
+      "color": "blue"
+    },
+    {
+      "from": "a17",
+      "to": "h34",
+      "color": "blue"
+    },
+    {
+      "from": "a18",
+      "to": "h35",
+      "color": "blue"
+    },
+    {
+      "from": "h36",
+      "to": "T+36",
+      "color": "red"
+    },
+    {
+      "from": "h37",
+      "to": "T-37",
+      "color": "black"
+    }
+  ]
+}

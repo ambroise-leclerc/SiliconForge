@@ -126,13 +126,14 @@ reste noir et échoue à la comparaison ([format](docs/CIRCUITS.md#écrans-tft),
 
 Un circuit est un fichier JSON qui décrit la puce, les composants posés sur les trous de la plaque et les fils.
 Plusieurs circuits sont fournis : LED et potentiomètre, afficheur 7 segments, LED et deux boutons, établi
-d’alimentation, générateur de signaux, écrans SPI et parallèle. Un autre circuit se charge avec `--circuit montage.json`,
-le bouton **Load circuit…** ou par glisser-déposer.
+d’alimentation, générateur de signaux, écrans SPI et parallèle, afficheur LCD 1602 en parallèle et en I2C. Un autre
+circuit se charge avec `--circuit montage.json`, le bouton **Load circuit…** ou par glisser-déposer.
 
 Les composants disponibles sont la LED, la résistance, le bouton-poussoir, le potentiomètre, l’afficheur 7 segments,
-le quartz, l’alimentation pilotable, la charge variable, le multimètre, le générateur de signaux et les deux écrans
-TFT. Le [guide des circuits](docs/CIRCUITS.md) explique comment en ajouter. L’édition graphique du circuit fait
-partie des prochaines étapes.
+le quartz, l’alimentation pilotable, la charge variable, le multimètre, le générateur de signaux, les deux écrans
+TFT et l’afficheur LCD 1602 (HD44780), en parallèle ou derrière un module I2C (PCF8574). Le
+[guide des circuits](docs/CIRCUITS.md) explique comment en ajouter. L’édition graphique du circuit fait partie des
+prochaines étapes.
 
 ## Vérifier les broches
 
@@ -155,9 +156,10 @@ Le brochage indique aussi les fonctions du composant réel qui ne sont pas encor
 | PWM et temporisation | Timer0 : normal, CTC, Fast PWM et Phase Correct PWM |
 | Liaison série | USART0 asynchrone, envoi et réception dans le moniteur série, trames visibles bit par bit sur TXD |
 | SPI | Mode maître, fronts d’horloge et données datés au cycle, perte du mode maître par SS |
+| TWI (I²C) | Mode maître, lignes à drain ouvert, fronts datés au cycle, START répété, codes d’état, perte d’arbitrage |
 | Circuits | Modèle électrique résistif : LED, résistances, boutons, potentiomètres, afficheur 7 segments, détection des courts-circuits |
 | Appareils du banc | Alimentation à limitation de courant, charge variable, multimètre, générateur de signaux (périodique ou arbitraire) |
-| Écrans | ILI9341 en SPI et ILI9481 en parallèle : fenêtres, orientation, RGB565 et 18 bits, veille, rétroéclairage |
+| Écrans | ILI9341 en SPI et ILI9481 en parallèle : fenêtres, orientation, RGB565 et 18 bits, veille, rétroéclairage ; afficheur à caractères LCD 1602 (HD44780) en 4 ou 8 bits ou par un module I2C PCF8574, drapeau *busy*, CGRAM, contraste |
 | Instruments | Analyseur logique et oscilloscope au cycle près, mesures, curseurs, déclenchement, décodeur UART, export VCD |
 | Conversion analogique | Conversions simples sur A0–A5 et référence interne |
 | Scénarios de banc | Essais versionnés exécutés sans fenêtre ou dans le panneau Bench : stimuli planifiés en cycles, attentes bornées, mesures avec verdict, comparaison d’écran, rapport et trace reproductibles |
@@ -174,9 +176,9 @@ vérifiées de trois façons :
 
 Voir la [matrice de qualification](docs/qualification/README.md).
 
-**Limites actuelles :** Timer1/2, SPI esclave, I²C/TWI, watchdog, comparateur analogique et interruptions externes
-ne sont pas encore émulés. Leurs noms sur le brochage ne signifient pas qu’ils sont utilisables. D’autres
-microcontrôleurs, dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
+**Limites actuelles :** Timer1/2, les modes esclaves du SPI et du TWI, watchdog, comparateur analogique et
+interruptions externes ne sont pas encore émulés. Leurs noms sur le brochage ne signifient pas qu’ils sont
+utilisables. D’autres microcontrôleurs, dont l’ATmega2560, ainsi que des cibles ARM et RISC-V sont prévus.
 
 ## Essayer SiliconForge
 
@@ -198,8 +200,8 @@ cmake --build build -j
 ```
 
 Le menu **Open an example…** charge un [firmware précompilé](firmware/README.md) avec son circuit : LED et PWM,
-compteur 7 segments, boutons, écho série, consigne PWM, écran SPI, interruptions Timer0. Aucun compilateur AVR n’est
-nécessaire.
+compteur 7 segments, boutons, écho série, consigne PWM, écran SPI, afficheur LCD 1602 (parallèle et I2C),
+interruptions Timer0. Aucun compilateur AVR n’est nécessaire.
 
 Pour essayer votre propre code, donnez le chemin de votre binaire ATmega328P sur la ligne de commande, ou
 utilisez **Load firmware…** dans l’application. Aucune opération de programmation sur une carte n’est nécessaire.

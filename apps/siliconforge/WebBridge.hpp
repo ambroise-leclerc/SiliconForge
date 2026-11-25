@@ -78,6 +78,10 @@ inline constexpr Example examples[] = {
     {"blink", "Blink", "arduino-demo", "blink.hex", "The LED on D13 at 1 Hz"},
     {"tft_spi", "SPI display ILI9341", "tft-spi-demo", "tft_spi.hex", "KMRTM28028 module (ILI9341, 240 x 320) on the hardware SPI: initialisation, then four colour quadrants painted in a window",
      R"({"pins": ["D8", "D9", "D10", "D11", "D13"], "trigger": "D9", "rising": true, "span": 0.000012})"},
+    {"lcd1602", "Character LCD 1602", "lcd1602-demo", "lcd1602.hex", "LCD1602 (HD44780) on a 4-bit bus, busy flag read back: a greeting, a character from CGRAM and a seconds counter",
+     R"({"pins": ["D8", "D9", "D10", "D4", "D5", "D6", "D7"], "trigger": "D10", "rising": true, "span": 0.0002})"},
+    {"lcd1602_i2c", "Character LCD 1602 over I2C", "lcd1602-i2c-demo", "lcd1602_i2c.hex", "LCD1602 behind a PCF8574 backpack at 0x27, driven by the hardware TWI at 100 kHz, busy flag read back through the expander",
+     R"({"pins": ["A4", "A5"], "trigger": "A4", "rising": false, "span": 0.0002})"},
     {"timer0_isr", "Timer interrupt", "arduino-demo", "timer0_isr.hex", "A Timer0 interrupt service routine toggling a pin"},
 };
 
@@ -920,6 +924,10 @@ private:
             const auto hex     = example == std::end(examples) ? std::string_view{} : embedded::firmware(example->firmware);
             if (hex.empty())
                 throw webfront::BridgeError{std::string{error_code::unknownExample}, "Unknown example: " + id};
+            // Paused and reset first: the pins the firmware of the previous example drives must not reach the new circuit
+            // (a display would take a level held on its strobe as a write) before the new firmware is installed.
+            simulation.pause();
+            simulation.reset();
             useCircuit(circuit::builtinDescription(example->circuit), std::string{example->circuit});
             installFirmware(std::string{example->firmware}, parseIntelHex(hex).value());
             simulation.run();

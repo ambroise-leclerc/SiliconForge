@@ -116,12 +116,14 @@
     },
     "screen": {
       "type": "object",
-      "required": ["component", "image"],
+      "required": ["component"],
+      "oneOf": [{"required": ["image"], "not": {"required": ["text"]}}, {"required": ["text"], "not": {"required": ["image", "tolerance"]}}],
       "additionalProperties": false,
-      "description": "Compares the pixels of a display module (a tft component) with a picture, at the instant of the step.",
+      "description": "Compares what a display module shows with what is expected, at the instant of the step: the pixels of a tft component with a picture, or the characters of a character LCD with text.",
       "properties": {
         "component": {"$ref": "#/definitions/identifier"},
-        "image": {"type": "string", "minLength": 1, "description": "The expected picture, a portable pixmap (P3 or P6, 8 bits per channel) of exactly the size of the screen, relative to the scenario file. Colours are compared as the controller stores them: 5 bits of red, 6 of green, 5 of blue."},
+        "text": {"type": "array", "items": {"type": "string"}, "minItems": 1, "maxItems": 2, "description": "A character LCD: the rows it is expected to show, from the top. Spaces at the end of a row do not count, and a row not given is expected blank. The characters of the ROM are written as they look (\u00a5 for 0x5C, half-width katakana for 0xA1-0xDF), a character of CGRAM as \u0000 to \u0007. The cursor is left out."},
+        "image": {"type": "string", "minLength": 1, "description": "A tft component: the expected picture, a portable pixmap (P3 or P6, 8 bits per channel) of exactly the size of the screen, relative to the scenario file. Colours are compared as the controller stores them: 5 bits of red, 6 of green, 5 of blue."},
         "tolerance": {"type": "integer", "minimum": 0, "description": "Pixels allowed to differ; 0 by default."}
       }
     },
