@@ -118,8 +118,10 @@ Une étape `screen` compare les pixels d’un module TFT du circuit (`tft-kmrtm2
 
 L’image est un fichier PPM (P3 ou P6, 8 bits par canal) de la taille exacte de l’écran, relatif au scénario ; son
 empreinte SHA-256 figure parmi les entrées du rapport (`role: "image"`). Les couleurs sont comparées comme le contrôleur
-les mémorise : 5 bits de rouge, 6 de vert, 5 de bleu. `tolerance` est le nombre de pixels qui peuvent différer (0 par
-défaut). Le rapport garde, dans `screens`, le nombre de pixels différents et la position du premier ; l’étape échoue
+les mémorise : 5 bits de rouge, 6 de vert, 5 de bleu, ou 6 bits par canal pour un pixel écrit en 18 bits. `tolerance` est le nombre de pixels qui peuvent différer (0 par
+défaut). Le rapport garde, dans `screens`, le nombre de pixels différents et la position du premier, l’instant prévu
+(`at`) et celui où l’écran a été lu (`observedAt`) : le cœur s’arrête à la fin d’une instruction, ce qui peut dépasser
+l’instant prévu de quelques cycles, et les pixels écrits entre les deux sont dans l’image comparée. L’étape échoue
 au-delà de la tolérance. `scenarios/tft-spi.json` et `scenarios/tft-parallel.json` en sont des exemples. Une image qui n’a
 pas la taille de l’écran est refusée avant l’essai (`capacity`), un composant qui n’est pas un écran aussi
 (`resource`), un fichier illisible (`unreadable`).

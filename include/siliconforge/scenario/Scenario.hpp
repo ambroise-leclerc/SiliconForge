@@ -84,10 +84,11 @@ struct ScreenCheck {
     std::string label;
     std::string image;  ///< The expected picture, as the scenario names it.
     unsigned    width{0}, height{0};
-    std::size_t differing{0};  ///< Pixels of another colour (compared as the controller stores them: 5-6-5 bits).
+    std::size_t differing{0};  ///< Pixels of another colour (compared as the controller stores them: 5-6-5 or 6-6-6 bits).
     std::size_t tolerance{0};  ///< Pixels allowed to differ.
     std::size_t firstX{0}, firstY{0};
-    Cycles      at{0};
+    Cycles      at{0};          ///< When the step is scheduled.
+    Cycles      observedAt{0};  ///< When the screen was read: the end of the instruction under way at `at`, a few cycles later at most.
     bool        passed{true};
 };
 

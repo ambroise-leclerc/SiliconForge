@@ -473,6 +473,9 @@ const Scenario aScenarioComparesTheScreenWith{"a scenario compares the screen wi
                 check(report.screens[0].differing == 0);
                 check(report.screens[0].width == 240);
                 check(report.steps[1].kind == "screen");
+                // Read at the end of the instruction under way when the step is due: at most a few cycles later.
+                check(report.screens[0].observedAt >= report.screens[0].at);
+                check(report.screens[0].observedAt - report.screens[0].at < 8);
             });
             then("the picture is one of the inputs, identified by its hash", [&] {
                 const auto image = std::ranges::find(report.inputs, std::string{"image"}, &scenario::Input::role);

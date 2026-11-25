@@ -1196,7 +1196,8 @@ Report Scenario::run() {
                     break;
                 }
                 case Step::Kind::Screen: {
-                    // The screen as it is now: the writes of the firmware up to this step are in it.
+                    // The screen as it is now: the writes of the firmware up to this step are in it. The core stops at an
+                    // instruction boundary, which can be a few cycles past `begin`: the report gives that cycle too.
                     const auto* tft    = model.display(step.component);
                     const auto  shown  = tft->shown();
                     const auto  result = circuit::compareImages(shown, step.expected, tft->width(), tft->fullDepth());
@@ -1211,6 +1212,7 @@ Report Scenario::run() {
                     check.firstX    = result.firstX;
                     check.firstY    = result.firstY;
                     check.at        = begin;
+                    check.observedAt = device.cycles();
                     check.passed    = result.differing <= step.tolerance;
                     record.detail   = check.passed ? std::format("{}: {} of {} pixels differ from {} (at most {} allowed)", step.component, result.differing,
                                                                  shown.size(), step.imageFile, step.tolerance)
@@ -1315,7 +1317,8 @@ Json toJson(const Report& report, std::string_view traceFile) {
             {"differing", check.differing},
             {"tolerance", check.tolerance},
             {"verdict", check.passed ? "pass" : "fail"},
-            {"at", timeJson(check.at, clock)}
+            {"at", timeJson(check.at, clock)},
+            {"observedAt", timeJson(check.observedAt, clock)}
         };
         if (!check.label.empty())
             entry["label"] = check.label;

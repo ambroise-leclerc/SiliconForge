@@ -180,6 +180,24 @@ const Scenario componentDescriptionsAreCheckedBeyondTheSchema{"Component descrip
         d["model"]["elements"][0]["between"][1] = "anode";
         expectComponentError(d, "/model/elements/0/between/1", "used twice");
     });
+    section("a display has the terminals its controller is wired by, and names a modelled controller", [&] {
+        for (const auto* type : {"tft-kmrtm28028", "tft-mcufriend"})
+            check(circuit::validateComponent(component(type)).has_value());
+        auto renamed = Json::parse(component("tft-kmrtm28028").dump());
+        renamed      = Json::parse([&] {
+            auto text = renamed.dump();
+            for (std::size_t at = 0; (at = text.find("\"led\"", at)) != std::string::npos;)
+                text.replace(at, 5, "\"bl\"");
+            return text;
+        }());
+        expectComponentError(renamed, "/model/elements/0/between", "needs the terminal 'led'");
+        auto noController = component("tft-mcufriend");
+        noController["properties"].erase("controller");
+        expectComponentError(noController, "/model/elements/0/type", "string property 'controller'");
+        auto unknown                                  = component("tft-kmrtm28028");
+        unknown["properties"]["controller"]["enum"] = {"ili9341", "st7789"};
+        expectComponentError(unknown, "/properties/controller/enum", "Unknown display controller: st7789");
+    });
     section("an element has the terminal count of its type", [&] {
         auto d                               = component("potentiometer");
         d["model"]["elements"][0]["between"] = {"a", "b"};
