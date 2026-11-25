@@ -442,7 +442,8 @@ puis de chaque octet que le maître acquitte. Le port est quasi bidirectionnel :
 l’afficheur peut tirer au niveau bas, ce qui permet de lire le drapeau *busy*. Câblage du module : P0 RS, P1 R/W, P2 E,
 P3 rétroéclairage (par un transistor, cavalier en place), P4-P7 D4-D7 ; l’afficheur s’utilise donc en 4 bits. Le module
 porte les résistances de rappel de SDA et SCL : une ligne que rien ne tire au niveau bas est haute, pour le PCF8574 comme
-pour les entrées du MCU qui y sont reliées. Le contraste vient du potentiomètre du module (état interactif `trimmer`,
+pour les entrées du MCU qui y sont reliées. Plusieurs modules peuvent partager le bus à des adresses différentes : les
+lignes sont un ET câblé, un niveau bas tiré par l’un l’emporte sur les rappels de tous les autres. Le contraste vient du potentiomètre du module (état interactif `trimmer`,
 V0 de GND à VCC, 0,1 par défaut). États en plus de ceux du `lcd1602` : `port` (l’état écrit de P0-P7), `i2cWrites`,
 `i2cReads`.
 

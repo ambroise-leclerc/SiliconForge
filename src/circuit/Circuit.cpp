@@ -853,6 +853,12 @@ struct Circuit::Model {
     void observeLcds(const Solution& solution) {
         busDrive.clear();
         const auto seconds = mcu ? static_cast<double>(mcu->cycles()) / static_cast<double>(mcu->clockHz()) : 0.0;
+        // SDA is open drain: a line any backpack pulls low is low for every device on it (a wired AND), whatever the
+        // order in which the modules are visited.
+        std::set<std::size_t> pulledLow;
+        for (const auto& lcd : lcds)
+            if (lcd.backpack && lcd.backpack->pullsSda())
+                pulledLow.insert(net(lcd.node.at("sda")));
         for (auto& lcd : lcds) {
             const auto volts = [&](const char* name) { return solution.voltage[net(lcd.node.at(name))]; };
             const auto driven = [&](const char* name) { return solution.driven[net(lcd.node.at(name))] != 0; };
@@ -893,13 +899,14 @@ struct Circuit::Model {
                     const auto written = [&](std::uint8_t port) {
                         controller.bus((port & 0x01) != 0, (port & 0x02) != 0, (port & 0x04) != 0, static_cast<std::uint8_t>(port & 0xF0), seconds);
                     };
-                    chip.bus(line("scl"), line("sda") && !chip.pullsSda(), pins, written);
+                    chip.bus(line("scl"), line("sda") && !pulledLow.contains(net(lcd.node.at("sda"))), pins, written);
+                    // A low level wins over the pull-ups: a module that releases a line never hides another that holds it low.
                     for (const auto* name : {"sda", "scl"}) {
                         const auto target = net(lcd.node.at(name));
                         if (name == std::string_view{"sda"} && chip.pullsSda())
                             busDrive[target] = vss;
                         else if (!solution.driven[target])
-                            busDrive[target] = vdd;  // The pull-up of the module
+                            busDrive.try_emplace(target, vdd);  // The pull-up of the module, unless the line is already held
                     }
                 }
                 // The trimmer of the backpack sets V0 between GND and VCC; P3 switches the backlight through a transistor.

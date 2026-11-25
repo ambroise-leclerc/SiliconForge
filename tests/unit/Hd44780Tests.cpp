@@ -417,6 +417,24 @@ const Scenario aFirmwareWritesAnLcdThroughI2c{"a firmware writes an LCD1602 thro
             check(bench.circuit().state("lcd", "contrast").value_or(1) == 0.0);
         });
     });
+    given("a second module at 0x26 on the same bus, after the first in the circuit", [&] {
+        auto shared = description;
+        shared["board"]["columns"] = 36;
+        shared["components"].push_back({{"id", "lcd2"}, {"type", "lcd1602-i2c"}, {"properties", {{"address", 0x26}}},
+                                        {"at", {{"gnd", "j31"}, {"vcc", "j32"}, {"sda", "j33"}, {"scl", "j34"}}}});
+        for (const auto& [from, to] : {std::pair{"h31", "T-31"}, {"h32", "T+32"}, {"g28", "g33"}, {"g29", "g34"}})
+            shared["wires"].push_back({{"from", from}, {"to", to}});
+        testing::Bench bench{mcu::create("atmega328p")};
+        bench.attach(shared);
+        bench.load(path);
+        require(bench.runUntil([&] { return bench.pin("D12").level() || bench.pin("D13").level(); }, 2s, 4096));
+        then("the module that releases SDA does not hide the acknowledge of the other: the open-drain lines are a wired AND", [&] {
+            check(!bench.pin("D13").level());
+            check(bench.circuit().characterDisplay("lcd")->text()[0] == "Hello over I2C! ");
+            check(lcd1602Blank(*bench.circuit().characterDisplay("lcd2")));
+            check(bench.circuit().state("lcd2", "i2cWrites").value_or(-1) == 0);
+        });
+    });
     given("the same circuit with the backpack at 0x26", [&] {
         auto other = description;
         other["components"][0]["properties"]["address"] = 0x26;
