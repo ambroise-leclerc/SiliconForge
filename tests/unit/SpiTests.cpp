@@ -83,6 +83,31 @@ const Scenario aByteIsShiftedOutIn{"a byte is shifted out in SPI mode 0, most si
                 check((spi.status() & spif) != 0);
             });
         });
+        when("CPOL is set while a byte is being shifted", [&] {
+            spi.send(0xA5);
+            spi.run(10);
+            spi.avr.mcu.dataSpace().write(spcr, 0x58);  // SPE | MSTR | CPOL: mode 2
+            spi.run(40);
+            then("the byte ends in mode 0, then SCK takes the new idle level, high", [&] {
+                require(!spi.wires.clock.empty());
+                check(spi.wires.clock.back().second == true);
+                check(spi.avr.mcu.pin("PB5")->level());
+            });
+            andWhen("the next byte is sent", [&] {
+                spi.wires.clock.clear();
+                const auto next = spi.avr.mcu.cycles();
+                spi.send(0x00);
+                spi.run(40);
+                then("its eight leading edges fall from the idle level, the first one included", [&] {
+                    std::vector<Cycles> falling;
+                    for (const auto& [at, level] : spi.wires.clock)
+                        if (!level)
+                            falling.push_back(at);
+                    require(falling.size() == 8);
+                    check(falling.front() == next + 2);
+                });
+            });
+        });
         when("SPSR is read and then SPDR", [&] {
             spi.send(0x00);
             spi.run(8);

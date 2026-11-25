@@ -179,6 +179,9 @@ void Spi::finish() {
     events.clear();
     busy     = false;
     received = shiftIn;
+    // SPCR may have changed during the transfer, which kept its own mode: SCK now takes the idle level of the new one.
+    if (const auto control = data.raw(regs.spcr); pins.port && (control & spe) && (control & mstr))
+        pins.port->overrideLevel(pins.sck, (control & cpol) != 0);
     data.raw(regs.spsr) |= spif;
     updateInterrupt();
 }

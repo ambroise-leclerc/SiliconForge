@@ -31,10 +31,11 @@ std::uint32_t expand(unsigned red, unsigned green, unsigned blue, unsigned redBi
 Tft::Tft(Controller controller)
     : kind(controller), panelWidth(controller == Controller::Ili9341 ? 240 : 320), panelHeight(controller == Controller::Ili9341 ? 320 : 480),
       columnEnd(static_cast<std::uint16_t>(panelWidth - 1)), rowEnd(static_cast<std::uint16_t>(panelHeight - 1)),
-      pixels(static_cast<std::size_t>(panelWidth) * panelHeight, 0) {}
+      pixels(static_cast<std::size_t>(panelWidth) * panelHeight, 0), deep(pixels.size(), false) {}
 
 void Tft::clearMemory() {
     std::ranges::fill(pixels, 0u);
+    std::ranges::fill(deep, false);
     ++changes;
 }
 
@@ -223,24 +224,26 @@ void Tft::pixel(std::uint8_t value) {
         partialCount = 0;
         const unsigned word = static_cast<unsigned>(partial[0]) << 8 | partial[1];
         const auto     r = word >> 11, g = (word >> 5) & 0x3Fu, b = word & 0x1Fu;
-        put(bgr ? expand(b, g, r, 5, 6, 5) : expand(r, g, b, 5, 6, 5));
+        put(bgr ? expand(b, g, r, 5, 6, 5) : expand(r, g, b, 5, 6, 5), false);
     } else {  // 18 bits: three bytes of six significant bits, in the upper bits
         if (partialCount < 3)
             return;
         partialCount = 0;
         const auto r = partial[0] >> 2, g = partial[1] >> 2, b = partial[2] >> 2;
-        put(bgr ? expand(b, g, r, 6, 6, 6) : expand(r, g, b, 6, 6, 6));
+        put(bgr ? expand(b, g, r, 6, 6, 6) : expand(r, g, b, 6, 6, 6), true);
     }
 }
 
-void Tft::put(std::uint32_t color) {
+void Tft::put(std::uint32_t color, bool sixBits) {
     const bool exchange = (madctl & 0x20) != 0, mirrorX = (madctl & 0x40) != 0, mirrorY = (madctl & 0x80) != 0;
     const unsigned columns = exchange ? panelHeight : panelWidth, rows = exchange ? panelWidth : panelHeight;
     if (column < columns && row < rows) {
         const unsigned c = mirrorX ? columns - 1 - column : column;
         const unsigned r = mirrorY ? rows - 1 - row : row;
         const unsigned x = exchange ? r : c, y = exchange ? c : r;
-        auto& target = pixels[static_cast<std::size_t>(y) * panelWidth + x];
+        const auto index = static_cast<std::size_t>(y) * panelWidth + x;
+        deep[index]      = sixBits;
+        auto& target     = pixels[index];
         if (target != color) {
             target = color;
             ++changes;
@@ -268,16 +271,21 @@ std::vector<std::uint32_t> Tft::shown() const {
 }  // namespace siliconforge::circuit
 
 namespace siliconforge::circuit {
-ImageDifference compareImages(const std::vector<std::uint32_t>& actual, const std::vector<std::uint32_t>& expected, unsigned width) {
+ImageDifference compareImages(const std::vector<std::uint32_t>& actual, const std::vector<std::uint32_t>& expected, unsigned width,
+                              const std::vector<bool>& sixBits) {
     ImageDifference result;
     if (actual.size() != expected.size()) {
         result.differing = std::max(actual.size(), expected.size());
         return result;
     }
-    // As the controller stores a colour: 5 bits of red, 6 of green, 5 of blue.
-    const auto quantised = [](std::uint32_t color) { return (color >> 19 & 0x1Fu) << 11 | (color >> 10 & 0x3Fu) << 5 | (color >> 3 & 0x1Fu); };
+    // As the controller stores a colour: 5 bits of red, 6 of green, 5 of blue, or 6 of each for a pixel written in 18 bits.
+    const auto quantised = [](std::uint32_t color, bool six) {
+        return six ? (color >> 18 & 0x3Fu) << 12 | (color >> 10 & 0x3Fu) << 6 | (color >> 2 & 0x3Fu)
+                   : (color >> 19 & 0x1Fu) << 11 | (color >> 10 & 0x3Fu) << 5 | (color >> 3 & 0x1Fu);
+    };
+    const bool depths = sixBits.size() == actual.size();
     for (std::size_t i = 0; i < actual.size(); ++i)
-        if (quantised(actual[i]) != quantised(expected[i])) {
+        if (const bool six = depths && sixBits[i]; quantised(actual[i], six) != quantised(expected[i], six)) {
             if (result.differing++ == 0) {
                 result.firstX = i % width;
                 result.firstY = i / width;

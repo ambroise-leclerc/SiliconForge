@@ -19,13 +19,17 @@ struct BusTransaction {
     std::vector<std::uint8_t> head;  ///< The first of them.
 };
 
-/// How a picture differs from the expected one: compared as the controller stores colours, in 5-6-5 bits per channel.
+/// How a picture differs from the expected one: compared as the controller stores colours, in 5-6-5 bits per channel, or
+/// 6-6-6 for a pixel the firmware wrote in 18 bits.
 struct ImageDifference {
     std::size_t differing{0};   ///< Pixels of different colour.
     std::size_t firstX{0}, firstY{0};  ///< Where the first of them is, when there is one.
 };
 /// Compares two pictures of `width` pixels per row, as 0xRRGGBB. A size that differs counts every pixel as different.
-[[nodiscard]] ImageDifference compareImages(const std::vector<std::uint32_t>& actual, const std::vector<std::uint32_t>& expected, unsigned width);
+/// `sixBits` (Tft::fullDepth) says which pixels of `actual` were written in 18 bits: those are compared on six bits per
+/// channel, the others (all of them when it is empty) on 5-6-5.
+[[nodiscard]] ImageDifference compareImages(const std::vector<std::uint32_t>& actual, const std::vector<std::uint32_t>& expected, unsigned width,
+                                            const std::vector<bool>& sixBits = {});
 
 /// A TFT module with an ILI9341 (240 x 320, the KMRTM28028) or an ILI9481 (320 x 480, the MCUFRIEND 3.5" shield) controller,
 /// seen from the wires (#64). The two share the commands that matter for the pixels, so they share this model; they differ
@@ -65,6 +69,8 @@ public:
     /// The memory, row by row from the top-left of the panel, as 0xRRGGBB (what the controller received, with the 5 or 6
     /// bits of each channel expanded to 8).
     [[nodiscard]] const std::vector<std::uint32_t>& memory() const noexcept { return pixels; }
+    /// For each pixel of the memory, whether it was written in 18 bits (six per channel) rather than in 16 (5-6-5).
+    [[nodiscard]] const std::vector<bool>& fullDepth() const noexcept { return deep; }
     /// What the panel shows: the memory with inversion applied, black when the display is off or asleep, when the module is
     /// not powered or when its backlight is off.
     [[nodiscard]] std::vector<std::uint32_t> shown() const;
@@ -93,7 +99,7 @@ private:
     void command(std::uint8_t value, Cycles at, Cycles bitCycles);
     void parameter(std::uint8_t value);
     void pixel(std::uint8_t value);
-    void put(std::uint32_t color);
+    void put(std::uint32_t color, bool sixBits);
     void resetController();
     void clearMemory();
 
@@ -119,6 +125,7 @@ private:
     unsigned      partialCount{0};
 
     std::vector<std::uint32_t> pixels;
+    std::vector<bool>          deep;  // fullDepth()
     std::deque<BusTransaction> log;
     std::size_t                lost{0}, commandCount{0}, dataCount{0}, written{0}, unknownCount{0}, unsupportedCount{0}, framingCount{0}, changes{0};
 };

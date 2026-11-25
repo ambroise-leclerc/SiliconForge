@@ -282,6 +282,26 @@ const Scenario theControllerFollowsItsCommands{"the controller follows its comma
                 check(tft.transactions().back().command == 0x11);
             });
         });
+        when("a pixel is written in 18 bits, its red on six bits", [&] {
+            wires.command(0x2A);
+            wires.data({0, 0, 0, 0});
+            wires.command(0x2B);
+            wires.data({0, 0, 0, 0});
+            wires.command(0x36);
+            wires.data({0x08});
+            wires.command(0x3A);
+            wires.data({0x66});
+            wires.command(0x2C);
+            wires.data({61 << 2, 0, 0});
+            then("a picture that differs from it in the sixth bit of red only is a different picture", [&] {
+                require(tft.fullDepth()[0]);
+                auto expected = tft.memory();
+                expected[0]   = 60u << 18;
+                check(compareImages(tft.memory(), tft.memory(), 240, tft.fullDepth()).differing == 0);
+                check(compareImages(tft.memory(), expected, 240, tft.fullDepth()).differing == 1);
+                check(compareImages(tft.memory(), expected, 240).differing == 0);  // In 5-6-5 the two are the same colour
+            });
+        });
         when("more bytes follow a command than it has parameters, as after a command that is ignored", [&] {
             wires.command(0x11);
             wires.command(0x29);

@@ -1199,7 +1199,7 @@ Report Scenario::run() {
                     // The screen as it is now: the writes of the firmware up to this step are in it.
                     const auto* tft    = model.display(step.component);
                     const auto  shown  = tft->shown();
-                    const auto  result = circuit::compareImages(shown, step.expected, tft->width());
+                    const auto  result = circuit::compareImages(shown, step.expected, tft->width(), tft->fullDepth());
                     ScreenCheck check;
                     check.component = step.component;
                     check.label     = step.label;
