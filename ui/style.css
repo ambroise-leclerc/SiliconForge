@@ -23,8 +23,19 @@
   --shadow: 0 1px 2px rgb(0 0 0 / .4);
   --syn-keyword: #ff7b72; --syn-string: #a5d6ff; --syn-number: #79c0ff; --syn-comment: #8d99a8; --syn-function: #d2a8ff; --syn-type: #ffa657;
   --probe-plus: #e5484d; --probe-minus: #2b2f36; --probe-volt: #f5d90a; --probe-com: #6b7280; --probe-load: #2fb5e0;
-  --mono: ui-monospace, "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  /* Generic families only: under fontconfig, every other name, and system-ui or ui-monospace, walks all the
+     installed fonts on the first style computation (#67). platform.js names the platforms where they cost nothing. */
+  --sans: sans-serif;
+  --mono: monospace;
   color-scheme: dark;
+}
+:root[data-platform="windows"] {
+  --sans: "Segoe UI", sans-serif;
+  --mono: "Cascadia Code", Consolas, monospace;
+}
+:root[data-platform="macos"] {
+  --sans: system-ui, sans-serif;
+  --mono: ui-monospace, Menlo, monospace;
 }
 :root[data-theme="light"] {
   --bg: #eef1f5;
@@ -58,7 +69,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font: 13.5px/1.4 system-ui, -apple-system, "Segoe UI", "Inter", sans-serif;
+  font: 13.5px/1.4 var(--sans);
   display: flex;
   flex-direction: column;
 }
@@ -268,7 +279,7 @@ select {
   padding: 10px 12px; border-radius: 8px; background: var(--panel-raised); border: 1px solid var(--panel-edge);
   box-shadow: 0 8px 24px rgb(0 0 0 / .35); font: 12px var(--mono); font-weight: normal;
 }
-.channels .popover label:first-child { grid-column: 1 / -1; font-family: system-ui, sans-serif; padding-bottom: 4px; }
+.channels .popover label:first-child { grid-column: 1 / -1; font-family: var(--sans); padding-bottom: 4px; }
 .channels .popover label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .channels .popover input { padding: 0; accent-color: var(--accent); }
 
@@ -326,7 +337,7 @@ select {
 .pinout { font-family: var(--mono); }
 .po-chip { fill: #1e1e1e; stroke: #000; }
 .po-notch { fill: var(--panel); }
-.po-chip-name { fill: #f2f2f2; font: 700 18px system-ui, sans-serif; letter-spacing: .12em; }
+.po-chip-name { fill: #f2f2f2; font: 700 18px var(--sans); letter-spacing: .12em; }
 .po-leg { fill: #9da2a8; }
 .po-number { fill: #f2f2f2; font-size: 11px; font-weight: 700; }
 .po-line { stroke: var(--muted); stroke-width: 1; }

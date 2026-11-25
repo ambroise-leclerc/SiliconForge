@@ -278,6 +278,7 @@ window.SiliconForgeInstruments = (root, host) => {
     colours = {
       background: read("--scope-bg", "#0b0f14"), grid: read("--scope-grid", "#1f2933"), text: read("--scope-text", "#9aa7b4"),
       strong: read("--scope-strong", "#e6edf3"), cursor: read("--scope-cursor", "#ffffff"), trigger: read("--accent", "#f0a73a"),
+      mono: read("--mono", "monospace"),  // The stack of the page, chosen for the platform by style.css
     };
   }
 
@@ -305,7 +306,7 @@ window.SiliconForgeInstruments = (root, host) => {
     const [t0, t1] = timeWindow();
     const x = (time) => plot.x + ((time - t0) / (t1 - t0)) * plot.w;
     const indexes = shown();
-    g.font = "11px ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace";
+    g.font = `11px ${colours.mono}`;
     g.textBaseline = "middle";
 
     // Time grid: ten divisions, labelled with the simulated time.
@@ -361,9 +362,9 @@ window.SiliconForgeInstruments = (root, host) => {
       g.fillRect(4, top + 5, 3, lane - 10);
       g.textAlign = "left";
       g.fillStyle = colours.strong;
-      g.font = "600 12px ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace";
+      g.font = `600 12px ${colours.mono}`;
       g.fillText(pinName(index), 13, top + lane / 2);
-      g.font = "11px ui-monospace, 'JetBrains Mono', Menlo, Consolas, monospace";
+      g.font = `11px ${colours.mono}`;
       if (view.mode === "scope" && lane > 44) {
         g.fillStyle = colours.text;
         g.textAlign = "right";
