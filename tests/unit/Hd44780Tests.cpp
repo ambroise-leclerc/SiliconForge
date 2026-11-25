@@ -13,6 +13,7 @@ using namespace webfront::bdd;
 
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <string>
 #include <vector>
 
@@ -190,7 +191,7 @@ const Scenario anHd44780TakesItsInstructions{"an HD44780 takes its instructions 
         });
         when("a character is defined in CGRAM and shown", [&] {
             wires.command(0x48);  // Character 1
-            for (const std::uint8_t row : {0x00, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0x00, 0x00})
+            for (const auto row : std::initializer_list<std::uint8_t>{0x00, 0x0A, 0x1F, 0x1F, 0x0E, 0x04, 0x00, 0x00})
                 wires.send(true, row);
             wires.command(0x80);
             wires.send(true, 0x01);
