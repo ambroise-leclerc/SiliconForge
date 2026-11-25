@@ -130,12 +130,21 @@ describe("The agent in the window", () => {
     expect(entry.run).toBe("pwm-setpoint");
     await until(() => sf().bench.result?.run === "pwm-setpoint", "the run in the Bench panel");
     expect(document.querySelector("#bench [data-readout=verdict]").textContent).toBe("pass");
+    await capture("agent-bench");
   });
 
   it("refuses a call without the token of the window", async () => {
     tab("terminal-toggle").click();
     type("curl -s -o /dev/null -w 'status-%{http_code}\\n' -X POST \"$SILICONFORGE_MCP_URL\" -H 'Authorization: Bearer wrong' -d '{}'\r");
     await until(() => screen().includes("status-401"), "a refusal");
+  });
+
+  it("shows the bench run of the agent in the terminal, next to the board", async () => {
+    tab("terminal-toggle").click();
+    type("clear; siliconforge bench run scenarios/pwm-setpoint.json\r");
+    await until(() => screen().includes("PWM setpoint on D6: pass"), "the verdict in the terminal");
+    await sf().waitFor(() => sf().state.running && sf().state.firmware === "pwm_setpoint.hex", 10000);
+    await capture("agent-terminal");
   });
 
   it("hands a run of the command line to the window, which shows it and runs what it tested (#80)", async () => {

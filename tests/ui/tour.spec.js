@@ -55,6 +55,29 @@ describe("Tour of the interface", () => {
     await webFrontCapture.screenshot("counter");
   }, 30000);
 
+  it("shows the SPI display example with the analyser on the display bus", async () => {
+    await sf().loadExample("tft_spi");
+    await sf().waitFor((state) => state.components?.tft?.pixelsWritten === 9600, 20000);
+    await sf().waitFor(() => document.querySelector('#breadboard .bb-tft-panel image[visibility="visible"]') !== null, 10000);
+    expect(document.querySelectorAll("#breadboard .bb-tft-pad").length).toBe(9);
+    await settle(500);
+    await webFrontCapture.screenshot("tft-spi");
+  }, 40000);
+
+  it("shows the supply, the load and the multimeter side by side", async () => {
+    await sf().selectCircuit("bench-demo");
+    await sf().waitFor(() => sf().devices?.faceplate("psu") && sf().devices.faceplate("load") && sf().devices.faceplate("dmm"), 20000);
+    await sf().setComponent("load", "resistance", 100);
+    await sf().setComponent("psu", "voltage", 5);
+    await sf().setComponent("psu", "currentLimit", 0.1);
+    await sf().setComponent("psu", "enabled", 1);
+    sf().devices.show(["supply", "load", "multimeter"]);
+    await sf().waitFor(() => sf().component("psu")?.mode === 1 && Math.abs(sf().component("psu").outputCurrent - 0.05) < 1e-4, 5000);
+    await settle(500);
+    await webFrontCapture.screenshot("bench-devices");
+    sf().devices.show(["logic"]);
+  }, 40000);
+
   it("has a light theme and a pinout view", async () => {
     document.documentElement.dataset.theme = "light";
     document.getElementById("tab-pinout").click();
