@@ -156,6 +156,7 @@ Contrôles après le schéma, chacun signalé avec le JSON Pointer de la valeur 
 - La luminosité d'une LED est son courant rapporté à `nominalCurrent`, bornée à 1 ; l'interface en reçoit la moyenne
   sur la trame, ce qui rend une PWM comme l'œil la voit.
 - Un écran TFT (éléments `tft-spi` et `tft-parallel`) ne tire aucun courant : il lit les niveaux de ses nets (voir [Écrans TFT](#écrans-tft)).
+- Un afficheur LCD à caractères (élément `hd44780`) ne tire aucun courant ; il pilote D0-D7 (ou D4-D7) pendant un cycle de lecture seulement, ce que reçoivent les entrées du MCU reliées à ces nets (voir [Afficheur LCD à caractères](#afficheur-lcd-à-caractères)).
 - Deux sources de tensions différentes sur un même net sont un **court-circuit**, signalé dans un bandeau et par
   `circuit.shorts()`.
 - Le modèle est résistif et logique : pas de condensateur, pas de transitoire, pas de courant maximal de sortie.
@@ -388,3 +389,49 @@ connu (commandes, paramètres, fenêtre, somme des octets de pixels, cadence de 
 compare les pixels à une image qui découle de la définition du dessin du firmware, avec des essais concordants et
 divergents (deux quadrants échangés, une image décalée d’un pixel) ; [`tests/unit/SpiTests.cpp`](../tests/unit/SpiTests.cpp)
 vérifie les fronts du périphérique SPI, ses modes, l’ordre des bits, SPIF et WCOL.
+
+## Afficheur LCD à caractères
+
+`lcd1602` est un afficheur de 16 colonnes sur 2 rangées de caractères de 5 × 8 points, avec un contrôleur HD44780
+(ou compatible : KS0066, SPLC780…), branché par son connecteur de 16 broches sur 16 trous voisins : VSS, VDD, V0
+(contraste), RS, R/W, E, D0 à D7, A et K (rétroéclairage). Les propriétés `columns` et `rows` (16 et 2) servent
+aussi à un 0802 ou un 4001 ; un 2004, qui a deux contrôleurs, n’est pas modélisé.
+
+Le bus est celui du 6800 : le contrôleur prend D0-D7 au front descendant de E, RS bas pour une instruction et haut pour
+une donnée. Après un *function set* avec DL à 0, seuls D4-D7 servent et chaque octet passe en deux fois, le quartet de
+poids fort d’abord. R/W haut, le module pilote le bus tant que E est haut : drapeau *busy* et compteur d’adresse
+(RS bas) ou caractère à l’adresse courante (RS haut) ; en 4 bits, la première impulsion donne le quartet fort, la
+seconde le faible. Les entrées du MCU reliées à ces nets lisent alors ce que le module pilote (les autres composants
+du net ne le voient pas) ; une sortie du MCU sur le même net l’emporte.
+
+Les instructions sont celles de la fiche technique : effacement, retour, mode d’entrée, contrôle de l’affichage
+(D, C, B), décalage du curseur ou de l’affichage, *function set*, adresses CGRAM et DDRAM ; les huit caractères de la
+CGRAM se définissent et s’affichent (codes 0 à 7, et 8 à 15 qui les répètent). Les autres codes viennent de la ROM A00
+(ASCII avec ¥ et les flèches, katakana demi-chasse, lettres grecques et symboles). En deux lignes, l’adresse passe de
+0x27 à 0x40 et de 0x67 à 0x00.
+
+Une instruction dure 37 µs, un effacement ou un retour 1,52 ms, et la réinitialisation interne 10 ms après la mise sous
+tension (au moins 2,7 V entre VDD et VSS) : le drapeau *busy* est levé pendant ce temps. Une écriture arrivée pendant
+qu’il est levé est perdue, comme sur la puce, et comptée (`early`) ; une impulsion de E de moins de 230 ns, ou à moins de
+500 ns de la précédente, est comptée (`timing`) mais exécutée. Un firmware qui attend « assez » ou qui lit le drapeau
+fonctionne ; un firmware trop pressé perd des caractères, et `early` dit pourquoi.
+
+Le contraste suit VDD − V0 : rien en dessous de 3 V, net à partir de 4,5 V (`contrast`, de 0 à 1) ; V0 non relié ne
+montre rien. Le rétroéclairage s’allume quand A dépasse K de plus de 2,6 V (`backlight`, de 0 à 1). La propriété `color`
+choisit une dalle vert-jaune à caractères sombres ou bleue à caractères blancs.
+
+`Circuit::characterDisplay(id)` donne le contrôleur (`circuit::Hd44780`) : `text()` (les rangées affichées en UTF-8,
+la CGRAM en U+0000 à U+0007, blanches affichage éteint), `ddram()`, `glyph(code)`, `cursorCell()` et les compteurs. Les
+états du composant (`powered`, `contrast`, `backlight`, `displayOn`, `cursor`, `blink`, `dataBits`, `lines`,
+`instructions`, `dataWrites`, `reads`, `early`, `timing`, `revision`) se lisent comme ceux des autres composants ;
+`Circuit::screenImage(id)` (`sf.screen` côté page) donne les points de chaque case, le curseur et le texte, que la page
+demande quand `revision` change. La plaque se glisse comme celle des écrans TFT ; le curseur clignotant alterne
+toutes les 0,4 s environ.
+
+Circuit : `circuits/lcd1602-demo.json` (avec `firmware/src/lcd1602.c`), en 4 bits avec R/W relié pour lire le drapeau
+*busy* : RS D8, R/W D9, E D10, D4-D7 sur D4-D7, contraste par un potentiomètre sur V0. L’exemple « Character LCD 1602 »
+règle l’analyseur logique sur RS, R/W, E et D4-D7.
+
+Qualification : [`tests/unit/Hd44780Tests.cpp`](../tests/unit/Hd44780Tests.cpp) pilote le contrôleur fil à fil (8 et
+4 bits, CGRAM, lecture du drapeau et de la mémoire, passage d’une ligne à l’autre, décalage, écriture perdue, impulsion
+trop courte), puis vérifie le texte écrit par le firmware de démonstration et l’étape `screen` en texte du banc.

@@ -255,6 +255,29 @@ describe("Circuits", () => {
     expect(red[0]).toBeGreaterThan(200); expect(red[1]).toBeLessThan(40); expect(red[2]).toBeLessThan(40);
     expect(Math.min(...white)).toBeGreaterThan(200);
   }, 40000);
+  it("shows the text of the character LCD example dot by dot", async () => {
+    await sf().loadExample("lcd1602");
+    await sf().run();
+    const module = () => document.querySelector('#breadboard .bb-lcd-module[data-component="lcd"]');
+    await until(() => module()?.dataset.text?.startsWith("Hello, world!"), () => `the greeting on the LCD (${JSON.stringify(module()?.dataset.text)})`, 20000);
+    const state = sf().component("lcd");
+    expect(state.early).toBe(0);
+    expect(state.timing).toBe(0);
+    expect(state.dataBits).toBe(4);
+    expect(state.reads).toBeGreaterThan(0);  // The firmware polls the busy flag
+    expect(module().dataset.text.split("\n")[1]).toMatch(/^Seconds: \d+/);
+    expect(Number(module().dataset.contrast)).toBe(1);
+    expect(Number(module().dataset.backlight)).toBeGreaterThan(0.9);
+    // The dots that are on: the 13 characters of the greeting and the heart, then the counter
+    const ink = module().querySelectorAll("path")[1].getAttribute("d");
+    expect(ink.split("M").length).toBeGreaterThan(200);
+    const pads = Array.from(module().querySelectorAll(".bb-lcd-pad"));
+    expect(pads.length).toBe(16);
+    const pinOf = (name) => pads.find((pad) => pad.dataset.terminal === name).dataset.pin;
+    expect([pinOf("rs"), pinOf("rw"), pinOf("e"), pinOf("d4"), pinOf("d7")]).toEqual(["D8", "D9", "D10", "D4", "D7"]);
+    expect(pinOf("d0")).toBe("");
+    await sf().pause();
+  }, 40000);
   it("sets the logic analyser to watch the display bus when the example loads", async () => {
     await sf().loadExample("tft_spi");
     const view = () => window.siliconForge.instruments.view;
