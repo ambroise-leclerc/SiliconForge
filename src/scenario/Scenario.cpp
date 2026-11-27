@@ -769,7 +769,7 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
     if (!description)
         reject(Problem::Cause::Wiring, description.error().path, description.error().message, circuitFile);
     circuitDescription = std::move(*description);
-    mcuName            = circuitDescription.at("chip").at("mcu").get<std::string>();
+    mcuName            = circuit::targetMcu(circuitDescription);
     auto checkMcu      = mcu::create(mcuName);
     if (!checkMcu) {
         std::string known;
@@ -790,9 +790,9 @@ void Scenario::State::parse(const Json& document, const std::filesystem::path& d
     try {
         checkMcu->load(image);
     } catch (const std::exception& error) {
-        Address end = 0;
+        u64 end = 0;
         for (const auto& segment : image.segments)
-            end = std::max<Address>(end, segment.address + static_cast<Address>(segment.bytes.size()));
+            end = std::max(end, u64{segment.address} + segment.bytes.size());
         reject(Problem::Cause::Capacity,
                "",
                std::format("{} cannot load this firmware (it ends at {:#x}): {}", checkMcu->name(), end, error.what()),

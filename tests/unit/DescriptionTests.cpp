@@ -4,6 +4,7 @@
 #include <webfront/testing/Bdd.hpp>
 #include "../support/Approx.hpp"
 #include <siliconforge/arch/avr/Device.hpp>
+#include <siliconforge/arch/avr/Opcodes.hpp>
 #include <siliconforge/mcu/atmega328p/Atmega328p.hpp>
 #include <siliconforge/mcu/Registry.hpp>
 #include <siliconforge/testing/Bench.hpp>
@@ -376,13 +377,10 @@ const Scenario spmAndSleepControlRegistersMayBe{"SPM and sleep control registers
     auto& cpu = dynamic_cast<avr::Device&>(*m).avrCore();
     check(cpu.config().spmcsr == (d["cpu"].contains("spmcsr") ? 0x57u : 0u));
     check(cpu.config().smcr == (d["cpu"].contains("smcr") ? 0x53u : 0u));
-    ProgramImage image;
-    image.segments = {
-        {MemorySpace::Program, 0, {0xE8, 0x95, 0x88, 0x95}}
-    };  // SPM; SLEEP
-    m->load(image);
-    checkNothrow([&] { m->step(); });
-    checkNothrow([&] { m->step(); });
+    m->load(test::AvrAssembler{}.raw(0x95e8).image());  // SPM.
+    check(m->step().reason == (d["cpu"].contains("spmcsr") ? StopReason::BudgetReached : StopReason::InvalidOpcode));
+    m->load(test::AvrAssembler{}.raw(0x9588).image());  // SLEEP.
+    check(m->step().reason == StopReason::BudgetReached);
     check(!cpu.sleeping);
 }};
 
@@ -665,3 +663,272 @@ const Scenario sharedLpmTimingsRetainTheDistinctImplicit{"Shared LPM timings ret
     check(m->step().elapsed == 5);
     check(cpu.r(17) == 0x42);
 }};
+
+const Scenario builtinAvrTargetsHaveIndependentMemoryAndPins{
+    "Built-in AVR targets have independent memory and pin maps", {"mcu", "firmware"}, [] {
+        struct Target {
+            std::string_view name;
+            Address flash;
+            Address ramEnd;
+            Address eeprom;
+            std::size_t packagePins;
+            std::string_view pin;
+        };
+        for (const auto& target : {Target{"atmega328p", 0x8000, 0x08ff, 0x400, 28, "PB5"},
+                                   Target{"attiny424", 0x1000, 0x3fff, 0x080, 14, "PA7"},
+                                   Target{"atmega2560", 0x40000, 0x21ff, 0x1000, 100, "PL7"}}) {
+            section(target.name, [&] {
+                auto description = mcu::builtinDescription(target.name);
+                require(mcu::validate(description));
+                auto m = mcu::create(target.name);
+                require(m);
+                check(Json::parse(m->chipJson()).at("pins").size() == target.packagePins);
+                check(m->pin(target.pin) != nullptr);
+                check(static_cast<avr::Device&>(*m).avrCore().sp == target.ramEnd);
+
+                ProgramImage image;
+                image.segments = {{MemorySpace::Program, target.flash - 1, {0x42}},
+                                  {MemorySpace::Eeprom, target.eeprom - 1, {0x24}}};
+                m->load(image);
+                check(m->readMemory(MemorySpace::Program, target.flash - 1, 1) == std::vector<u8>{0x42});
+                check(m->readMemory(MemorySpace::Eeprom, target.eeprom - 1, 1) == std::vector<u8>{0x24});
+
+                image.segments[0].bytes = {0x00, 0x00};
+                checkThrows<std::out_of_range>([&] { m->load(image); });
+                image.segments[0].bytes = {0x00};
+                image.segments[1].address = target.eeprom;
+                checkThrows<std::out_of_range>([&] { m->load(image); });
+                check(m->readMemory(MemorySpace::Program, target.flash - 1, 1) == std::vector<u8>{0x42});
+            });
+        }
+    }};
+
+const Scenario avrXtSeparatesLowIoFromCpuRegisters{
+    "AVRxt separates low I/O from CPU registers", {"mcu", "avr"}, [] {
+        auto m = mcu::create("attiny424");
+        require(m);
+        ProgramImage image;
+        image.segments = {{MemorySpace::Program, 0, {0x02, 0xE4, 0x00, 0xB9}}};  // LDI r16, 0x42; OUT 0, r16.
+        m->load(image);
+        m->step();
+        m->step();
+        auto& device = static_cast<avr::Device&>(*m);
+        check(device.avrCore().r(0) == 0);
+        check(m->readMemory(MemorySpace::Data, 0, 1) == std::vector<u8>{0x42});
+        device.dataSpace().write(0x2000, 0xab);  // Between the I/O region and SRAM.
+        check(device.dataSpace().read(0x2000) == 0);
+    }};
+
+const Scenario avrDescriptionsRejectUnaddressableMemory{
+    "AVR descriptions reject registers in unmapped space and Flash beyond PC width", {"mcu", "validation"}, [] {
+        section("a register at the first address after I/O", [] {
+            auto d = mcu::builtinDescription("attiny424");
+            d["registers"]["CPU_SPL"]["address"] = 0x1100;
+            expectError(d, "/registers/CPU_SPL/address", "outside I/O memory");
+        });
+        section("a two-byte PC can address at most 128 KiB of Flash", [] {
+            auto d = mcu::builtinDescription("atmega2560");
+            d["cpu"]["pcBytes"] = 2;
+            expectError(d, "/cpu/pcBytes", "cannot address every Flash word");
+            d["memories"]["flash"]["size"] = 128 * 1024;
+            d["cpu"].erase("eind");
+            check(mcu::validate(d));
+        });
+    }};
+
+const Scenario elpmUsesTheExtendedFlashByteAddress{
+    "ELPM uses RAMPZ and carries across 64 KiB boundaries", {"mcu", "avr", "qualification"}, [] {
+        auto m = mcu::create("atmega2560");
+        require(m);
+        ProgramImage image;
+        image.segments = {
+            {MemorySpace::Program, 0, {0xd8, 0x95, 0x06, 0x91, 0x17, 0x91, 0x27, 0x91}}, // ELPM; r16,Z; r17,Z+; r18,Z+
+            {MemorySpace::Program, 0x1ffff, {0x42, 0x24}}
+        };
+        m->load(image);
+        auto& device = static_cast<avr::Device&>(*m);
+        auto& cpu = device.avrCore();
+        require(cpu.config().rampz);
+        const auto rampz = *cpu.config().rampz;
+        device.dataSpace().write(rampz, 0xfd); // Only the low two bits are implemented.
+        cpu.setPair(30, 0xffff);
+
+        check(m->step().elapsed == 3);
+        check(cpu.r(0) == 0x42);
+        check(device.dataSpace().read(rampz) == 1);
+        check(cpu.pair(30) == 0xffff);
+        check(m->step().elapsed == 3);
+        check(cpu.r(16) == 0x42);
+        check(cpu.pair(30) == 0xffff);
+        check(m->step().elapsed == 3);
+        check(cpu.r(17) == 0x42);
+        check(cpu.pair(30) == 0);
+        check(device.dataSpace().read(rampz) == 2);
+        check(m->step().elapsed == 3);
+        check(cpu.r(18) == 0x24);
+        check(cpu.pair(30) == 1);
+    }};
+
+const Scenario extendedBranchesUseProgramWordAddresses{
+    "EICALL and EIJMP use EIND as the high part of the word address", {"mcu", "avr"}, [] {
+        auto m = mcu::create("atmega2560");
+        require(m);
+        ProgramImage image;
+        image.segments = {
+            {MemorySpace::Program, 0, {0x19, 0x95, 0x19, 0x94}}, // EICALL; EIJMP.
+            {MemorySpace::Program, 0x20002, {0x08, 0x95}}        // RET.
+        };
+        m->load(image);
+        auto& device = static_cast<avr::Device&>(*m);
+        auto& cpu = device.avrCore();
+        require(cpu.config().eind);
+        device.dataSpace().write(*cpu.config().eind, 1);
+        cpu.setPair(30, 1);
+        const auto initialSp = cpu.sp;
+
+        check(m->step().elapsed == 4);
+        check(m->programCounter() == 0x20002);
+        check(cpu.sp == initialSp - 3);
+        check(m->step().elapsed == 5);
+        check(m->programCounter() == 2);
+        check(cpu.sp == initialSp);
+        check(m->step().elapsed == 2);
+        check(m->programCounter() == 0x20002);
+        check(cpu.sp == initialSp);
+    }};
+
+const Scenario spmTargetsUpperFlashPages{
+    "SPM erases and writes upper Flash pages addressed by RAMPZ", {"mcu", "avr"}, [] {
+        auto m = mcu::create("atmega2560");
+        require(m);
+        ProgramImage image;
+        image.segments = {
+            {MemorySpace::Program, 0, {0xe8, 0x95, 0xe8, 0x95, 0xe8, 0x95}}, // SPM three times.
+            {MemorySpace::Program, 0x0102, {0xcc, 0xdd}},
+            {MemorySpace::Program, 0x10102, {0xaa, 0xbb}}
+        };
+        m->load(image);
+        auto& device = static_cast<avr::Device&>(*m);
+        auto& cpu = device.avrCore();
+        require(cpu.config().rampz);
+        device.dataSpace().write(*cpu.config().rampz, 1);
+        cpu.setPair(30, 0x0102);
+        const auto command = cpu.config().spmcsr;
+
+        device.dataSpace().write(command, 3); // Page erase.
+        m->step();
+        check(m->readMemory(MemorySpace::Program, 0x10102, 2) == std::vector<u8>{0xff, 0xff});
+        cpu.setPair(0, 0x1234);
+        device.dataSpace().write(command, 1); // Page buffer fill.
+        m->step();
+        device.dataSpace().write(command, 5); // Page write.
+        m->step();
+        check(m->readMemory(MemorySpace::Program, 0x10102, 2) == std::vector<u8>{0x34, 0x12});
+        check(m->readMemory(MemorySpace::Program, 0x0102, 2) == std::vector<u8>{0xcc, 0xdd});
+    }};
+
+const Scenario zeroAddressCpuControlsAreRejected{
+    "Optional CPU controls reject address zero while AVRxt I/O starts at zero", {"mcu", "validation"}, [] {
+        auto description = mcu::builtinDescription("attiny424");
+        require(mcu::validate(description));
+        section("sleep control", [&] {
+            description["cpu"]["smcr"] = "VPORTA_DIR";
+            expectError(description, "/cpu/smcr", "address zero");
+        });
+        section("self-programming control", [&] {
+            description["cpu"]["spmcsr"] = "VPORTA_DIR";
+            expectError(description, "/cpu/spmcsr", "address zero");
+        });
+    }};
+
+const Scenario extendedHandlersRejectUnsupportedCores{
+    "The public opcode table rejects extended instructions on an ATmega328P", {"mcu", "avr"}, [] {
+        auto m = mcu::create("atmega328p");
+        require(m);
+        auto& cpu = static_cast<avr::Device&>(*m).avrCore();
+        const auto& table = avr::instructionTable();
+        for (const u16 op : {u16{0x95d8}, u16{0x9006}, u16{0x9007}, u16{0x9419}, u16{0x9519}}) {
+            cpu.reset();
+            cpu.pc = 8;  // The fetch has already advanced PC.
+            cpu.setPair(30, 0x1234);
+            cpu.r(0) = 0x42;
+            const auto sp = cpu.sp;
+            table[op](cpu, op, 1);
+            check(cpu.stopRequest == StopReason::InvalidOpcode);
+            check(cpu.pc == 7);
+            check(cpu.sp == sp);
+            check(cpu.pair(30) == 0x1234);
+            check(cpu.r(0) == 0x42);
+        }
+    }};
+
+const Scenario opcodeCoverageUsesProfileProvenance{
+    "Opcode coverage separates built-in profiles from custom and standalone cores", {"mcu", "qualification"}, [] {
+        struct Directory {
+            std::filesystem::path path = std::filesystem::temp_directory_path() /
+                ("siliconforge-coverage-" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+            ~Directory() {
+                std::error_code ec;
+                std::filesystem::remove_all(path, ec);
+            }
+        } output;
+        constexpr u16 builtinOpcode = 0x9598, customOpcode = 0xb900, standaloneOpcode = 0xef0b;
+        auto builtin = mcu::create("ATmega2560");
+        require(builtin);
+        auto description = mcu::builtinDescription("attiny424");
+        description["name"] = builtin->name();
+        auto custom = mcu::loadJson(description.dump());
+        require(custom);
+        builtin->load(test::AvrAssembler{}.raw(builtinOpcode).image());
+        (*custom)->load(test::AvrAssembler{}.raw(customOpcode).image());
+
+        const auto& config = static_cast<avr::Device&>(*builtin).avrCore().config();
+        avr::DataSpace data(config.ioEnd, config.ramEnd);
+        Scheduler scheduler;
+        avr::InterruptController interrupts;
+        Debugger debugger;
+        avr::AvrCore standalone(config, data, scheduler, interrupts, debugger);
+        standalone.setTiming(mcu::builtinDescription("atmega2560").at("timing"));
+        const auto firmware = test::AvrAssembler{}.raw(standaloneOpcode).image();
+        standalone.loadFlash(0, firmware.segments.front().bytes);
+
+        avr::OpcodeCoverage::start();
+        builtin->step();
+        (*custom)->step();
+        standalone.step();
+        avr::OpcodeCoverage::save(output.path);
+
+        const auto named = avr::OpcodeCoverage::merge(output.path / "builtin" / "atmega2560");
+        const auto unnamed = avr::OpcodeCoverage::merge(output.path);
+        check(named[builtinOpcode] == 1);
+        check(named[customOpcode] == 0);
+        check(named[standaloneOpcode] == 0);
+        check(unnamed[customOpcode] == 1);
+        check(unnamed[standaloneOpcode] == 1);
+        check(avr::OpcodeCoverage::executed()[standaloneOpcode] == 1);
+    }};
+
+const Scenario attiny424RejectsUnavailableInstructions{
+    "ATtiny424 rejects CALL, JMP and SPM before they change state", {"mcu", "avr"}, [] {
+        auto m = mcu::create("attiny424");
+        require(m);
+        auto& cpu = static_cast<avr::Device&>(*m).avrCore();
+        for (const u16 op : {u16{0x940e}, u16{0x940c}, u16{0x95e8}}) {
+            const auto classification = avr::classify(op, cpu.config().instructions());
+            check(classification.kind == avr::OpcodeKind::Reserved);
+            check(classification.elsewhere == avr::mnemonic(op));
+            // Include a second word that would change PC if CALL or JMP executed.
+            m->load(test::AvrAssembler{}.raw(op).raw(8).image());
+            const auto stack = cpu.sp;
+            check(m->step().reason == StopReason::InvalidOpcode);
+            check(m->programCounter() == 0);
+            check(cpu.sp == stack);
+
+            cpu.reset();
+            cpu.pc = 1;
+            avr::instructionTable()[op](cpu, op, 1);
+            check(cpu.stopRequest == StopReason::InvalidOpcode);
+            check(cpu.pc == 0);
+            check(cpu.sp == stack);
+        }
+    }};

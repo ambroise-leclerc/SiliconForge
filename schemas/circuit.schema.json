@@ -20,7 +20,7 @@
     },
     "chip": {
       "type": "object",
-      "required": ["mcu", "column"],
+      "required": ["column"],
       "additionalProperties": false,
       "properties": {
         "mcu": {"type": "string", "minLength": 1},

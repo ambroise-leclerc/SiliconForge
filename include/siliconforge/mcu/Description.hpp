@@ -11,6 +11,7 @@
 
 namespace siliconforge::mcu {
 using LoadError = DescriptionError;
+inline constexpr std::string_view defaultName = "atmega328p";
 [[nodiscard]] std::expected<void, LoadError>                 validate(const nlohmann::json& description);
 [[nodiscard]] std::expected<std::unique_ptr<Mcu>, LoadError> load(const std::filesystem::path& path);
 [[nodiscard]] std::expected<std::unique_ptr<Mcu>, LoadError> loadJson(std::string_view text);

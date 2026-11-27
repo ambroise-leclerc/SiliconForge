@@ -1,0 +1,1255 @@
+{
+  "formatVersion": 1,
+  "name": "ATtiny424",
+  "architecture": "avr",
+  "core": "avr:AVRxt",
+  "clockHz": 3333333,
+  "supplyVoltage": 5.0,
+  "memories": {
+    "flash": {
+      "start": 0,
+      "size": 4096,
+      "pageSize": 64,
+      "mappedStart": 32768
+    },
+    "sram": {
+      "start": 15872,
+      "size": 512
+    },
+    "eeprom": {
+      "start": 0,
+      "size": 128,
+      "pageSize": 32,
+      "mappedStart": 5120
+    },
+    "registers": {
+      "start": 0,
+      "size": 32
+    },
+    "io": {
+      "start": 0,
+      "size": 4352
+    }
+  },
+  "cpu": {
+    "vectorWords": 1,
+    "pcBytes": 2,
+    "absoluteJump": false,
+    "spl": "CPU_SPL",
+    "sph": "CPU_SPH",
+    "sreg": "CPU_SREG",
+    "smcr": "SLPCTRL_CTRLA",
+    "interruptCycles": 2,
+    "wakeUpCycles": 6
+  },
+  "timing": {
+    "adc": {
+      "cycles": 1
+    },
+    "add": {
+      "cycles": 1
+    },
+    "adiw": {
+      "cycles": 2
+    },
+    "and": {
+      "cycles": 1
+    },
+    "andi": {
+      "cycles": 1
+    },
+    "asr": {
+      "cycles": 1
+    },
+    "bclr": {
+      "cycles": 1
+    },
+    "bld": {
+      "cycles": 1
+    },
+    "brbc": {
+      "cycles": 1,
+      "taken": 2
+    },
+    "brbs": {
+      "cycles": 1,
+      "taken": 2
+    },
+    "break": {
+      "cycles": 1
+    },
+    "bset": {
+      "cycles": 1
+    },
+    "bst": {
+      "cycles": 1
+    },
+    "cbi": {
+      "cycles": 2
+    },
+    "com": {
+      "cycles": 1
+    },
+    "cp": {
+      "cycles": 1
+    },
+    "cpc": {
+      "cycles": 1
+    },
+    "cpi": {
+      "cycles": 1
+    },
+    "cpse": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "dec": {
+      "cycles": 1
+    },
+    "eor": {
+      "cycles": 1
+    },
+    "fmul": {
+      "cycles": 2
+    },
+    "fmuls": {
+      "cycles": 2
+    },
+    "fmulsu": {
+      "cycles": 2
+    },
+    "icall": {
+      "cycles": 3,
+      "pc3Bytes": 4
+    },
+    "ijmp": {
+      "cycles": 2
+    },
+    "in": {
+      "cycles": 1
+    },
+    "inc": {
+      "cycles": 1
+    },
+    "ld -x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld -y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld -z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld x+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld y+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld z+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ldd y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ldd z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ldi": {
+      "cycles": 1
+    },
+    "lds": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "lpm": {
+      "cycles": 3
+    },
+    "lpm z+": {
+      "cycles": 3
+    },
+    "lsr": {
+      "cycles": 1
+    },
+    "mov": {
+      "cycles": 1
+    },
+    "movw": {
+      "cycles": 1
+    },
+    "mul": {
+      "cycles": 2
+    },
+    "muls": {
+      "cycles": 2
+    },
+    "mulsu": {
+      "cycles": 2
+    },
+    "neg": {
+      "cycles": 1
+    },
+    "nop": {
+      "cycles": 1
+    },
+    "or": {
+      "cycles": 1
+    },
+    "ori": {
+      "cycles": 1
+    },
+    "out": {
+      "cycles": 1
+    },
+    "pop": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "push": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "rcall": {
+      "cycles": 3,
+      "pc3Bytes": 4
+    },
+    "ret": {
+      "cycles": 4,
+      "pc3Bytes": 5
+    },
+    "reti": {
+      "cycles": 4,
+      "pc3Bytes": 5
+    },
+    "rjmp": {
+      "cycles": 2
+    },
+    "ror": {
+      "cycles": 1
+    },
+    "sbc": {
+      "cycles": 1
+    },
+    "sbci": {
+      "cycles": 1
+    },
+    "sbi": {
+      "cycles": 2
+    },
+    "sbic": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sbis": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sbiw": {
+      "cycles": 2
+    },
+    "sbrc": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sbrs": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sleep": {
+      "cycles": 1
+    },
+    "st -x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st -y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st -z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st x+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st y+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st z+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "std y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "std z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "sts": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "sub": {
+      "cycles": 1
+    },
+    "subi": {
+      "cycles": 1
+    },
+    "swap": {
+      "cycles": 1
+    },
+    "wdr": {
+      "cycles": 1
+    }
+  },
+  "vectors": {
+    "RESET": 0,
+    "CRCSCAN_NMI": 1,
+    "BOD_VLM": 2,
+    "RTC_CNT": 3,
+    "RTC_PIT": 4,
+    "CCL_CCL": 5,
+    "PORTA_PORT": 6,
+    "PORTB_PORT": 7,
+    "TCA0_OVF": 8,
+    "TCA0_HUNF": 9,
+    "TCA0_CMP0": 10,
+    "TCA0_CMP1": 11,
+    "TCA0_CMP2": 12,
+    "TCB0_INT": 13,
+    "TWI0_TWIS": 14,
+    "TWI0_TWIM": 15,
+    "SPI0_INT": 16,
+    "USART0_RXC": 17,
+    "USART0_DRE": 18,
+    "USART0_TXC": 19,
+    "AC0_AC": 20,
+    "ADC0_ERROR": 21,
+    "ADC0_RESRDY": 22,
+    "ADC0_SAMPRDY": 23,
+    "PORTC_PORT": 24,
+    "TCB1_INT": 25,
+    "USART1_RXC": 26,
+    "USART1_DRE": 27,
+    "USART1_TXC": 28,
+    "NVMCTRL_EE": 29
+  },
+  "registers": {
+    "AC0_CTRLA": {"address": 1664, "reset": 0, "bits": {"ENABLE": 1, "HYSMODE": 6, "LPMODE": 8, "INTMODE": 48, "OUTEN": 64, "RUNSTDBY": 128}},
+    "AC0_DACREF": {"address": 1668, "reset": 255, "bits": {"DACREF": 255}},
+    "AC0_INTCTRL": {"address": 1670, "reset": 0, "bits": {"CMP": 1}},
+    "AC0_MUXCTRLA": {"address": 1666, "reset": 0, "bits": {"MUXNEG": 3, "MUXPOS": 24, "INVERT": 128}},
+    "AC0_STATUS": {"address": 1671, "reset": 0, "bits": {"CMP": 1, "STATE": 16}},
+    "ADC0_COMMAND": {"address": 1546, "reset": 0, "bits": {"START": 7, "MODE": 112, "DIFF": 128}},
+    "ADC0_CTRLA": {"address": 1536, "reset": 0, "bits": {"ENABLE": 1, "LOWLAT": 32, "RUNSTDBY": 128}},
+    "ADC0_CTRLB": {"address": 1537, "reset": 0, "bits": {"PRESC": 15}},
+    "ADC0_CTRLC": {"address": 1538, "reset": 0, "bits": {"REFSEL": 7, "TIMEBASE": 248}},
+    "ADC0_CTRLD": {"address": 1539, "reset": 0, "bits": {"WINCM": 7, "WINSRC": 8}},
+    "ADC0_CTRLE": {"address": 1544, "reset": 0, "bits": {"SAMPDUR": 255}},
+    "ADC0_CTRLF": {"address": 1545, "reset": 0, "bits": {"SAMPNUM": 15, "LEFTADJ": 16, "FREERUN": 32}},
+    "ADC0_DBGCTRL": {"address": 1543, "reset": 0, "bits": {"DBGRUN": 1}},
+    "ADC0_INTCTRL": {"address": 1540, "reset": 0, "bits": {"RESRDY": 1, "SAMPRDY": 2, "WCMP": 4, "RESOVR": 8, "SAMPOVR": 16, "TRIGOVR": 32}},
+    "ADC0_INTFLAGS": {"address": 1541, "reset": 0, "bits": {"RESRDY": 1, "SAMPRDY": 2, "WCMP": 4, "RESOVR": 8, "SAMPOVR": 16, "TRIGOVR": 32}},
+    "ADC0_MUXNEG": {"address": 1549, "reset": 0, "bits": {"MUXNEG": 63, "VIA": 192}},
+    "ADC0_MUXPOS": {"address": 1548, "reset": 0, "bits": {"MUXPOS": 63, "VIA": 192}},
+    "ADC0_PGACTRL": {"address": 1547, "reset": 0, "bits": {"PGAEN": 1, "ADCPGASAMPDUR": 6, "PGABIASSEL": 24, "GAIN": 224}},
+    "ADC0_RESULT2": {"address": 1554, "reset": 0, "bits": {}},
+    "ADC0_RESULT3": {"address": 1555, "reset": 0, "bits": {}},
+    "ADC0_RESULTH": {"address": 1553, "reset": 0, "bits": {}},
+    "ADC0_RESULTL": {"address": 1552, "reset": 0, "bits": {}},
+    "ADC0_SAMPLEH": {"address": 1557, "reset": 0, "bits": {}},
+    "ADC0_SAMPLEL": {"address": 1556, "reset": 0, "bits": {}},
+    "ADC0_STATUS": {"address": 1542, "reset": 0, "bits": {"ADCBUSY": 1}},
+    "ADC0_TEMP0": {"address": 1560, "reset": 0, "bits": {"TEMP": 255}},
+    "ADC0_TEMP1": {"address": 1561, "reset": 0, "bits": {"TEMP": 255}},
+    "ADC0_TEMP2": {"address": 1562, "reset": 0, "bits": {"TEMP": 255}},
+    "ADC0_WINHTH": {"address": 1567, "reset": 0, "bits": {}},
+    "ADC0_WINHTL": {"address": 1566, "reset": 0, "bits": {}},
+    "ADC0_WINLTH": {"address": 1565, "reset": 0, "bits": {}},
+    "ADC0_WINLTL": {"address": 1564, "reset": 0, "bits": {}},
+    "BOD_CTRLA": {"address": 128, "reset": 5, "bits": {"SLEEP": 3, "ACTIVE": 12, "SAMPFREQ": 16}},
+    "BOD_CTRLB": {"address": 129, "reset": 0, "bits": {"LVL": 7}},
+    "BOD_INTCTRL": {"address": 137, "reset": 0, "bits": {"VLMIE": 1, "VLMCFG": 6}},
+    "BOD_INTFLAGS": {"address": 138, "reset": 0, "bits": {"VLMIF": 1}},
+    "BOD_STATUS": {"address": 139, "reset": 0, "bits": {"VLMS": 1}},
+    "BOD_VLMCTRLA": {"address": 136, "reset": 0, "bits": {"VLMLVL": 3}},
+    "CCL_CTRLA": {"address": 448, "reset": 0, "bits": {"ENABLE": 1, "RUNSTDBY": 64}},
+    "CCL_INTCTRL0": {"address": 453, "reset": 0, "bits": {"INTMODE0": 3, "INTMODE1": 12, "INTMODE2": 48, "INTMODE3": 192}},
+    "CCL_INTFLAGS": {"address": 455, "reset": 0, "bits": {"INT": 15}},
+    "CCL_LUT0CTRLA": {"address": 456, "reset": 0, "bits": {"ENABLE": 1, "CLKSRC": 14, "FILTSEL": 48, "OUTEN": 64, "EDGEDET": 128}},
+    "CCL_LUT0CTRLB": {"address": 457, "reset": 0, "bits": {"INSEL0": 15, "INSEL1": 240}},
+    "CCL_LUT0CTRLC": {"address": 458, "reset": 0, "bits": {"INSEL2": 15}},
+    "CCL_LUT1CTRLA": {"address": 460, "reset": 0, "bits": {"ENABLE": 1, "CLKSRC": 14, "FILTSEL": 48, "OUTEN": 64, "EDGEDET": 128}},
+    "CCL_LUT1CTRLB": {"address": 461, "reset": 0, "bits": {"INSEL0": 15, "INSEL1": 240}},
+    "CCL_LUT1CTRLC": {"address": 462, "reset": 0, "bits": {"INSEL2": 15}},
+    "CCL_LUT2CTRLA": {"address": 464, "reset": 0, "bits": {"ENABLE": 1, "CLKSRC": 14, "FILTSEL": 48, "OUTEN": 64, "EDGEDET": 128}},
+    "CCL_LUT2CTRLB": {"address": 465, "reset": 0, "bits": {"INSEL0": 15, "INSEL1": 240}},
+    "CCL_LUT2CTRLC": {"address": 466, "reset": 0, "bits": {"INSEL2": 15}},
+    "CCL_LUT3CTRLA": {"address": 468, "reset": 0, "bits": {"ENABLE": 1, "CLKSRC": 14, "FILTSEL": 48, "OUTEN": 64, "EDGEDET": 128}},
+    "CCL_LUT3CTRLB": {"address": 469, "reset": 0, "bits": {"INSEL0": 15, "INSEL1": 240}},
+    "CCL_LUT3CTRLC": {"address": 470, "reset": 0, "bits": {"INSEL2": 15}},
+    "CCL_SEQCTRL0": {"address": 449, "reset": 0, "bits": {"SEQSEL": 15}},
+    "CCL_SEQCTRL1": {"address": 450, "reset": 0, "bits": {"SEQSEL": 15}},
+    "CCL_TRUTH0": {"address": 459, "reset": 0, "bits": {"TRUTH": 255}},
+    "CCL_TRUTH1": {"address": 463, "reset": 0, "bits": {"TRUTH": 255}},
+    "CCL_TRUTH2": {"address": 467, "reset": 0, "bits": {"TRUTH": 255}},
+    "CCL_TRUTH3": {"address": 471, "reset": 0, "bits": {"TRUTH": 255}},
+    "CLKCTRL_MCLKCTRLA": {"address": 96, "reset": 0, "bits": {"CLKSEL": 3, "CLKOUT": 128}},
+    "CLKCTRL_MCLKCTRLB": {"address": 97, "reset": 17, "bits": {"PEN": 1, "PDIV": 30}},
+    "CLKCTRL_MCLKLOCK": {"address": 98, "reset": 0, "bits": {"LOCKEN": 1}},
+    "CLKCTRL_MCLKSTATUS": {"address": 99, "reset": 0, "bits": {"SOSC": 1, "OSC20MS": 16, "OSC32KS": 32, "XOSC32KS": 64, "EXTS": 128}},
+    "CLKCTRL_OSC20MCALIBA": {"address": 113, "reset": 0, "bits": {"CAL20M": 127}},
+    "CLKCTRL_OSC20MCALIBB": {"address": 114, "reset": 0, "bits": {"TEMPCAL20M": 15, "LOCK": 128}},
+    "CLKCTRL_OSC20MCTRLA": {"address": 112, "reset": 0, "bits": {"RUNSTDBY": 2}},
+    "CLKCTRL_OSC32KCTRLA": {"address": 120, "reset": 0, "bits": {"RUNSTDBY": 2}},
+    "CLKCTRL_XOSC32KCTRLA": {"address": 124, "reset": 0, "bits": {"ENABLE": 1, "RUNSTDBY": 2, "SEL": 4, "CSUT": 48}},
+    "CPUINT_CTRLA": {"address": 272, "reset": 0, "bits": {"LVL0RR": 1, "CVT": 32, "IVSEL": 64}},
+    "CPUINT_LVL0PRI": {"address": 274, "reset": 0, "bits": {"LVL0PRI": 255}},
+    "CPUINT_LVL1VEC": {"address": 275, "reset": 0, "bits": {"LVL1VEC": 255}},
+    "CPUINT_STATUS": {"address": 273, "reset": 0, "bits": {"LVL0EX": 1, "LVL1EX": 2, "NMIEX": 128}},
+    "CPU_CCP": {"address": 52, "reset": 0, "bits": {"CCP": 255}},
+    "CPU_SPH": {"address": 62, "reset": 63, "bits": {}},
+    "CPU_SPL": {"address": 61, "reset": 255, "bits": {}},
+    "CPU_SREG": {"address": 63, "reset": 0, "bits": {"C": 1, "Z": 2, "N": 4, "V": 8, "S": 16, "H": 32, "T": 64, "I": 128}},
+    "CRCSCAN_CTRLA": {"address": 288, "reset": 0, "bits": {"ENABLE": 1, "NMIEN": 2, "RESET": 128}},
+    "CRCSCAN_CTRLB": {"address": 289, "reset": 0, "bits": {"SRC": 3}},
+    "CRCSCAN_STATUS": {"address": 290, "reset": 2, "bits": {"BUSY": 1, "OK": 2}},
+    "EVSYS_CHANNEL0": {"address": 400, "reset": 0, "bits": {"CHANNEL0": 255}},
+    "EVSYS_CHANNEL1": {"address": 401, "reset": 0, "bits": {"CHANNEL1": 255}},
+    "EVSYS_CHANNEL2": {"address": 402, "reset": 0, "bits": {"CHANNEL2": 255}},
+    "EVSYS_CHANNEL3": {"address": 403, "reset": 0, "bits": {"CHANNEL3": 255}},
+    "EVSYS_CHANNEL4": {"address": 404, "reset": 0, "bits": {"CHANNEL4": 255}},
+    "EVSYS_CHANNEL5": {"address": 405, "reset": 0, "bits": {"CHANNEL5": 255}},
+    "EVSYS_SWEVENTA": {"address": 384, "reset": 0, "bits": {"SWEVENTA": 255}},
+    "EVSYS_USERADC0START": {"address": 424, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT0A": {"address": 416, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT0B": {"address": 417, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT1A": {"address": 418, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT1B": {"address": 419, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT2A": {"address": 420, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT2B": {"address": 421, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT3A": {"address": 422, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERCCLLUT3B": {"address": 423, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USEREVSYSEVOUTA": {"address": 425, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USEREVSYSEVOUTB": {"address": 426, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERTCA0CNTA": {"address": 430, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERTCA0CNTB": {"address": 431, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERTCB0CAPT": {"address": 432, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERTCB0COUNT": {"address": 433, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERTCB1CAPT": {"address": 434, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERTCB1COUNT": {"address": 435, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERUSART0IRDA": {"address": 428, "reset": 0, "bits": {"USER": 255}},
+    "EVSYS_USERUSART1IRDA": {"address": 429, "reset": 0, "bits": {"USER": 255}},
+    "GPIO_GPIOR0": {"address": 28, "reset": 0, "bits": {}},
+    "GPIO_GPIOR1": {"address": 29, "reset": 0, "bits": {}},
+    "GPIO_GPIOR2": {"address": 30, "reset": 0, "bits": {}},
+    "GPIO_GPIOR3": {"address": 31, "reset": 0, "bits": {}},
+    "NVMCTRL_ADDRH": {"address": 4105, "reset": 0, "bits": {}},
+    "NVMCTRL_ADDRL": {"address": 4104, "reset": 0, "bits": {}},
+    "NVMCTRL_CTRLA": {"address": 4096, "reset": 0, "bits": {"CMD": 7}},
+    "NVMCTRL_CTRLB": {"address": 4097, "reset": 0, "bits": {"APCWP": 1, "BOOTLOCK": 2}},
+    "NVMCTRL_DATAH": {"address": 4103, "reset": 0, "bits": {}},
+    "NVMCTRL_DATAL": {"address": 4102, "reset": 0, "bits": {}},
+    "NVMCTRL_INTCTRL": {"address": 4099, "reset": 0, "bits": {"EEREADY": 1}},
+    "NVMCTRL_INTFLAGS": {"address": 4100, "reset": 0, "bits": {"EEREADY": 1}},
+    "NVMCTRL_STATUS": {"address": 4098, "reset": 0, "bits": {"FBUSY": 1, "EEBUSY": 2, "WRERROR": 4}},
+    "PORTA_DIR": {"address": 1024, "reset": 0, "bits": {}},
+    "PORTA_DIRCLR": {"address": 1026, "reset": 0, "bits": {}},
+    "PORTA_DIRSET": {"address": 1025, "reset": 0, "bits": {}},
+    "PORTA_DIRTGL": {"address": 1027, "reset": 0, "bits": {}},
+    "PORTA_IN": {"address": 1032, "reset": 0, "bits": {}},
+    "PORTA_INTFLAGS": {"address": 1033, "reset": 0, "bits": {"INT": 255}},
+    "PORTA_OUT": {"address": 1028, "reset": 0, "bits": {}},
+    "PORTA_OUTCLR": {"address": 1030, "reset": 0, "bits": {}},
+    "PORTA_OUTSET": {"address": 1029, "reset": 0, "bits": {}},
+    "PORTA_OUTTGL": {"address": 1031, "reset": 0, "bits": {}},
+    "PORTA_PIN0CTRL": {"address": 1040, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN1CTRL": {"address": 1041, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN2CTRL": {"address": 1042, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN3CTRL": {"address": 1043, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN4CTRL": {"address": 1044, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN5CTRL": {"address": 1045, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN6CTRL": {"address": 1046, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PIN7CTRL": {"address": 1047, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTA_PORTCTRL": {"address": 1034, "reset": 0, "bits": {"SRL": 1}},
+    "PORTB_DIR": {"address": 1056, "reset": 0, "bits": {}},
+    "PORTB_DIRCLR": {"address": 1058, "reset": 0, "bits": {}},
+    "PORTB_DIRSET": {"address": 1057, "reset": 0, "bits": {}},
+    "PORTB_DIRTGL": {"address": 1059, "reset": 0, "bits": {}},
+    "PORTB_IN": {"address": 1064, "reset": 0, "bits": {}},
+    "PORTB_INTFLAGS": {"address": 1065, "reset": 0, "bits": {"INT": 255}},
+    "PORTB_OUT": {"address": 1060, "reset": 0, "bits": {}},
+    "PORTB_OUTCLR": {"address": 1062, "reset": 0, "bits": {}},
+    "PORTB_OUTSET": {"address": 1061, "reset": 0, "bits": {}},
+    "PORTB_OUTTGL": {"address": 1063, "reset": 0, "bits": {}},
+    "PORTB_PIN0CTRL": {"address": 1072, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN1CTRL": {"address": 1073, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN2CTRL": {"address": 1074, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN3CTRL": {"address": 1075, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN4CTRL": {"address": 1076, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN5CTRL": {"address": 1077, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN6CTRL": {"address": 1078, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PIN7CTRL": {"address": 1079, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTB_PORTCTRL": {"address": 1066, "reset": 0, "bits": {"SRL": 1}},
+    "PORTC_DIR": {"address": 1088, "reset": 0, "bits": {}},
+    "PORTC_DIRCLR": {"address": 1090, "reset": 0, "bits": {}},
+    "PORTC_DIRSET": {"address": 1089, "reset": 0, "bits": {}},
+    "PORTC_DIRTGL": {"address": 1091, "reset": 0, "bits": {}},
+    "PORTC_IN": {"address": 1096, "reset": 0, "bits": {}},
+    "PORTC_INTFLAGS": {"address": 1097, "reset": 0, "bits": {"INT": 255}},
+    "PORTC_OUT": {"address": 1092, "reset": 0, "bits": {}},
+    "PORTC_OUTCLR": {"address": 1094, "reset": 0, "bits": {}},
+    "PORTC_OUTSET": {"address": 1093, "reset": 0, "bits": {}},
+    "PORTC_OUTTGL": {"address": 1095, "reset": 0, "bits": {}},
+    "PORTC_PIN0CTRL": {"address": 1104, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN1CTRL": {"address": 1105, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN2CTRL": {"address": 1106, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN3CTRL": {"address": 1107, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN4CTRL": {"address": 1108, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN5CTRL": {"address": 1109, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN6CTRL": {"address": 1110, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PIN7CTRL": {"address": 1111, "reset": 0, "bits": {"ISC": 7, "PULLUPEN": 8, "INVEN": 128}},
+    "PORTC_PORTCTRL": {"address": 1098, "reset": 0, "bits": {"SRL": 1}},
+    "PORTMUX_CCLROUTEA": {"address": 1505, "reset": 0, "bits": {"LUT0": 1, "LUT1": 2, "LUT2": 4, "LUT3": 8}},
+    "PORTMUX_EVSYSROUTEA": {"address": 1504, "reset": 0, "bits": {"EVOUTA": 1, "EVOUTB": 2}},
+    "PORTMUX_SPIROUTEA": {"address": 1507, "reset": 0, "bits": {"SPI0": 3}},
+    "PORTMUX_TCAROUTEA": {"address": 1508, "reset": 0, "bits": {"TCA00": 1, "TCA01": 2, "TCA02": 4, "TCA03": 8, "TCA04": 16, "TCA05": 32}},
+    "PORTMUX_TCBROUTEA": {"address": 1509, "reset": 0, "bits": {"TCB0": 1, "TCB1": 2}},
+    "PORTMUX_USARTROUTEA": {"address": 1506, "reset": 0, "bits": {"USART0": 3, "USART1": 12}},
+    "RSTCTRL_RSTFR": {"address": 64, "reset": 0, "bits": {"PORF": 1, "BORF": 2, "EXTRF": 4, "WDRF": 8, "SWRF": 16, "UPDIRF": 32}},
+    "RSTCTRL_SWRR": {"address": 65, "reset": 0, "bits": {"SWRE": 1}},
+    "RTC_CALIB": {"address": 326, "reset": 0, "bits": {"ERROR": 127, "SIGN": 128}},
+    "RTC_CLKSEL": {"address": 327, "reset": 0, "bits": {"CLKSEL": 3}},
+    "RTC_CMPH": {"address": 333, "reset": 0, "bits": {}},
+    "RTC_CMPL": {"address": 332, "reset": 0, "bits": {}},
+    "RTC_CNTH": {"address": 329, "reset": 0, "bits": {}},
+    "RTC_CNTL": {"address": 328, "reset": 0, "bits": {}},
+    "RTC_CTRLA": {"address": 320, "reset": 0, "bits": {"RTCEN": 1, "CORREN": 4, "PRESCALER": 120, "RUNSTDBY": 128}},
+    "RTC_DBGCTRL": {"address": 325, "reset": 0, "bits": {"DBGRUN": 1}},
+    "RTC_INTCTRL": {"address": 322, "reset": 0, "bits": {"OVF": 1, "CMP": 2}},
+    "RTC_INTFLAGS": {"address": 323, "reset": 0, "bits": {"OVF": 1, "CMP": 2}},
+    "RTC_PERH": {"address": 331, "reset": 255, "bits": {}},
+    "RTC_PERL": {"address": 330, "reset": 255, "bits": {}},
+    "RTC_PITCTRLA": {"address": 336, "reset": 0, "bits": {"PITEN": 1, "PERIOD": 120}},
+    "RTC_PITDBGCTRL": {"address": 341, "reset": 0, "bits": {"DBGRUN": 1}},
+    "RTC_PITINTCTRL": {"address": 338, "reset": 0, "bits": {"PI": 1}},
+    "RTC_PITINTFLAGS": {"address": 339, "reset": 0, "bits": {"PI": 1}},
+    "RTC_PITSTATUS": {"address": 337, "reset": 0, "bits": {"CTRLBUSY": 1}},
+    "RTC_STATUS": {"address": 321, "reset": 0, "bits": {"CTRLABUSY": 1, "CNTBUSY": 2, "PERBUSY": 4, "CMPBUSY": 8}},
+    "RTC_TEMP": {"address": 324, "reset": 0, "bits": {}},
+    "SLPCTRL_CTRLA": {"address": 80, "reset": 0, "bits": {"SEN": 1, "SMODE": 6}},
+    "SPI0_CTRLA": {"address": 2240, "reset": 0, "bits": {"ENABLE": 1, "PRESC": 6, "CLK2X": 16, "MASTER": 32, "DORD": 64}},
+    "SPI0_CTRLB": {"address": 2241, "reset": 0, "bits": {"MODE": 3, "SSD": 4, "BUFWR": 64, "BUFEN": 128}},
+    "SPI0_DATA": {"address": 2244, "reset": 0, "bits": {}},
+    "SPI0_INTCTRL": {"address": 2242, "reset": 0, "bits": {"IE": 1, "SSIE": 16, "DREIE": 32, "TXCIE": 64, "RXCIE": 128}},
+    "SPI0_INTFLAGS": {"address": 2243, "reset": 0, "bits": {"BUFOVF": 1, "SSIF": 16, "DREIF": 32, "TXCIF": 64, "RXCIF": 128, "WRCOL": 64, "IF": 128}},
+    "SYSCFG_REVID": {"address": 3841, "reset": 0, "bits": {}},
+    "TCA0_CMP0BUFH": {"address": 2617, "reset": 0, "bits": {}},
+    "TCA0_CMP0BUFL": {"address": 2616, "reset": 0, "bits": {}},
+    "TCA0_CMP0H": {"address": 2601, "reset": 0, "bits": {}},
+    "TCA0_CMP0L": {"address": 2600, "reset": 0, "bits": {}},
+    "TCA0_CMP1BUFH": {"address": 2619, "reset": 0, "bits": {}},
+    "TCA0_CMP1BUFL": {"address": 2618, "reset": 0, "bits": {}},
+    "TCA0_CMP1H": {"address": 2603, "reset": 0, "bits": {}},
+    "TCA0_CMP1L": {"address": 2602, "reset": 0, "bits": {}},
+    "TCA0_CMP2BUFH": {"address": 2621, "reset": 0, "bits": {}},
+    "TCA0_CMP2BUFL": {"address": 2620, "reset": 0, "bits": {}},
+    "TCA0_CMP2H": {"address": 2605, "reset": 0, "bits": {}},
+    "TCA0_CMP2L": {"address": 2604, "reset": 0, "bits": {}},
+    "TCA0_CNTH": {"address": 2593, "reset": 0, "bits": {}},
+    "TCA0_CNTL": {"address": 2592, "reset": 0, "bits": {}},
+    "TCA0_CTRLA": {"address": 2560, "reset": 0, "bits": {"ENABLE": 1, "CLKSEL": 14, "RUNSTDBY": 128}},
+    "TCA0_CTRLB": {"address": 2561, "reset": 0, "bits": {"WGMODE": 7, "ALUPD": 8, "CMP0EN": 16, "CMP1EN": 32, "CMP2EN": 64}},
+    "TCA0_CTRLC": {"address": 2562, "reset": 0, "bits": {"CMP0OV": 1, "CMP1OV": 2, "CMP2OV": 4}},
+    "TCA0_CTRLD": {"address": 2563, "reset": 0, "bits": {"SPLITM": 1}},
+    "TCA0_CTRLECLR": {"address": 2564, "reset": 0, "bits": {"DIR": 1, "LUPD": 2, "CMD": 12}},
+    "TCA0_CTRLESET": {"address": 2565, "reset": 0, "bits": {"DIR": 1, "LUPD": 2, "CMD": 12}},
+    "TCA0_CTRLFCLR": {"address": 2566, "reset": 0, "bits": {"PERBV": 1, "CMP0BV": 2, "CMP1BV": 4, "CMP2BV": 8}},
+    "TCA0_CTRLFSET": {"address": 2567, "reset": 0, "bits": {"PERBV": 1, "CMP0BV": 2, "CMP1BV": 4, "CMP2BV": 8}},
+    "TCA0_DBGCTRL": {"address": 2574, "reset": 0, "bits": {"DBGRUN": 1}},
+    "TCA0_EVCTRL": {"address": 2569, "reset": 0, "bits": {"CNTAEI": 1, "EVACTA": 14, "CNTBEI": 16, "EVACTB": 224}},
+    "TCA0_INTCTRL": {"address": 2570, "reset": 0, "bits": {"OVF": 1, "CMP0": 16, "CMP1": 32, "CMP2": 64}},
+    "TCA0_INTFLAGS": {"address": 2571, "reset": 0, "bits": {"OVF": 1, "CMP0": 16, "CMP1": 32, "CMP2": 64}},
+    "TCA0_PERBUFH": {"address": 2615, "reset": 255, "bits": {}},
+    "TCA0_PERBUFL": {"address": 2614, "reset": 255, "bits": {}},
+    "TCA0_PERH": {"address": 2599, "reset": 255, "bits": {}},
+    "TCA0_PERL": {"address": 2598, "reset": 255, "bits": {}},
+    "TCA0_TEMP": {"address": 2575, "reset": 0, "bits": {}},
+    "TCB0_CCMPH": {"address": 2701, "reset": 0, "bits": {}},
+    "TCB0_CCMPL": {"address": 2700, "reset": 0, "bits": {}},
+    "TCB0_CNTH": {"address": 2699, "reset": 0, "bits": {}},
+    "TCB0_CNTL": {"address": 2698, "reset": 0, "bits": {}},
+    "TCB0_CTRLA": {"address": 2688, "reset": 0, "bits": {"ENABLE": 1, "CLKSEL": 14, "SYNCUPD": 16, "CASCADE": 32, "RUNSTDBY": 64}},
+    "TCB0_CTRLB": {"address": 2689, "reset": 0, "bits": {"CNTMODE": 7, "CCMPEN": 16, "CCMPINIT": 32, "ASYNC": 64}},
+    "TCB0_DBGCTRL": {"address": 2696, "reset": 0, "bits": {"DBGRUN": 1}},
+    "TCB0_EVCTRL": {"address": 2692, "reset": 0, "bits": {"CAPTEI": 1, "EDGE": 16, "FILTER": 64}},
+    "TCB0_INTCTRL": {"address": 2693, "reset": 0, "bits": {"CAPT": 1, "OVF": 2}},
+    "TCB0_INTFLAGS": {"address": 2694, "reset": 0, "bits": {"CAPT": 1, "OVF": 2}},
+    "TCB0_STATUS": {"address": 2695, "reset": 0, "bits": {"RUN": 1}},
+    "TCB0_TEMP": {"address": 2697, "reset": 0, "bits": {}},
+    "TCB1_CCMPH": {"address": 2717, "reset": 0, "bits": {}},
+    "TCB1_CCMPL": {"address": 2716, "reset": 0, "bits": {}},
+    "TCB1_CNTH": {"address": 2715, "reset": 0, "bits": {}},
+    "TCB1_CNTL": {"address": 2714, "reset": 0, "bits": {}},
+    "TCB1_CTRLA": {"address": 2704, "reset": 0, "bits": {"ENABLE": 1, "CLKSEL": 14, "SYNCUPD": 16, "CASCADE": 32, "RUNSTDBY": 64}},
+    "TCB1_CTRLB": {"address": 2705, "reset": 0, "bits": {"CNTMODE": 7, "CCMPEN": 16, "CCMPINIT": 32, "ASYNC": 64}},
+    "TCB1_DBGCTRL": {"address": 2712, "reset": 0, "bits": {"DBGRUN": 1}},
+    "TCB1_EVCTRL": {"address": 2708, "reset": 0, "bits": {"CAPTEI": 1, "EDGE": 16, "FILTER": 64}},
+    "TCB1_INTCTRL": {"address": 2709, "reset": 0, "bits": {"CAPT": 1, "OVF": 2}},
+    "TCB1_INTFLAGS": {"address": 2710, "reset": 0, "bits": {"CAPT": 1, "OVF": 2}},
+    "TCB1_STATUS": {"address": 2711, "reset": 0, "bits": {"RUN": 1}},
+    "TCB1_TEMP": {"address": 2713, "reset": 0, "bits": {}},
+    "TWI0_CTRLA": {"address": 2208, "reset": 0, "bits": {"FMPEN": 2, "SDAHOLD": 12, "SDASETUP": 16}},
+    "TWI0_DBGCTRL": {"address": 2210, "reset": 0, "bits": {"DBGRUN": 1}},
+    "TWI0_MADDR": {"address": 2215, "reset": 0, "bits": {}},
+    "TWI0_MBAUD": {"address": 2214, "reset": 0, "bits": {}},
+    "TWI0_MCTRLA": {"address": 2211, "reset": 0, "bits": {"ENABLE": 1, "SMEN": 2, "TIMEOUT": 12, "QCEN": 16, "WIEN": 64, "RIEN": 128}},
+    "TWI0_MCTRLB": {"address": 2212, "reset": 0, "bits": {"MCMD": 3, "ACKACT": 4, "FLUSH": 8}},
+    "TWI0_MDATA": {"address": 2216, "reset": 0, "bits": {}},
+    "TWI0_MSTATUS": {"address": 2213, "reset": 0, "bits": {"BUSSTATE": 3, "BUSERR": 4, "ARBLOST": 8, "RXACK": 16, "CLKHOLD": 32, "WIF": 64, "RIF": 128}},
+    "TWI0_SADDR": {"address": 2220, "reset": 0, "bits": {}},
+    "TWI0_SADDRMASK": {"address": 2222, "reset": 0, "bits": {"ADDREN": 1, "ADDRMASK": 254}},
+    "TWI0_SCTRLA": {"address": 2217, "reset": 0, "bits": {"ENABLE": 1, "SMEN": 2, "PMEN": 4, "PIEN": 32, "APIEN": 64, "DIEN": 128}},
+    "TWI0_SCTRLB": {"address": 2218, "reset": 0, "bits": {"SCMD": 3, "ACKACT": 4}},
+    "TWI0_SDATA": {"address": 2221, "reset": 0, "bits": {}},
+    "TWI0_SSTATUS": {"address": 2219, "reset": 0, "bits": {"AP": 1, "DIR": 2, "BUSERR": 4, "COLL": 8, "RXACK": 16, "CLKHOLD": 32, "APIF": 64, "DIF": 128}},
+    "USART0_BAUDH": {"address": 2057, "reset": 0, "bits": {}},
+    "USART0_BAUDL": {"address": 2056, "reset": 0, "bits": {}},
+    "USART0_CTRLA": {"address": 2053, "reset": 0, "bits": {"RS485": 1, "ABEIE": 4, "LBME": 8, "RXSIE": 16, "DREIE": 32, "TXCIE": 64, "RXCIE": 128}},
+    "USART0_CTRLB": {"address": 2054, "reset": 0, "bits": {"MPCM": 1, "RXMODE": 6, "ODME": 8, "SFDEN": 16, "TXEN": 64, "RXEN": 128}},
+    "USART0_CTRLC": {"address": 2055, "reset": 3, "bits": {"CMODE": 192, "UCPHA": 2, "UDORD": 4, "CHSIZE": 7, "SBMODE": 8, "PMODE": 48}},
+    "USART0_CTRLD": {"address": 2058, "reset": 0, "bits": {"ABW": 192}},
+    "USART0_DBGCTRL": {"address": 2059, "reset": 0, "bits": {"DBGRUN": 1}},
+    "USART0_EVCTRL": {"address": 2060, "reset": 0, "bits": {"IREI": 1}},
+    "USART0_RXDATAH": {"address": 2049, "reset": 0, "bits": {"DATA8": 1, "PERR": 2, "FERR": 4, "BUFOVF": 64, "RXCIF": 128}},
+    "USART0_RXDATAL": {"address": 2048, "reset": 0, "bits": {"DATA": 255}},
+    "USART0_RXPLCTRL": {"address": 2062, "reset": 0, "bits": {"RXPL": 127}},
+    "USART0_STATUS": {"address": 2052, "reset": 32, "bits": {"WFB": 1, "BDF": 2, "ISFIF": 8, "RXSIF": 16, "DREIF": 32, "TXCIF": 64, "RXCIF": 128}},
+    "USART0_TXDATAH": {"address": 2051, "reset": 0, "bits": {"DATA8": 1}},
+    "USART0_TXDATAL": {"address": 2050, "reset": 0, "bits": {"DATA": 255}},
+    "USART0_TXPLCTRL": {"address": 2061, "reset": 0, "bits": {"TXPL": 255}},
+    "USART1_BAUDH": {"address": 2089, "reset": 0, "bits": {}},
+    "USART1_BAUDL": {"address": 2088, "reset": 0, "bits": {}},
+    "USART1_CTRLA": {"address": 2085, "reset": 0, "bits": {"RS485": 1, "ABEIE": 4, "LBME": 8, "RXSIE": 16, "DREIE": 32, "TXCIE": 64, "RXCIE": 128}},
+    "USART1_CTRLB": {"address": 2086, "reset": 0, "bits": {"MPCM": 1, "RXMODE": 6, "ODME": 8, "SFDEN": 16, "TXEN": 64, "RXEN": 128}},
+    "USART1_CTRLC": {"address": 2087, "reset": 3, "bits": {"CMODE": 192, "UCPHA": 2, "UDORD": 4, "CHSIZE": 7, "SBMODE": 8, "PMODE": 48}},
+    "USART1_CTRLD": {"address": 2090, "reset": 0, "bits": {"ABW": 192}},
+    "USART1_DBGCTRL": {"address": 2091, "reset": 0, "bits": {"DBGRUN": 1}},
+    "USART1_EVCTRL": {"address": 2092, "reset": 0, "bits": {"IREI": 1}},
+    "USART1_RXDATAH": {"address": 2081, "reset": 0, "bits": {"DATA8": 1, "PERR": 2, "FERR": 4, "BUFOVF": 64, "RXCIF": 128}},
+    "USART1_RXDATAL": {"address": 2080, "reset": 0, "bits": {"DATA": 255}},
+    "USART1_RXPLCTRL": {"address": 2094, "reset": 0, "bits": {"RXPL": 127}},
+    "USART1_STATUS": {"address": 2084, "reset": 32, "bits": {"WFB": 1, "BDF": 2, "ISFIF": 8, "RXSIF": 16, "DREIF": 32, "TXCIF": 64, "RXCIF": 128}},
+    "USART1_TXDATAH": {"address": 2083, "reset": 0, "bits": {"DATA8": 1}},
+    "USART1_TXDATAL": {"address": 2082, "reset": 0, "bits": {"DATA": 255}},
+    "USART1_TXPLCTRL": {"address": 2093, "reset": 0, "bits": {"TXPL": 255}},
+    "VPORTA_DIR": {"address": 0, "reset": 0, "bits": {}},
+    "VPORTA_IN": {"address": 2, "reset": 0, "bits": {}},
+    "VPORTA_INTFLAGS": {"address": 3, "reset": 0, "bits": {"INT": 255}},
+    "VPORTA_OUT": {"address": 1, "reset": 0, "bits": {}},
+    "VPORTB_DIR": {"address": 4, "reset": 0, "bits": {}},
+    "VPORTB_IN": {"address": 6, "reset": 0, "bits": {}},
+    "VPORTB_INTFLAGS": {"address": 7, "reset": 0, "bits": {"INT": 255}},
+    "VPORTB_OUT": {"address": 5, "reset": 0, "bits": {}},
+    "VPORTC_DIR": {"address": 8, "reset": 0, "bits": {}},
+    "VPORTC_IN": {"address": 10, "reset": 0, "bits": {}},
+    "VPORTC_INTFLAGS": {"address": 11, "reset": 0, "bits": {"INT": 255}},
+    "VPORTC_OUT": {"address": 9, "reset": 0, "bits": {}},
+    "VREF_CTRLA": {"address": 160, "reset": 0, "bits": {"AC0REFSEL": 7}},
+    "VREF_CTRLB": {"address": 161, "reset": 0, "bits": {"AC0REFEN": 1, "ADC0REFEN": 2, "NVMREFEN": 4}},
+    "WDT_CTRLA": {"address": 256, "reset": 0, "bits": {"PERIOD": 15, "WINDOW": 240}},
+    "WDT_STATUS": {"address": 257, "reset": 0, "bits": {"SYNCBUSY": 1, "LOCK": 128}}
+  },
+  "peripherals": [
+    {
+      "type": "avr.unmodeled",
+      "name": "AC0",
+      "registers": {
+        "CTRLA": "AC0_CTRLA",
+        "MUXCTRLA": "AC0_MUXCTRLA",
+        "DACREF": "AC0_DACREF",
+        "INTCTRL": "AC0_INTCTRL",
+        "STATUS": "AC0_STATUS"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "ADC0",
+      "registers": {
+        "CTRLA": "ADC0_CTRLA",
+        "CTRLB": "ADC0_CTRLB",
+        "CTRLC": "ADC0_CTRLC",
+        "CTRLD": "ADC0_CTRLD",
+        "INTCTRL": "ADC0_INTCTRL",
+        "INTFLAGS": "ADC0_INTFLAGS",
+        "STATUS": "ADC0_STATUS",
+        "DBGCTRL": "ADC0_DBGCTRL",
+        "CTRLE": "ADC0_CTRLE",
+        "CTRLF": "ADC0_CTRLF",
+        "COMMAND": "ADC0_COMMAND",
+        "PGACTRL": "ADC0_PGACTRL",
+        "MUXPOS": "ADC0_MUXPOS",
+        "MUXNEG": "ADC0_MUXNEG",
+        "RESULTL": "ADC0_RESULTL",
+        "RESULTH": "ADC0_RESULTH",
+        "RESULT2": "ADC0_RESULT2",
+        "RESULT3": "ADC0_RESULT3",
+        "SAMPLEL": "ADC0_SAMPLEL",
+        "SAMPLEH": "ADC0_SAMPLEH",
+        "TEMP0": "ADC0_TEMP0",
+        "TEMP1": "ADC0_TEMP1",
+        "TEMP2": "ADC0_TEMP2",
+        "WINLTL": "ADC0_WINLTL",
+        "WINLTH": "ADC0_WINLTH",
+        "WINHTL": "ADC0_WINHTL",
+        "WINHTH": "ADC0_WINHTH"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "BOD",
+      "registers": {
+        "CTRLA": "BOD_CTRLA",
+        "CTRLB": "BOD_CTRLB",
+        "VLMCTRLA": "BOD_VLMCTRLA",
+        "INTCTRL": "BOD_INTCTRL",
+        "INTFLAGS": "BOD_INTFLAGS",
+        "STATUS": "BOD_STATUS"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "CCL",
+      "registers": {
+        "CTRLA": "CCL_CTRLA",
+        "SEQCTRL0": "CCL_SEQCTRL0",
+        "SEQCTRL1": "CCL_SEQCTRL1",
+        "INTCTRL0": "CCL_INTCTRL0",
+        "INTFLAGS": "CCL_INTFLAGS",
+        "LUT0CTRLA": "CCL_LUT0CTRLA",
+        "LUT0CTRLB": "CCL_LUT0CTRLB",
+        "LUT0CTRLC": "CCL_LUT0CTRLC",
+        "TRUTH0": "CCL_TRUTH0",
+        "LUT1CTRLA": "CCL_LUT1CTRLA",
+        "LUT1CTRLB": "CCL_LUT1CTRLB",
+        "LUT1CTRLC": "CCL_LUT1CTRLC",
+        "TRUTH1": "CCL_TRUTH1",
+        "LUT2CTRLA": "CCL_LUT2CTRLA",
+        "LUT2CTRLB": "CCL_LUT2CTRLB",
+        "LUT2CTRLC": "CCL_LUT2CTRLC",
+        "TRUTH2": "CCL_TRUTH2",
+        "LUT3CTRLA": "CCL_LUT3CTRLA",
+        "LUT3CTRLB": "CCL_LUT3CTRLB",
+        "LUT3CTRLC": "CCL_LUT3CTRLC",
+        "TRUTH3": "CCL_TRUTH3"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "CLKCTRL",
+      "registers": {
+        "MCLKCTRLA": "CLKCTRL_MCLKCTRLA",
+        "MCLKCTRLB": "CLKCTRL_MCLKCTRLB",
+        "MCLKLOCK": "CLKCTRL_MCLKLOCK",
+        "MCLKSTATUS": "CLKCTRL_MCLKSTATUS",
+        "OSC20MCTRLA": "CLKCTRL_OSC20MCTRLA",
+        "OSC20MCALIBA": "CLKCTRL_OSC20MCALIBA",
+        "OSC20MCALIBB": "CLKCTRL_OSC20MCALIBB",
+        "OSC32KCTRLA": "CLKCTRL_OSC32KCTRLA",
+        "XOSC32KCTRLA": "CLKCTRL_XOSC32KCTRLA"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "CPU",
+      "registers": {
+        "CCP": "CPU_CCP",
+        "SPL": "CPU_SPL",
+        "SPH": "CPU_SPH",
+        "SREG": "CPU_SREG"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "CPUINT",
+      "registers": {
+        "CTRLA": "CPUINT_CTRLA",
+        "STATUS": "CPUINT_STATUS",
+        "LVL0PRI": "CPUINT_LVL0PRI",
+        "LVL1VEC": "CPUINT_LVL1VEC"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "CRCSCAN",
+      "registers": {
+        "CTRLA": "CRCSCAN_CTRLA",
+        "CTRLB": "CRCSCAN_CTRLB",
+        "STATUS": "CRCSCAN_STATUS"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "EVSYS",
+      "registers": {
+        "SWEVENTA": "EVSYS_SWEVENTA",
+        "CHANNEL0": "EVSYS_CHANNEL0",
+        "CHANNEL1": "EVSYS_CHANNEL1",
+        "CHANNEL2": "EVSYS_CHANNEL2",
+        "CHANNEL3": "EVSYS_CHANNEL3",
+        "CHANNEL4": "EVSYS_CHANNEL4",
+        "CHANNEL5": "EVSYS_CHANNEL5",
+        "USERCCLLUT0A": "EVSYS_USERCCLLUT0A",
+        "USERCCLLUT0B": "EVSYS_USERCCLLUT0B",
+        "USERCCLLUT1A": "EVSYS_USERCCLLUT1A",
+        "USERCCLLUT1B": "EVSYS_USERCCLLUT1B",
+        "USERCCLLUT2A": "EVSYS_USERCCLLUT2A",
+        "USERCCLLUT2B": "EVSYS_USERCCLLUT2B",
+        "USERCCLLUT3A": "EVSYS_USERCCLLUT3A",
+        "USERCCLLUT3B": "EVSYS_USERCCLLUT3B",
+        "USERADC0START": "EVSYS_USERADC0START",
+        "USEREVSYSEVOUTA": "EVSYS_USEREVSYSEVOUTA",
+        "USEREVSYSEVOUTB": "EVSYS_USEREVSYSEVOUTB",
+        "USERUSART0IRDA": "EVSYS_USERUSART0IRDA",
+        "USERUSART1IRDA": "EVSYS_USERUSART1IRDA",
+        "USERTCA0CNTA": "EVSYS_USERTCA0CNTA",
+        "USERTCA0CNTB": "EVSYS_USERTCA0CNTB",
+        "USERTCB0CAPT": "EVSYS_USERTCB0CAPT",
+        "USERTCB0COUNT": "EVSYS_USERTCB0COUNT",
+        "USERTCB1CAPT": "EVSYS_USERTCB1CAPT",
+        "USERTCB1COUNT": "EVSYS_USERTCB1COUNT"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "FUSE"
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "GPIO",
+      "registers": {
+        "GPIOR0": "GPIO_GPIOR0",
+        "GPIOR1": "GPIO_GPIOR1",
+        "GPIOR2": "GPIO_GPIOR2",
+        "GPIOR3": "GPIO_GPIOR3"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "LOCKBIT"
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "NVMCTRL",
+      "registers": {
+        "CTRLA": "NVMCTRL_CTRLA",
+        "CTRLB": "NVMCTRL_CTRLB",
+        "STATUS": "NVMCTRL_STATUS",
+        "INTCTRL": "NVMCTRL_INTCTRL",
+        "INTFLAGS": "NVMCTRL_INTFLAGS",
+        "DATAL": "NVMCTRL_DATAL",
+        "DATAH": "NVMCTRL_DATAH",
+        "ADDRL": "NVMCTRL_ADDRL",
+        "ADDRH": "NVMCTRL_ADDRH"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "PORTA",
+      "registers": {
+        "DIR": "PORTA_DIR",
+        "DIRSET": "PORTA_DIRSET",
+        "DIRCLR": "PORTA_DIRCLR",
+        "DIRTGL": "PORTA_DIRTGL",
+        "OUT": "PORTA_OUT",
+        "OUTSET": "PORTA_OUTSET",
+        "OUTCLR": "PORTA_OUTCLR",
+        "OUTTGL": "PORTA_OUTTGL",
+        "IN": "PORTA_IN",
+        "INTFLAGS": "PORTA_INTFLAGS",
+        "PORTCTRL": "PORTA_PORTCTRL",
+        "PIN0CTRL": "PORTA_PIN0CTRL",
+        "PIN1CTRL": "PORTA_PIN1CTRL",
+        "PIN2CTRL": "PORTA_PIN2CTRL",
+        "PIN3CTRL": "PORTA_PIN3CTRL",
+        "PIN4CTRL": "PORTA_PIN4CTRL",
+        "PIN5CTRL": "PORTA_PIN5CTRL",
+        "PIN6CTRL": "PORTA_PIN6CTRL",
+        "PIN7CTRL": "PORTA_PIN7CTRL"
+      },
+      "pins": [
+        "PA0",
+        "PA1",
+        "PA2",
+        "PA3",
+        "PA4",
+        "PA5",
+        "PA6",
+        "PA7"
+      ]
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "PORTB",
+      "registers": {
+        "DIR": "PORTB_DIR",
+        "DIRSET": "PORTB_DIRSET",
+        "DIRCLR": "PORTB_DIRCLR",
+        "DIRTGL": "PORTB_DIRTGL",
+        "OUT": "PORTB_OUT",
+        "OUTSET": "PORTB_OUTSET",
+        "OUTCLR": "PORTB_OUTCLR",
+        "OUTTGL": "PORTB_OUTTGL",
+        "IN": "PORTB_IN",
+        "INTFLAGS": "PORTB_INTFLAGS",
+        "PORTCTRL": "PORTB_PORTCTRL",
+        "PIN0CTRL": "PORTB_PIN0CTRL",
+        "PIN1CTRL": "PORTB_PIN1CTRL",
+        "PIN2CTRL": "PORTB_PIN2CTRL",
+        "PIN3CTRL": "PORTB_PIN3CTRL",
+        "PIN4CTRL": "PORTB_PIN4CTRL",
+        "PIN5CTRL": "PORTB_PIN5CTRL",
+        "PIN6CTRL": "PORTB_PIN6CTRL",
+        "PIN7CTRL": "PORTB_PIN7CTRL"
+      },
+      "pins": [
+        "PB0",
+        "PB1",
+        "PB2",
+        "PB3"
+      ]
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "PORTC",
+      "registers": {
+        "DIR": "PORTC_DIR",
+        "DIRSET": "PORTC_DIRSET",
+        "DIRCLR": "PORTC_DIRCLR",
+        "DIRTGL": "PORTC_DIRTGL",
+        "OUT": "PORTC_OUT",
+        "OUTSET": "PORTC_OUTSET",
+        "OUTCLR": "PORTC_OUTCLR",
+        "OUTTGL": "PORTC_OUTTGL",
+        "IN": "PORTC_IN",
+        "INTFLAGS": "PORTC_INTFLAGS",
+        "PORTCTRL": "PORTC_PORTCTRL",
+        "PIN0CTRL": "PORTC_PIN0CTRL",
+        "PIN1CTRL": "PORTC_PIN1CTRL",
+        "PIN2CTRL": "PORTC_PIN2CTRL",
+        "PIN3CTRL": "PORTC_PIN3CTRL",
+        "PIN4CTRL": "PORTC_PIN4CTRL",
+        "PIN5CTRL": "PORTC_PIN5CTRL",
+        "PIN6CTRL": "PORTC_PIN6CTRL",
+        "PIN7CTRL": "PORTC_PIN7CTRL"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "PORTMUX",
+      "registers": {
+        "EVSYSROUTEA": "PORTMUX_EVSYSROUTEA",
+        "CCLROUTEA": "PORTMUX_CCLROUTEA",
+        "USARTROUTEA": "PORTMUX_USARTROUTEA",
+        "SPIROUTEA": "PORTMUX_SPIROUTEA",
+        "TCAROUTEA": "PORTMUX_TCAROUTEA",
+        "TCBROUTEA": "PORTMUX_TCBROUTEA"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "RSTCTRL",
+      "registers": {
+        "RSTFR": "RSTCTRL_RSTFR",
+        "SWRR": "RSTCTRL_SWRR"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "RTC",
+      "registers": {
+        "CTRLA": "RTC_CTRLA",
+        "STATUS": "RTC_STATUS",
+        "INTCTRL": "RTC_INTCTRL",
+        "INTFLAGS": "RTC_INTFLAGS",
+        "TEMP": "RTC_TEMP",
+        "DBGCTRL": "RTC_DBGCTRL",
+        "CALIB": "RTC_CALIB",
+        "CLKSEL": "RTC_CLKSEL",
+        "CNTL": "RTC_CNTL",
+        "CNTH": "RTC_CNTH",
+        "PERL": "RTC_PERL",
+        "PERH": "RTC_PERH",
+        "CMPL": "RTC_CMPL",
+        "CMPH": "RTC_CMPH",
+        "PITCTRLA": "RTC_PITCTRLA",
+        "PITSTATUS": "RTC_PITSTATUS",
+        "PITINTCTRL": "RTC_PITINTCTRL",
+        "PITINTFLAGS": "RTC_PITINTFLAGS",
+        "PITDBGCTRL": "RTC_PITDBGCTRL"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "SIGROW"
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "SLPCTRL",
+      "registers": {
+        "CTRLA": "SLPCTRL_CTRLA"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "SPI0",
+      "registers": {
+        "CTRLA": "SPI0_CTRLA",
+        "CTRLB": "SPI0_CTRLB",
+        "INTCTRL": "SPI0_INTCTRL",
+        "INTFLAGS": "SPI0_INTFLAGS",
+        "DATA": "SPI0_DATA"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "SYSCFG",
+      "registers": {
+        "REVID": "SYSCFG_REVID"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TCA0",
+      "registers": {
+        "CTRLA": "TCA0_CTRLA",
+        "CTRLB": "TCA0_CTRLB",
+        "CTRLC": "TCA0_CTRLC",
+        "CTRLD": "TCA0_CTRLD",
+        "CTRLECLR": "TCA0_CTRLECLR",
+        "CTRLESET": "TCA0_CTRLESET",
+        "CTRLFCLR": "TCA0_CTRLFCLR",
+        "CTRLFSET": "TCA0_CTRLFSET",
+        "EVCTRL": "TCA0_EVCTRL",
+        "INTCTRL": "TCA0_INTCTRL",
+        "INTFLAGS": "TCA0_INTFLAGS",
+        "DBGCTRL": "TCA0_DBGCTRL",
+        "TEMP": "TCA0_TEMP",
+        "CNTL": "TCA0_CNTL",
+        "CNTH": "TCA0_CNTH",
+        "PERL": "TCA0_PERL",
+        "PERH": "TCA0_PERH",
+        "CMP0L": "TCA0_CMP0L",
+        "CMP0H": "TCA0_CMP0H",
+        "CMP1L": "TCA0_CMP1L",
+        "CMP1H": "TCA0_CMP1H",
+        "CMP2L": "TCA0_CMP2L",
+        "CMP2H": "TCA0_CMP2H",
+        "PERBUFL": "TCA0_PERBUFL",
+        "PERBUFH": "TCA0_PERBUFH",
+        "CMP0BUFL": "TCA0_CMP0BUFL",
+        "CMP0BUFH": "TCA0_CMP0BUFH",
+        "CMP1BUFL": "TCA0_CMP1BUFL",
+        "CMP1BUFH": "TCA0_CMP1BUFH",
+        "CMP2BUFL": "TCA0_CMP2BUFL",
+        "CMP2BUFH": "TCA0_CMP2BUFH"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TCB0",
+      "registers": {
+        "CTRLA": "TCB0_CTRLA",
+        "CTRLB": "TCB0_CTRLB",
+        "EVCTRL": "TCB0_EVCTRL",
+        "INTCTRL": "TCB0_INTCTRL",
+        "INTFLAGS": "TCB0_INTFLAGS",
+        "STATUS": "TCB0_STATUS",
+        "DBGCTRL": "TCB0_DBGCTRL",
+        "TEMP": "TCB0_TEMP",
+        "CNTL": "TCB0_CNTL",
+        "CNTH": "TCB0_CNTH",
+        "CCMPL": "TCB0_CCMPL",
+        "CCMPH": "TCB0_CCMPH"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TCB1",
+      "registers": {
+        "CTRLA": "TCB1_CTRLA",
+        "CTRLB": "TCB1_CTRLB",
+        "EVCTRL": "TCB1_EVCTRL",
+        "INTCTRL": "TCB1_INTCTRL",
+        "INTFLAGS": "TCB1_INTFLAGS",
+        "STATUS": "TCB1_STATUS",
+        "DBGCTRL": "TCB1_DBGCTRL",
+        "TEMP": "TCB1_TEMP",
+        "CNTL": "TCB1_CNTL",
+        "CNTH": "TCB1_CNTH",
+        "CCMPL": "TCB1_CCMPL",
+        "CCMPH": "TCB1_CCMPH"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TWI0",
+      "registers": {
+        "CTRLA": "TWI0_CTRLA",
+        "DBGCTRL": "TWI0_DBGCTRL",
+        "MCTRLA": "TWI0_MCTRLA",
+        "MCTRLB": "TWI0_MCTRLB",
+        "MSTATUS": "TWI0_MSTATUS",
+        "MBAUD": "TWI0_MBAUD",
+        "MADDR": "TWI0_MADDR",
+        "MDATA": "TWI0_MDATA",
+        "SCTRLA": "TWI0_SCTRLA",
+        "SCTRLB": "TWI0_SCTRLB",
+        "SSTATUS": "TWI0_SSTATUS",
+        "SADDR": "TWI0_SADDR",
+        "SDATA": "TWI0_SDATA",
+        "SADDRMASK": "TWI0_SADDRMASK"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "USART0",
+      "registers": {
+        "RXDATAL": "USART0_RXDATAL",
+        "RXDATAH": "USART0_RXDATAH",
+        "TXDATAL": "USART0_TXDATAL",
+        "TXDATAH": "USART0_TXDATAH",
+        "STATUS": "USART0_STATUS",
+        "CTRLA": "USART0_CTRLA",
+        "CTRLB": "USART0_CTRLB",
+        "CTRLC": "USART0_CTRLC",
+        "BAUDL": "USART0_BAUDL",
+        "BAUDH": "USART0_BAUDH",
+        "CTRLD": "USART0_CTRLD",
+        "DBGCTRL": "USART0_DBGCTRL",
+        "EVCTRL": "USART0_EVCTRL",
+        "TXPLCTRL": "USART0_TXPLCTRL",
+        "RXPLCTRL": "USART0_RXPLCTRL"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "USART1",
+      "registers": {
+        "RXDATAL": "USART1_RXDATAL",
+        "RXDATAH": "USART1_RXDATAH",
+        "TXDATAL": "USART1_TXDATAL",
+        "TXDATAH": "USART1_TXDATAH",
+        "STATUS": "USART1_STATUS",
+        "CTRLA": "USART1_CTRLA",
+        "CTRLB": "USART1_CTRLB",
+        "CTRLC": "USART1_CTRLC",
+        "BAUDL": "USART1_BAUDL",
+        "BAUDH": "USART1_BAUDH",
+        "CTRLD": "USART1_CTRLD",
+        "DBGCTRL": "USART1_DBGCTRL",
+        "EVCTRL": "USART1_EVCTRL",
+        "TXPLCTRL": "USART1_TXPLCTRL",
+        "RXPLCTRL": "USART1_RXPLCTRL"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "USERROW"
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "VPORTA",
+      "registers": {
+        "DIR": "VPORTA_DIR",
+        "OUT": "VPORTA_OUT",
+        "IN": "VPORTA_IN",
+        "INTFLAGS": "VPORTA_INTFLAGS"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "VPORTB",
+      "registers": {
+        "DIR": "VPORTB_DIR",
+        "OUT": "VPORTB_OUT",
+        "IN": "VPORTB_IN",
+        "INTFLAGS": "VPORTB_INTFLAGS"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "VPORTC",
+      "registers": {
+        "DIR": "VPORTC_DIR",
+        "OUT": "VPORTC_OUT",
+        "IN": "VPORTC_IN",
+        "INTFLAGS": "VPORTC_INTFLAGS"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "VREF",
+      "registers": {
+        "CTRLA": "VREF_CTRLA",
+        "CTRLB": "VREF_CTRLB"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "WDT",
+      "registers": {
+        "CTRLA": "WDT_CTRLA",
+        "STATUS": "WDT_STATUS"
+      }
+    }
+  ],
+  "package": {
+    "name": "SOIC14",
+    "pins": [
+      {"n": 1, "port": null, "label": "", "labels": ["VDD"], "functions": []},
+      {"n": 2, "port": "PA4", "label": "", "labels": ["PA4"], "functions": ["ADC0_AIN4", "CCL_LUT0_OUT", "PORTA_PIN4", "SPI0_SS", "TCA0_WO4", "USART0_XDIR", "USART1_XDIR"]},
+      {"n": 3, "port": "PA5", "label": "", "labels": ["PA5"], "functions": ["AC0_OUT0", "ADC0_AIN5", "CCL_LUT3_OUT", "PORTA_PIN5", "TCA0_WO5", "TCB0_WO"]},
+      {"n": 4, "port": "PA6", "label": "", "labels": ["PA6"], "functions": ["AC0_N0", "ADC0_AIN6", "PORTA_PIN6"]},
+      {"n": 5, "port": "PA7", "label": "", "labels": ["PA7"], "functions": ["ADC0_AIN7", "CCL_LUT1_OUT", "EVSYS_EVOUT0", "PORTA_PIN7"]},
+      {"n": 6, "port": "PB3", "label": "", "labels": ["PB3"], "functions": ["CCL_LUT2_OUT", "CLKCTRL_TOSC1", "PORTB_PIN3", "TCA0_WO0", "USART0_RXD"]},
+      {"n": 7, "port": "PB2", "label": "", "labels": ["PB2"], "functions": ["CCL_LUT2_IN2", "CLKCTRL_TOSC2", "EVSYS_EVOUT1", "PORTB_PIN2", "TCA0_WO2", "USART0_TXD"]},
+      {"n": 8, "port": "PB1", "label": "", "labels": ["PB1"], "functions": ["ADC0_AIN10", "CCL_LUT2_IN1", "PORTB_PIN1", "TCA0_WO1", "TWI0_SDA", "USART0_XCK"]},
+      {"n": 9, "port": "PB0", "label": "", "labels": ["PB0"], "functions": ["AC0_N2", "ADC0_AIN11", "CCL_LUT2_IN0", "PORTB_PIN0", "TCA0_WO0", "TWI0_SCL", "USART0_XDIR"]},
+      {"n": 10, "port": "PA0", "label": "", "labels": ["PA0"], "functions": ["CCL_LUT0_IN0", "PORTA_PIN0", "RSTCTRL_RESET", "SYSCFG_UPDI"]},
+      {"n": 11, "port": "PA1", "label": "", "labels": ["PA1"], "functions": ["ADC0_AIN1", "CCL_LUT0_IN1", "CPU_BREAK", "PORTA_PIN1", "SPI0_MOSI", "USART0_TXD", "USART1_TXD"]},
+      {"n": 12, "port": "PA2", "label": "", "labels": ["PA2"], "functions": ["ADC0_AIN2", "CCL_LUT0_IN2", "EVSYS_EVOUT0", "PORTA_PIN2", "SPI0_MISO", "USART0_RXD", "USART1_RXD"]},
+      {"n": 13, "port": "PA3", "label": "", "labels": ["PA3"], "functions": ["ADC0_AIN3", "CLKCTRL_CLKI", "PORTA_PIN3", "SPI0_SCK", "TCA0_WO3", "TCB1_WO", "USART0_XCK", "USART1_XCK"]},
+      {"n": 14, "port": null, "label": "", "labels": ["GND"], "functions": []}
+    ],
+    "slotKinds": [
+      "port"
+    ]
+  }
+}

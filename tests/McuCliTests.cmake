@@ -45,7 +45,7 @@ foreach(order IN ITEMS help-first path-first)
     else()
         run(0 --mcu-path "${WORK}" --help)
     endif()
-    expect_contains("${stdout}" "atmega328p atmega168" "--help (${order})")
+    expect_contains("${stdout}" "atmega328p attiny424 atmega2560 atmega168" "--help (${order})")
     expect_contains("${stdout}" "--mcu-file" "--help (${order})")
 endforeach()
 

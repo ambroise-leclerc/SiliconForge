@@ -83,6 +83,31 @@ if(NOT verdict STREQUAL "pass")
     message(FATAL_ERROR "--json printed verdict ${verdict}")
 endif()
 
+# A project with no explicit chip keeps the ATmega328P and its Arduino pin labels.
+file(READ "${SOURCE}/circuits/arduino-demo.json" legacyCircuit)
+string(JSON legacyCircuit REMOVE "${legacyCircuit}" chip mcu)
+file(WRITE "${WORK}/legacy-circuit.json" "${legacyCircuit}")
+variant(legacy pwm_setpoint.hex circuit "\"legacy-circuit.json\"")
+run(0 run --out "${WORK}/legacy" "${WORK}/legacy.json")
+expect_report("${WORK}/legacy" pass)
+string(JSON legacyMcu GET "${report}" mcu name)
+if(NOT legacyMcu STREQUAL "ATmega328P")
+    message(FATAL_ERROR "A circuit without chip.mcu selected ${legacyMcu}")
+endif()
+
+# The bench checks the selected ATtiny424's Flash, including an odd final address.
+file(WRITE "${WORK}/tiny-circuit.json" [=[
+{"formatVersion":1,"name":"ATtiny424","board":{"type":"breadboard","columns":30},"chip":{"mcu":"attiny424","column":1},"components":[],"wires":[]}
+]=])
+file(WRITE "${WORK}/tiny.json" [=[
+{"formatVersion":1,"name":"ATtiny424 Flash","circuit":"tiny-circuit.json","firmware":"tiny.hex","steps":[{"wait":"1us"}]}
+]=])
+file(WRITE "${WORK}/tiny.hex" ":010FFF00AA47\n:00000001FF\n")
+run(0 check "${WORK}/tiny.json")
+file(WRITE "${WORK}/tiny.hex" ":01100000AA45\n:00000001FF\n")
+run(2 check "${WORK}/tiny.json")
+expect_contains("${stderr}" "Flash address 0x1000 is outside ATtiny424 memory" "ATtiny424 Flash diagnostic")
+
 # Started in the terminal of a window that no longer answers: the run is kept here, as without a window.
 set(window "SILICONFORGE_MCP_URL=http://127.0.0.1:1/mcp/" "SILICONFORGE_MCP_TOKEN=0123456789abcdef" "SILICONFORGE_PROJECT=${SOURCE}")
 file(REMOVE_RECURSE "${WORK}/.siliconforge/runs/pwm-setpoint")

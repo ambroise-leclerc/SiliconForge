@@ -1,4 +1,4 @@
-# Test firmware for the emulated ATmega328P (Arduino Uno: 16 MHz).
+# Test firmware for the emulated AVR targets.
 #   make            builds every firmware and the test variants into $(BUILD) (default build/; CMake uses its own)
 #   make prebuilt   also refreshes the binaries committed in prebuilt/, used by the integration tests
 BUILD  ?= build
@@ -14,7 +14,14 @@ VARIANTS := blink_250ms
 ELF := $(FIRMWARE:%=$(BUILD)/%.elf)
 HEX := $(FIRMWARE:%=$(BUILD)/%.hex)
 
-all: $(ELF) $(HEX) $(VARIANTS:%=$(BUILD)/%.hex)
+all: $(ELF) $(HEX) $(VARIANTS:%=$(BUILD)/%.hex) $(BUILD)/atmega2560_startup.elf $(BUILD)/attiny424_rodata.elf
+
+$(BUILD)/atmega2560_startup.elf: src/atmega2560_startup.c | $(BUILD)
+	$(CC) $(filter-out -mmcu=%,$(CFLAGS)) -mmcu=atmega2560 -o $@ $<
+
+# Uses only common AVR instructions. The test linker script supplies the ATtiny424 memory layout.
+$(BUILD)/attiny424_rodata.elf: src/attiny424_rodata.S src/attiny424_rodata.ld | $(BUILD)
+	$(CC) -mmcu=avr5 -nostdlib -Wl,-T,src/attiny424_rodata.ld -o $@ $<
 
 $(BUILD)/%.elf: src/%.c | $(BUILD)
 	$(CC) $(CFLAGS) -o $@ $<

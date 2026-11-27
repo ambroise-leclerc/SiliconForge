@@ -44,6 +44,9 @@ struct LoadError {
 template <typename T>
 using LoadResult = std::expected<T, LoadError>;
 
+/// Checks whether a segment fits in zero-based Flash or EEPROM, with a target-specific diagnostic.
+[[nodiscard]] LoadResult<void> checkFirmwareBounds(const Segment& segment, std::size_t capacity, std::string_view target);
+
 /// Parses Intel HEX text (record types 00 to 05).
 LoadResult<ProgramImage> parseIntelHex(std::string_view text);
 

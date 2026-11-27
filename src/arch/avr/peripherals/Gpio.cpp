@@ -6,31 +6,29 @@ namespace {
 constexpr u8 pullUpDisable = 1 << 4;
 }
 
-GpioPort::GpioPort(DataSpace& data, Registers registers, std::array<Pin*, 8> pins, Address mcucr)
-    : data(data), regs(registers), pins(pins), mcucr(mcucr) {
+GpioPort::GpioPort(DataSpace& data, Registers registers, std::array<Pin*, 8> pins, Address mcucr, u8 implementedMask)
+    : data(data), regs(registers), pins(pins), mcucr(mcucr), implementedMask(implementedMask) {
     data.map(regs.pin, {[this] { return input(); },
                         [this](u8 value, u8 mask) {
                             // Writing a logic one to PINxn toggles PORTxn.
-                            this->data.raw(regs.port) ^= static_cast<u8>(value & mask);
+                            this->data.raw(regs.port) ^= static_cast<u8>(value & mask & this->implementedMask);
                             refresh();
                         }});
-    data.map(regs.ddr, {nullptr, [this](u8 value, u8 mask) {
+    data.map(regs.ddr, {[this] { return ddr(); }, [this](u8 value, u8 mask) {
                             auto& ddrValue = this->data.raw(regs.ddr);
-                            ddrValue       = static_cast<u8>((ddrValue & ~mask) | (value & mask));
+                            ddrValue       = static_cast<u8>(((ddrValue & ~mask) | (value & mask)) & this->implementedMask);
                             refresh();
                         }});
-    data.map(regs.port, {nullptr, [this](u8 value, u8 mask) {
+    data.map(regs.port, {[this] { return port(); }, [this](u8 value, u8 mask) {
                              auto& portValue = this->data.raw(regs.port);
-                             portValue       = static_cast<u8>((portValue & ~mask) | (value & mask));
+                             portValue       = static_cast<u8>(((portValue & ~mask) | (value & mask)) & this->implementedMask);
                              refresh();
                          }});
 }
 
 void GpioPort::reset(bool preserveRegisters) {
-    if (!preserveRegisters) {
-        data.raw(regs.ddr)  = 0;
-        data.raw(regs.port) = 0;
-    }
+    data.raw(regs.ddr)  = preserveRegisters ? ddr() : 0;
+    data.raw(regs.port) = preserveRegisters ? port() : 0;
     levelOverrides.fill(std::nullopt);
     outputOverrides.fill(std::nullopt);
     drainOverrides.fill(std::nullopt);
@@ -62,14 +60,14 @@ u8 GpioPort::input() const noexcept {
     for (unsigned bit = 0; bit < 8; ++bit)
         if (pins[bit] && pins[bit]->level())
             value |= static_cast<u8>(1 << bit);
-    return value;
+    return value & implementedMask;
 }
 
 void GpioPort::update(unsigned bit) {
     auto* pin = pins[bit];
-    if (!pin)
-        return;
     const auto mask = static_cast<u8>(1 << bit);
+    if (!pin || !(implementedMask & mask))
+        return;
     if (outputOverrides[bit]) {
         pin->configure(true, *outputOverrides[bit], false);
         return;

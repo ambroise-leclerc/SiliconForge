@@ -124,3 +124,26 @@ const Scenario aResetWhileTheFirmwareRunsRestarts{"A reset while the firmware ru
     check(bench.serial().output().empty());
     require(bench.waitForSerial("ready\r\n", 100ms));
 }};
+
+const Scenario atmega2560StartupCopiesInitializedData{
+    "ATmega2560 startup copies initialized data before main", {"firmware", "qualification"}, [] {
+#ifndef SILICONFORGE_FIRMWARE_FROM_SOURCE
+        skip("the ATmega2560 startup regression requires avr-gcc");
+#else
+        testing::Bench bench{mcu::create("atmega2560")};
+        bench.load(firmwareDir / "atmega2560_startup.elf");
+        check(bench.runFor(1ms).reason == StopReason::BreakInstruction);
+#endif
+    }};
+
+const Scenario attiny424ReadsRodataThroughItsFlashAlias{
+    "ATtiny424 reads ELF .rodata through the data-space Flash alias", {"firmware", "qualification"}, [] {
+#ifndef SILICONFORGE_FIRMWARE_FROM_SOURCE
+        skip("the ATtiny424 ELF regression requires the AVR toolchain");
+#else
+        testing::Bench bench{mcu::create("attiny424")};
+        bench.load(firmwareDir / "attiny424_rodata.elf");
+        check(bench.mcu().readMemory(MemorySpace::Data, 0x8100, 1) == std::vector<u8>{0x42});
+        check(bench.runFor(1ms).reason == StopReason::BreakInstruction);
+#endif
+    }};

@@ -1,10 +1,32 @@
 # Descriptions de MCU — format 1
 
-`mcus/atmega328p.json` est la source des paramètres du modèle ATmega328P. Son JSON et
-`schemas/mcu.schema.json` sont embarqués par CMake : une installation ne dépend pas du
-répertoire source. Le chargeur utilise nlohmann/json et le validateur JSON Schema Draft 7
-(pboettch), obtenus par CPM. Le schéma est strict ; les références entre registres,
-vecteurs, GPIO et périphériques sont ensuite vérifiées en C++.
+Les profils `mcus/atmega328p.json`, `mcus/attiny424.json` et
+`mcus/atmega2560.json` sont embarqués par CMake avec `schemas/mcu.schema.json`.
+Le chargeur utilise nlohmann/json et le validateur JSON Schema Draft 7 (pboettch).
+Le schéma et la validation C++ vérifient les références entre registres,
+vecteurs, GPIO et périphériques.
+
+| Cible | Flash | SRAM | EEPROM | Brochage |
+|---|---:|---:|---:|---|
+| ATmega328P | 32 Kio | 2 Kio | 1 Kio | PDIP28 |
+| ATtiny424 | 4 Kio | 512 octets | 128 octets | SOIC14 |
+| ATmega2560 | 256 Kio | 8 Kio | 4 Kio | TQFP100 |
+
+Le banc choisit la cible avec `chip.mcu` dans le circuit. Si ce champ est absent,
+il utilise l’ATmega328P. Le chargement valide tous les segments du firmware avant
+l’installation et signale le premier octet hors de la plage du segment concerné.
+
+Les cartes des deux nouveaux profils proviennent des fichiers ATDF des packs
+Microchip ATtiny_DFP 3.4.278 et ATmega_DFP 3.6.299. Le champ facultatif `cpu.absoluteJump` désactive les opcodes `JMP` et `CALL`
+quand il vaut `false`. Le cœur rend `SPM` disponible lorsque `cpu.spmcsr`
+référence un registre de contrôle. L’ATtiny424 exclut ces trois instructions.
+Le profil ATmega2560 déclare `cpu.rampz` et le timing `elpm`, utilisés au démarrage
+par la copie des données initialisées de la Flash vers la SRAM. Le profil ATtiny424 retient
+les noms des vecteurs et registres TCA0 du mode normal aux adresses partagées.
+`avr.unmodeled` répertorie les périphériques dont les registres sont disponibles
+en stockage simple. L’alias Flash de l’ATtiny424 à `mappedStart` est accessible en lecture dans
+l’espace de données. Le profil documente aussi l’adresse de l’alias EEPROM. Le profil utilise des timings provisoires
+issus du modèle AVR existant. [Packs Microchip](https://packs.download.microchip.com/)
 
 ## Charger une puce
 
@@ -122,7 +144,7 @@ Les fabriques AVR enregistrées sont :
 
 | Type | Paramètres principaux |
 | --- | --- |
-| `avr.gpio` | PIN/DDR/PORT, MCUCR, broches dans l'ordre des bits |
+| `avr.gpio` | PIN/DDR/PORT, MCUCR, broches dans l'ordre des bits et masque facultatif `implementedMask` |
 | `avr.timer8` | registres, trois vecteurs, huit prescalers, deux sorties GPIO |
 | `avr.usart` | registres, trois vecteurs, GPIO RX/TX, diviseurs normal/U2X, profondeur FIFO |
 | `avr.adc` | registres, vecteur, canaux, prescalers, durées de conversion |

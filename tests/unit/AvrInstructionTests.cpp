@@ -346,7 +346,8 @@ const Scenario everyOpcodeDecodesToAMnemonic{"Every opcode decodes to a mnemonic
     check(mnemonic(0x8000) == "ldd z");
     check(mnemonic(0x9409) == "ijmp");
     check(mnemonic(0xFFFF) == "(invalid)");
-    check(mnemonic(0x9419) == "(invalid)");  // EIJMP does not exist on the ATmega328P
+    check(mnemonic(0x9419) == "eijmp");
+    check(mnemonic(0x9519) == "eicall");
     check(isTwoWord(0x9000));
     check(isTwoWord(0x9200));
     check(isTwoWord(0x940E));

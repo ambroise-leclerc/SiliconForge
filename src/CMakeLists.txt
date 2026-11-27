@@ -13,10 +13,15 @@ function(siliconforge_embed_bytes path variable)
     string(REGEX REPLACE "([0-9a-f][0-9a-f])" "0x\\1," _bytes "${_lines}")
     set(${variable} "${_bytes}" PARENT_SCOPE)
 endfunction()
-siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/mcus/atmega328p.json" SILICONFORGE_ATMEGA328P_BYTES)
+foreach(_mcu IN ITEMS atmega328p attiny424 atmega2560)
+    string(TOUPPER "${_mcu}" _mcu_upper)
+    set(_mcu_file "${PROJECT_SOURCE_DIR}/mcus/${_mcu}.json")
+    siliconforge_embed_bytes("${_mcu_file}" SILICONFORGE_${_mcu_upper}_BYTES)
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_mcu_file}")
+endforeach()
 siliconforge_embed_bytes("${PROJECT_SOURCE_DIR}/schemas/mcu.schema.json" SILICONFORGE_MCU_SCHEMA_BYTES)
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-    "${PROJECT_SOURCE_DIR}/mcus/atmega328p.json" "${PROJECT_SOURCE_DIR}/schemas/mcu.schema.json")
+    "${PROJECT_SOURCE_DIR}/schemas/mcu.schema.json")
 configure_file("${PROJECT_SOURCE_DIR}/cmake/EmbeddedDescriptions.hpp.in"
     "${CMAKE_CURRENT_BINARY_DIR}/generated/EmbeddedDescriptions.hpp" @ONLY)
 

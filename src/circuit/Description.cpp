@@ -1,6 +1,7 @@
 #include "common/JsonErrors.hpp"
 #include "EmbeddedCircuits.hpp"
 #include <siliconforge/circuit/Description.hpp>
+#include <siliconforge/mcu/Description.hpp>
 
 #include <algorithm>
 #include <charconv>
@@ -508,6 +509,10 @@ std::vector<std::string> Library::types() const {
     for (const auto& [type, description] : components)
         names.push_back(type);
     return names;
+}
+
+std::string targetMcu(const Json& circuit) {
+    return circuit.at("chip").value("mcu", std::string{mcu::defaultName});
 }
 
 std::expected<Json, LoadError> parseDescription(std::string_view text, const Library& library) {

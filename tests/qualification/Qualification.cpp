@@ -53,7 +53,7 @@ const std::map<std::string, std::vector<u16>, std::less<>>& opcodesByMnemonic() 
     static const auto all = [] {
         std::map<std::string, std::vector<u16>, std::less<>> result;
         for (u32 op = 0; op < 65536; ++op)
-            if (const auto c = avr::classify(static_cast<u16>(op)); c.kind == avr::OpcodeKind::Instruction)
+            if (const auto c = avr::classify(static_cast<u16>(op), true, true); c.kind == avr::OpcodeKind::Instruction)
                 result[std::string(c.mnemonic)].push_back(static_cast<u16>(op));
         return result;
     }();
@@ -61,7 +61,7 @@ const std::map<std::string, std::vector<u16>, std::less<>>& opcodesByMnemonic() 
 }
 
 std::string disassemble(u16 op, u16 next) {
-    const auto c = avr::classify(op);
+    const auto c = avr::classify(op, true, true);
     if (c.kind == avr::OpcodeKind::Reserved)
         return std::format(".word 0x{:04x}", op);
     const auto name = c.mnemonic;
@@ -103,6 +103,8 @@ std::string disassemble(u16 op, u16 next) {
         return std::format("ld r{}, {}", d5, name.substr(3));
     if (name.starts_with("st "))
         return std::format("st {}, r{}", name.substr(3), d5);
+    if (name == "elpm")
+        return op == 0x95D8 ? "elpm" : std::format("elpm r{}, z{}", d5, op & 1 ? "+" : "");
     if (name == "lpm")
         return op == 0x95C8 ? "lpm" : std::format("lpm r{}, z", d5);
     if (name == "lpm z+")

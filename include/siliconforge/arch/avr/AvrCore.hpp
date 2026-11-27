@@ -3,6 +3,7 @@
 #include <nlohmann/json_fwd.hpp>
 #include <siliconforge/arch/avr/DataSpace.hpp>
 #include <siliconforge/arch/avr/InterruptController.hpp>
+#include <siliconforge/arch/avr/Opcodes.hpp>
 #include <siliconforge/core/Debugger.hpp>
 #include <siliconforge/core/Scheduler.hpp>
 #include <siliconforge/core/Types.hpp>
@@ -13,7 +14,9 @@
 #include <limits>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace siliconforge::testing {
@@ -46,6 +49,15 @@ struct AvrCoreConfig {
     Address spl{0x5D}, sph{0x5E}, sreg{0x5F};
     u8      pcBytes{2};
     u8      interruptCycles{4}, wakeUpCycles{4};
+    Address ioStart{DataSpace::registerCount};  ///< Offset used by IN, OUT and I/O bit instructions.
+    std::optional<Address> eind{};   ///< High byte of the word address used by EICALL and EIJMP.
+    std::optional<Address> rampz{};  ///< High byte of the Flash byte address used by ELPM.
+    bool absoluteJump{true};         ///< Whether the two-word JMP and CALL opcodes are available.
+    bool preserveInterruptEnable{false};  ///< AVRxm and AVRxt track interrupt execution separately from SREG.I.
+
+    [[nodiscard]] InstructionCapabilities instructions() const noexcept {
+        return {rampz.has_value(), eind.has_value(), absoluteJump, spmcsr != 0};
+    }
 };
 
 class AvrCore;
@@ -125,7 +137,11 @@ public:
         const auto word = flashWords[(byteAddress >> 1) & pcMask()];
         return static_cast<u8>(byteAddress & 1 ? word >> 8 : word);
     }
+    [[nodiscard]] Address extendedZ(std::optional<Address> extension) const noexcept {
+        return pair(30) | (extension ? Address{std::as_const(data).raw(*extension)} << 16 : 0);
+    }
     void executeSpm();
+    void returnFromInterrupt();
     [[nodiscard]] u8 memoryCycles(Address address, u32 timing) const noexcept {
         return static_cast<u8>(timing >> (address > cfg.ioEnd ? 24 : 0));
     }
@@ -136,10 +152,17 @@ public:
     std::optional<StopReason> stopRequest;
 
 private:
+    friend class Device;
     friend struct siliconforge::testing::AvrCoreAccess;
+    AvrCore(const AvrCoreConfig& config, DataSpace& data, Scheduler& scheduler, InterruptController& interrupts, Debugger& debugger,
+            std::string_view builtinTarget);
+    [[nodiscard]] bool canServiceInterrupt() const noexcept {
+        return interrupts.any() && (sreg & sreg::I) && !interruptDelay && !interruptActive;
+    }
     void serviceInterrupt();
+    bool interruptActive{false};  ///< A normal-priority interrupt is executing on AVRxm/AVRxt.
     template <bool Recorded>
-    RunResult execute(Cycles budget, bool honourBreakpoints);
+    RunResult execute(Cycles budget, bool honourBreakpoints, u8* coverage);
 
     /// One flash word decoded for this device: what run() needs to execute it, on one cache line.
     struct Slot {
@@ -159,6 +182,7 @@ private:
 
     AvrCoreConfig    cfg;
     u8*              regs;
+    std::string      coverageTarget;
     std::vector<u16> flashWords;
     std::vector<u16> pageBuffer;
     /// The words written since the flash was last erased: erasing restores only these, so that loading a small

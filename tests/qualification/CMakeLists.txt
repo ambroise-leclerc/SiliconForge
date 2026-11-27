@@ -14,6 +14,16 @@ target_include_directories(siliconforge_qualification PRIVATE ${PROJECT_SOURCE_D
 add_test(NAME Qualification-Cycles
     COMMAND siliconforge_qualification cycles --mcu atmega328p --out ${SILICONFORGE_QUALIFICATION_DIR}/cycles.json)
 set_tests_properties(Qualification-Cycles PROPERTIES TIMEOUT 60 LABELS "fast;qualification" ENVIRONMENT ${_qualification_coverage})
+add_test(NAME Qualification-Cycles-atmega2560
+    COMMAND siliconforge_qualification cycles --mcu atmega2560 --out ${SILICONFORGE_QUALIFICATION_DIR}/cycles-atmega2560.json)
+set_tests_properties(Qualification-Cycles-atmega2560 PROPERTIES TIMEOUT 60 LABELS "fast;qualification")
+add_test(NAME CycleConsistency-attiny424
+    COMMAND siliconforge_qualification cycles --mcu attiny424 --out ${SILICONFORGE_QUALIFICATION_DIR}/cycles-attiny424.json)
+set_tests_properties(CycleConsistency-attiny424 PROPERTIES TIMEOUT 60 LABELS fast)
+add_test(NAME Qualification-MatrixByTarget
+    COMMAND ${CMAKE_COMMAND} -DTOOL=$<TARGET_FILE:siliconforge_qualification>
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/MatrixByTarget -P ${CMAKE_CURRENT_SOURCE_DIR}/MatrixTests.cmake)
+set_tests_properties(Qualification-MatrixByTarget PROPERTIES TIMEOUT 60 LABELS "fast;qualification")
 
 # Compiled programs (#25): firmware/qualification/*.c at three optimisation levels, when the AVR toolchain is there.
 set(_qualification_levels O0 O2 Os)

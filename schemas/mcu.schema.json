@@ -46,7 +46,12 @@
             "size": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 131072
+              "maximum": 262144
+            },
+            "mappedStart": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
             },
             "pageSize": {
               "type": "integer",
@@ -98,6 +103,11 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 131072
+            },
+            "mappedStart": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
             },
             "pageSize": {
               "type": "integer",
@@ -184,7 +194,18 @@
           "minimum": 1,
           "maximum": 3
         },
+        "absoluteJump": {
+          "type": "boolean"
+        },
         "spmcsr": {
+          "type": "string",
+          "minLength": 1
+        },
+        "eind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rampz": {
           "type": "string",
           "minLength": 1
         },
@@ -540,6 +561,48 @@
           "additionalProperties": false
         },
         "dec": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "eicall": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "eijmp": {
+          "type": "object",
+          "properties": {
+            "cycles": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "cycles"
+          ],
+          "additionalProperties": false
+        },
+        "elpm": {
           "type": "object",
           "properties": {
             "cycles": {
@@ -1668,7 +1731,6 @@
         "break",
         "bset",
         "bst",
-        "call",
         "cbi",
         "com",
         "cp",
@@ -1684,7 +1746,6 @@
         "ijmp",
         "in",
         "inc",
-        "jmp",
         "ld -x",
         "ld -y",
         "ld -z",
@@ -1725,7 +1786,6 @@
         "sbrc",
         "sbrs",
         "sleep",
-        "spm",
         "st -x",
         "st -y",
         "st -z",
@@ -1760,7 +1820,7 @@
         "properties": {
           "address": {
             "type": "integer",
-            "minimum": 32,
+            "minimum": 0,
             "maximum": 65535
           },
           "reset": {
@@ -1798,7 +1858,8 @@
               "avr.spi",
               "avr.twi",
               "avr.eeprom",
-              "avr.adc"
+              "avr.adc",
+              "avr.unmodeled"
             ]
           },
           "name": {
@@ -1812,6 +1873,29 @@
         ],
         "additionalProperties": true,
         "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": { "const": "avr.unmodeled" }
+              }
+            },
+            "then": {
+              "properties": {
+                "type": { "const": "avr.unmodeled" },
+                "name": { "type": "string", "minLength": 1 },
+                "registers": {
+                  "type": "object",
+                  "additionalProperties": { "type": "string", "minLength": 1 }
+                },
+                "pins": {
+                  "type": "array",
+                  "items": { "type": "string", "pattern": "^P[A-Z][0-7]$" },
+                  "uniqueItems": true
+                }
+              },
+              "additionalProperties": false
+            }
+          },
           {
             "if": {
               "properties": {
@@ -1852,6 +1936,11 @@
                     "port"
                   ],
                   "additionalProperties": false
+                },
+                "implementedMask": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
                 },
                 "mcucr": {
                   "type": "string",

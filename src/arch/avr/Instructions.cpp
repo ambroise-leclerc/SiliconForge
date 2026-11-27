@@ -288,19 +288,38 @@ u8 LPM_INC(AvrCore& c, u16 op, u32 timing) {
     c.setPair(30, static_cast<u16>(z + 1));
     return static_cast<u8>(timing);
 }
-u8 SPM(AvrCore& c, u16, u32 timing) {
+u8 INVALID(AvrCore& c, u16 op, u32 timing);
+
+template <bool Implicit, bool Increment = false>
+u8 ELPM(AvrCore& c, u16 op, u32 timing) {
+    if (!supportsInstruction("elpm", c.config().instructions()))
+        return INVALID(c, op, timing);
+    auto& high = c.data.raw(*c.config().rampz);
+    const auto address = c.extendedZ(c.config().rampz);
+    c.r(Implicit ? 0 : d5(op)) = c.flashByte(address);
+    if constexpr (Increment) {
+        const auto next = address + 1;
+        c.setPair(30, static_cast<u16>(next));
+        high = static_cast<u8>((next >> 16) & ((c.config().flashBytes - 1) >> 16));
+    }
+    return static_cast<u8>(timing);
+}
+
+u8 SPM(AvrCore& c, u16 op, u32 timing) {
+    if (!supportsInstruction("spm", c.config().instructions()))
+        return INVALID(c, op, timing);
     c.executeSpm();
     return static_cast<u8>(timing);
 }
 
-u8 IN(AvrCore& c, u16 op, u32 timing) { c.r(d5(op)) = c.data.read(a6(op) + 0x20); return static_cast<u8>(timing); }
-u8 OUT(AvrCore& c, u16 op, u32 timing) { c.data.write(a6(op) + 0x20, c.r(d5(op))); return static_cast<u8>(timing); }
+u8 IN(AvrCore& c, u16 op, u32 timing) { c.r(d5(op)) = c.data.read(a6(op) + c.config().ioStart); return static_cast<u8>(timing); }
+u8 OUT(AvrCore& c, u16 op, u32 timing) { c.data.write(a6(op) + c.config().ioStart, c.r(d5(op))); return static_cast<u8>(timing); }
 u8 PUSH(AvrCore& c, u16 op, u32 timing) { c.push(c.r(d5(op))); return c.memoryCycles(c.sp + 1, timing); }
 u8 POP(AvrCore& c, u16 op, u32 timing) { c.r(d5(op)) = c.pop(); return c.memoryCycles(c.sp, timing); }
 
 // Bit and bit-test -------------------------------------------------------------------------------------------------
-u8 SBI(AvrCore& c, u16 op, u32 timing) { c.data.write(a5(op) + 0x20, 0xFF, static_cast<u8>(1 << b3(op))); return static_cast<u8>(timing); }
-u8 CBI(AvrCore& c, u16 op, u32 timing) { c.data.write(a5(op) + 0x20, 0x00, static_cast<u8>(1 << b3(op))); return static_cast<u8>(timing); }
+u8 SBI(AvrCore& c, u16 op, u32 timing) { c.data.write(a5(op) + c.config().ioStart, 0xFF, static_cast<u8>(1 << b3(op))); return static_cast<u8>(timing); }
+u8 CBI(AvrCore& c, u16 op, u32 timing) { c.data.write(a5(op) + c.config().ioStart, 0x00, static_cast<u8>(1 << b3(op))); return static_cast<u8>(timing); }
 u8 BST(AvrCore& c, u16 op, u32 timing) { setFlags(c, T, bit(c.r(d5(op)), b3(op)) ? T : 0); return static_cast<u8>(timing); }
 u8 BLD(AvrCore& c, u16 op, u32 timing) {
     auto&      rd   = c.r(d5(op));
@@ -328,11 +347,15 @@ u8 RCALL(AvrCore& c, u16 op, u32 timing) {
     return static_cast<u8>(timing);
 }
 u8 JMP(AvrCore& c, u16 op, u32 timing) {
+    if (!supportsInstruction("jmp", c.config().instructions()))
+        return INVALID(c, op, timing);
     const u32 high = ((op >> 3) & 0x3E) | (op & 1);
     c.pc           = ((high << 16) | c.fetch()) & c.pcMask();
     return static_cast<u8>(timing);
 }
 u8 CALL(AvrCore& c, u16 op, u32 timing) {
+    if (!supportsInstruction("call", c.config().instructions()))
+        return INVALID(c, op, timing);
     const u32 high   = ((op >> 3) & 0x3E) | (op & 1);
     const u32 target = ((high << 16) | c.fetch()) & c.pcMask();
     c.pushPc(c.pc);
@@ -345,11 +368,23 @@ u8 ICALL(AvrCore& c, u16, u32 timing) {
     c.pc = c.pair(30) & c.pcMask();
     return static_cast<u8>(timing);
 }
+u8 EIJMP(AvrCore& c, u16 op, u32 timing) {
+    if (!supportsInstruction("eijmp", c.config().instructions()))
+        return INVALID(c, op, timing);
+    c.pc = c.extendedZ(c.config().eind) & c.pcMask();
+    return static_cast<u8>(timing);
+}
+u8 EICALL(AvrCore& c, u16 op, u32 timing) {
+    if (!supportsInstruction("eicall", c.config().instructions()))
+        return INVALID(c, op, timing);
+    const auto target = c.extendedZ(c.config().eind) & c.pcMask();
+    c.pushPc(c.pc);
+    c.pc = target;
+    return static_cast<u8>(timing);
+}
 u8 RET(AvrCore& c, u16, u32 timing) { c.pc = c.popPc(); return static_cast<u8>(timing); }
 u8 RETI(AvrCore& c, u16, u32 timing) {
-    c.pc = c.popPc();
-    c.sreg |= I;
-    c.interruptDelay = true;  // One instruction of the main program always executes between two interrupts.
+    c.returnFromInterrupt();
     return static_cast<u8>(timing);
 }
 
@@ -371,8 +406,8 @@ u8 BRBC(AvrCore& c, u16 op, u32 timing) {
 u8 CPSE(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((c.r(d5(op)) == c.r(r5(op))) ? 8 * skip(c) : 0)); }
 u8 SBRC(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((!bit(c.r(d5(op)), b3(op))) ? 8 * skip(c) : 0)); }
 u8 SBRS(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((bit(c.r(d5(op)), b3(op))) ? 8 * skip(c) : 0)); }
-u8 SBIC(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((!bit(c.data.read(a5(op) + 0x20), b3(op))) ? 8 * skip(c) : 0)); }
-u8 SBIS(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((bit(c.data.read(a5(op) + 0x20), b3(op))) ? 8 * skip(c) : 0)); }
+u8 SBIC(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((!bit(c.data.read(a5(op) + c.config().ioStart), b3(op))) ? 8 * skip(c) : 0)); }
+u8 SBIS(AvrCore& c, u16 op, u32 timing) { return static_cast<u8>(timing >> ((bit(c.data.read(a5(op) + c.config().ioStart), b3(op))) ? 8 * skip(c) : 0)); }
 
 // MCU control --------------------------------------------------------------------------------------------------------
 u8 NOP(AvrCore&, u16, u32 timing) { return static_cast<u8>(timing); }
@@ -436,6 +471,8 @@ constexpr Decoded decode(u16 op) {
     if (is(0xFE0F, 0x9002)) return {LD<30, Mode::PreDecrement>, "ld -z"};
     if (is(0xFE0F, 0x9004)) return {LPM, "lpm"};
     if (is(0xFE0F, 0x9005)) return {LPM_INC, "lpm z+"};
+    if (is(0xFE0F, 0x9006)) return {ELPM<false>, "elpm"};
+    if (is(0xFE0F, 0x9007)) return {ELPM<false, true>, "elpm"};
     if (is(0xFE0F, 0x9009)) return {LD<28, Mode::PostIncrement>, "ld y+"};
     if (is(0xFE0F, 0x900A)) return {LD<28, Mode::PreDecrement>, "ld -y"};
     if (is(0xFE0F, 0x900C)) return {LD<26, Mode::Plain>, "ld x"};
@@ -455,12 +492,15 @@ constexpr Decoded decode(u16 op) {
 
     if (op == 0x9409) return {IJMP, "ijmp"};
     if (op == 0x9509) return {ICALL, "icall"};
+    if (op == 0x9419) return {EIJMP, "eijmp"};
+    if (op == 0x9519) return {EICALL, "eicall"};
     if (op == 0x9508) return {RET, "ret"};
     if (op == 0x9518) return {RETI, "reti"};
     if (op == 0x9588) return {SLEEP, "sleep"};
     if (op == 0x9598) return {BREAK, "break"};
     if (op == 0x95A8) return {WDR, "wdr"};
     if (op == 0x95C8) return {LPM_R0, "lpm"};
+    if (op == 0x95D8) return {ELPM<true>, "elpm"};
     if (op == 0x95E8) return {SPM, "spm"};
     if (is(0xFF8F, 0x9408)) return {BSET, "bset"};
     if (is(0xFF8F, 0x9488)) return {BCLR, "bclr"};
@@ -540,9 +580,10 @@ void AvrCore::setTiming(const nlohmann::json& timing) {
     std::map<std::string_view, u32> packed;
     std::vector<InstructionEntry>   configured;
     configured.reserve(kinds.size());
+    const auto capabilities = cfg.instructions();
     for (const auto& d : kinds) {
-        if (d.name == "(invalid)") {
-            configured.push_back({d.handler, 0x01010101});
+        if (!supportsInstruction(d.name, capabilities)) {
+            configured.push_back({INVALID, 0x01010101});
             continue;
         }
         auto it = packed.find(d.name);

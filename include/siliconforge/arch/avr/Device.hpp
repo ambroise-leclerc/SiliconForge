@@ -75,6 +75,10 @@ public:
         return *usarts.at(0);
     }
 
+protected:
+    /// For factories constructing a known embedded profile. The display name in JSON carries no provenance.
+    Device(nlohmann::json description, u64 clockOverride, std::string_view builtinTarget);
+
 private:
     Address                                          reg(const nlohmann::json& p, std::string_view key) const;
     unsigned                                         vector(const nlohmann::json& p, std::string_view key) const;
