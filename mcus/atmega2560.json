@@ -1,0 +1,1272 @@
+{
+  "formatVersion": 1,
+  "name": "ATmega2560",
+  "architecture": "avr",
+  "core": "avr:AVRe+",
+  "clockHz": 16000000,
+  "supplyVoltage": 5.0,
+  "memories": {
+    "flash": {
+      "start": 0,
+      "size": 262144,
+      "pageSize": 256
+    },
+    "sram": {
+      "start": 512,
+      "size": 8192
+    },
+    "io": {
+      "start": 32,
+      "size": 480
+    },
+    "registers": {
+      "start": 0,
+      "size": 32
+    },
+    "eeprom": {
+      "start": 0,
+      "size": 4096,
+      "pageSize": 8
+    }
+  },
+  "cpu": {
+    "vectorWords": 2,
+    "pcBytes": 3,
+    "spmcsr": "SPMCSR",
+    "eind": "EIND",
+    "rampz": "RAMPZ",
+    "smcr": "SMCR",
+    "spl": "SPL",
+    "sph": "SPH",
+    "sreg": "SREG",
+    "interruptCycles": 5,
+    "wakeUpCycles": 4
+  },
+  "timing": {
+    "adc": {
+      "cycles": 1
+    },
+    "add": {
+      "cycles": 1
+    },
+    "adiw": {
+      "cycles": 2
+    },
+    "and": {
+      "cycles": 1
+    },
+    "andi": {
+      "cycles": 1
+    },
+    "asr": {
+      "cycles": 1
+    },
+    "bclr": {
+      "cycles": 1
+    },
+    "bld": {
+      "cycles": 1
+    },
+    "brbc": {
+      "cycles": 1,
+      "taken": 2
+    },
+    "brbs": {
+      "cycles": 1,
+      "taken": 2
+    },
+    "break": {
+      "cycles": 1
+    },
+    "bset": {
+      "cycles": 1
+    },
+    "bst": {
+      "cycles": 1
+    },
+    "call": {
+      "cycles": 4,
+      "pc3Bytes": 5
+    },
+    "cbi": {
+      "cycles": 2
+    },
+    "com": {
+      "cycles": 1
+    },
+    "cp": {
+      "cycles": 1
+    },
+    "cpc": {
+      "cycles": 1
+    },
+    "cpi": {
+      "cycles": 1
+    },
+    "cpse": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "dec": {
+      "cycles": 1
+    },
+    "eicall": {
+      "cycles": 4
+    },
+    "eijmp": {
+      "cycles": 2
+    },
+    "elpm": {
+      "cycles": 3
+    },
+    "eor": {
+      "cycles": 1
+    },
+    "fmul": {
+      "cycles": 2
+    },
+    "fmuls": {
+      "cycles": 2
+    },
+    "fmulsu": {
+      "cycles": 2
+    },
+    "icall": {
+      "cycles": 3,
+      "pc3Bytes": 4
+    },
+    "ijmp": {
+      "cycles": 2
+    },
+    "in": {
+      "cycles": 1
+    },
+    "inc": {
+      "cycles": 1
+    },
+    "jmp": {
+      "cycles": 3
+    },
+    "ld -x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld -y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld -z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld x+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld y+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ld z+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ldd y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ldd z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "ldi": {
+      "cycles": 1
+    },
+    "lds": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "lpm": {
+      "cycles": 3
+    },
+    "lpm z+": {
+      "cycles": 3
+    },
+    "lsr": {
+      "cycles": 1
+    },
+    "mov": {
+      "cycles": 1
+    },
+    "movw": {
+      "cycles": 1
+    },
+    "mul": {
+      "cycles": 2
+    },
+    "muls": {
+      "cycles": 2
+    },
+    "mulsu": {
+      "cycles": 2
+    },
+    "neg": {
+      "cycles": 1
+    },
+    "nop": {
+      "cycles": 1
+    },
+    "or": {
+      "cycles": 1
+    },
+    "ori": {
+      "cycles": 1
+    },
+    "out": {
+      "cycles": 1
+    },
+    "pop": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "push": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "rcall": {
+      "cycles": 3,
+      "pc3Bytes": 4
+    },
+    "ret": {
+      "cycles": 4,
+      "pc3Bytes": 5
+    },
+    "reti": {
+      "cycles": 4,
+      "pc3Bytes": 5
+    },
+    "rjmp": {
+      "cycles": 2
+    },
+    "ror": {
+      "cycles": 1
+    },
+    "sbc": {
+      "cycles": 1
+    },
+    "sbci": {
+      "cycles": 1
+    },
+    "sbi": {
+      "cycles": 2
+    },
+    "sbic": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sbis": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sbiw": {
+      "cycles": 2
+    },
+    "sbrc": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sbrs": {
+      "cycles": 1,
+      "skipOneWord": 2,
+      "skipTwoWords": 3
+    },
+    "sleep": {
+      "cycles": 1
+    },
+    "spm": {
+      "cycles": 1
+    },
+    "st -x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st -y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st -z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st x": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st x+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st y+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "st z+": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "std y": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "std z": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "sts": {
+      "cycles": 2,
+      "sram": 2
+    },
+    "sub": {
+      "cycles": 1
+    },
+    "subi": {
+      "cycles": 1
+    },
+    "swap": {
+      "cycles": 1
+    },
+    "wdr": {
+      "cycles": 1
+    }
+  },
+  "vectors": {
+    "RESET": 0,
+    "INT0": 1,
+    "INT1": 2,
+    "INT2": 3,
+    "INT3": 4,
+    "INT4": 5,
+    "INT5": 6,
+    "INT6": 7,
+    "INT7": 8,
+    "PCINT0": 9,
+    "PCINT1": 10,
+    "PCINT2": 11,
+    "WDT": 12,
+    "TIMER2_COMPA": 13,
+    "TIMER2_COMPB": 14,
+    "TIMER2_OVF": 15,
+    "TIMER1_CAPT": 16,
+    "TIMER1_COMPA": 17,
+    "TIMER1_COMPB": 18,
+    "TIMER1_COMPC": 19,
+    "TIMER1_OVF": 20,
+    "TIMER0_COMPA": 21,
+    "TIMER0_COMPB": 22,
+    "TIMER0_OVF": 23,
+    "SPI_STC": 24,
+    "USART0_RX": 25,
+    "USART0_UDRE": 26,
+    "USART0_TX": 27,
+    "ANALOG_COMP": 28,
+    "ADC": 29,
+    "EE_READY": 30,
+    "TIMER3_CAPT": 31,
+    "TIMER3_COMPA": 32,
+    "TIMER3_COMPB": 33,
+    "TIMER3_COMPC": 34,
+    "TIMER3_OVF": 35,
+    "USART1_RX": 36,
+    "USART1_UDRE": 37,
+    "USART1_TX": 38,
+    "TWI": 39,
+    "SPM_READY": 40,
+    "TIMER4_CAPT": 41,
+    "TIMER4_COMPA": 42,
+    "TIMER4_COMPB": 43,
+    "TIMER4_COMPC": 44,
+    "TIMER4_OVF": 45,
+    "TIMER5_CAPT": 46,
+    "TIMER5_COMPA": 47,
+    "TIMER5_COMPB": 48,
+    "TIMER5_COMPC": 49,
+    "TIMER5_OVF": 50,
+    "USART2_RX": 51,
+    "USART2_UDRE": 52,
+    "USART2_TX": 53,
+    "USART3_RX": 54,
+    "USART3_UDRE": 55,
+    "USART3_TX": 56
+  },
+  "registers": {
+    "ACSR": {"address": 80, "reset": 0, "bits": {"ACD": 128, "ACBG": 64, "ACO": 32, "ACI": 16, "ACIE": 8, "ACIC": 4, "ACIS": 3}},
+    "ADCH": {"address": 121, "reset": 0, "bits": {}},
+    "ADCL": {"address": 120, "reset": 0, "bits": {}},
+    "ADCSRA": {"address": 122, "reset": 0, "bits": {"ADEN": 128, "ADSC": 64, "ADATE": 32, "ADIF": 16, "ADIE": 8, "ADPS": 7}},
+    "ADCSRB": {"address": 123, "reset": 0, "bits": {"ACME": 64, "MUX5": 8, "ADTS": 7}},
+    "ADMUX": {"address": 124, "reset": 0, "bits": {"REFS": 192, "ADLAR": 32, "MUX": 31}},
+    "ASSR": {"address": 182, "reset": 0, "bits": {"EXCLK": 64, "AS2": 32, "TCN2UB": 16, "OCR2AUB": 8, "OCR2BUB": 4, "TCR2AUB": 2, "TCR2BUB": 1}},
+    "CLKPR": {"address": 97, "reset": 0, "bits": {"CLKPCE": 128, "CLKPS": 15}},
+    "DDRA": {"address": 33, "reset": 0, "bits": {}},
+    "DDRB": {"address": 36, "reset": 0, "bits": {}},
+    "DDRC": {"address": 39, "reset": 0, "bits": {}},
+    "DDRD": {"address": 42, "reset": 0, "bits": {}},
+    "DDRE": {"address": 45, "reset": 0, "bits": {}},
+    "DDRF": {"address": 48, "reset": 0, "bits": {}},
+    "DDRG": {"address": 51, "reset": 0, "bits": {}},
+    "DDRH": {"address": 257, "reset": 0, "bits": {}},
+    "DDRJ": {"address": 260, "reset": 0, "bits": {}},
+    "DDRK": {"address": 263, "reset": 0, "bits": {}},
+    "DDRL": {"address": 266, "reset": 0, "bits": {}},
+    "DIDR0": {"address": 126, "reset": 0, "bits": {"ADC7D": 128, "ADC6D": 64, "ADC5D": 32, "ADC4D": 16, "ADC3D": 8, "ADC2D": 4, "ADC1D": 2, "ADC0D": 1}},
+    "DIDR1": {"address": 127, "reset": 0, "bits": {"AIN1D": 2, "AIN0D": 1}},
+    "DIDR2": {"address": 125, "reset": 0, "bits": {"ADC15D": 128, "ADC14D": 64, "ADC13D": 32, "ADC12D": 16, "ADC11D": 8, "ADC10D": 4, "ADC9D": 2, "ADC8D": 1}},
+    "EEARH": {"address": 66, "reset": 0, "bits": {}},
+    "EEARL": {"address": 65, "reset": 0, "bits": {}},
+    "EECR": {"address": 63, "reset": 0, "bits": {"EEPM": 48, "EERIE": 8, "EEMPE": 4, "EEPE": 2, "EERE": 1}},
+    "EEDR": {"address": 64, "reset": 0, "bits": {}},
+    "EICRA": {"address": 105, "reset": 0, "bits": {"ISC3": 192, "ISC2": 48, "ISC1": 12, "ISC0": 3}},
+    "EICRB": {"address": 106, "reset": 0, "bits": {"ISC7": 192, "ISC6": 48, "ISC5": 12, "ISC4": 3}},
+    "EIFR": {"address": 60, "reset": 0, "bits": {"INTF": 255}},
+    "EIMSK": {"address": 61, "reset": 0, "bits": {"INT": 255}},
+    "EIND": {"address": 92, "reset": 0, "bits": {"EIND": 1}},
+    "GPIOR0": {"address": 62, "reset": 0, "bits": {"GPIOR07": 128, "GPIOR06": 64, "GPIOR05": 32, "GPIOR04": 16, "GPIOR03": 8, "GPIOR02": 4, "GPIOR01": 2, "GPIOR00": 1}},
+    "GPIOR1": {"address": 74, "reset": 0, "bits": {"GPIOR": 255}},
+    "GPIOR2": {"address": 75, "reset": 0, "bits": {"GPIOR": 255}},
+    "GTCCR": {"address": 67, "reset": 0, "bits": {"TSM": 128, "PSRSYNC": 1, "PSRASY": 2}},
+    "ICR1H": {"address": 135, "reset": 0, "bits": {}},
+    "ICR1L": {"address": 134, "reset": 0, "bits": {}},
+    "ICR3H": {"address": 151, "reset": 0, "bits": {}},
+    "ICR3L": {"address": 150, "reset": 0, "bits": {}},
+    "ICR4H": {"address": 167, "reset": 0, "bits": {}},
+    "ICR4L": {"address": 166, "reset": 0, "bits": {}},
+    "ICR5H": {"address": 295, "reset": 0, "bits": {}},
+    "ICR5L": {"address": 294, "reset": 0, "bits": {}},
+    "MCUCR": {"address": 85, "reset": 0, "bits": {"JTD": 128, "PUD": 16, "IVSEL": 2, "IVCE": 1}},
+    "MCUSR": {"address": 84, "reset": 0, "bits": {"JTRF": 16, "WDRF": 8, "BORF": 4, "EXTRF": 2, "PORF": 1}},
+    "OCDR": {"address": 81, "reset": 0, "bits": {}},
+    "OCR0A": {"address": 71, "reset": 0, "bits": {}},
+    "OCR0B": {"address": 72, "reset": 0, "bits": {}},
+    "OCR1AH": {"address": 137, "reset": 0, "bits": {}},
+    "OCR1AL": {"address": 136, "reset": 0, "bits": {}},
+    "OCR1BH": {"address": 139, "reset": 0, "bits": {}},
+    "OCR1BL": {"address": 138, "reset": 0, "bits": {}},
+    "OCR1CH": {"address": 141, "reset": 0, "bits": {}},
+    "OCR1CL": {"address": 140, "reset": 0, "bits": {}},
+    "OCR2A": {"address": 179, "reset": 0, "bits": {}},
+    "OCR2B": {"address": 180, "reset": 0, "bits": {}},
+    "OCR3AH": {"address": 153, "reset": 0, "bits": {}},
+    "OCR3AL": {"address": 152, "reset": 0, "bits": {}},
+    "OCR3BH": {"address": 155, "reset": 0, "bits": {}},
+    "OCR3BL": {"address": 154, "reset": 0, "bits": {}},
+    "OCR3CH": {"address": 157, "reset": 0, "bits": {}},
+    "OCR3CL": {"address": 156, "reset": 0, "bits": {}},
+    "OCR4AH": {"address": 169, "reset": 0, "bits": {}},
+    "OCR4AL": {"address": 168, "reset": 0, "bits": {}},
+    "OCR4BH": {"address": 171, "reset": 0, "bits": {}},
+    "OCR4BL": {"address": 170, "reset": 0, "bits": {}},
+    "OCR4CH": {"address": 173, "reset": 0, "bits": {}},
+    "OCR4CL": {"address": 172, "reset": 0, "bits": {}},
+    "OCR5AH": {"address": 297, "reset": 0, "bits": {}},
+    "OCR5AL": {"address": 296, "reset": 0, "bits": {}},
+    "OCR5BH": {"address": 299, "reset": 0, "bits": {}},
+    "OCR5BL": {"address": 298, "reset": 0, "bits": {}},
+    "OCR5CH": {"address": 301, "reset": 0, "bits": {}},
+    "OCR5CL": {"address": 300, "reset": 0, "bits": {}},
+    "OSCCAL": {"address": 102, "reset": 0, "bits": {"OSCCAL": 255}},
+    "PCICR": {"address": 104, "reset": 0, "bits": {"PCIE": 7}},
+    "PCIFR": {"address": 59, "reset": 0, "bits": {"PCIF": 7}},
+    "PCMSK0": {"address": 107, "reset": 0, "bits": {"PCINT": 255}},
+    "PCMSK1": {"address": 108, "reset": 0, "bits": {"PCINT": 255}},
+    "PCMSK2": {"address": 109, "reset": 0, "bits": {"PCINT": 255}},
+    "PINA": {"address": 32, "reset": 0, "bits": {}},
+    "PINB": {"address": 35, "reset": 0, "bits": {}},
+    "PINC": {"address": 38, "reset": 0, "bits": {}},
+    "PIND": {"address": 41, "reset": 0, "bits": {}},
+    "PINE": {"address": 44, "reset": 0, "bits": {}},
+    "PINF": {"address": 47, "reset": 0, "bits": {}},
+    "PING": {"address": 50, "reset": 0, "bits": {}},
+    "PINH": {"address": 256, "reset": 0, "bits": {}},
+    "PINJ": {"address": 259, "reset": 0, "bits": {}},
+    "PINK": {"address": 262, "reset": 0, "bits": {}},
+    "PINL": {"address": 265, "reset": 0, "bits": {}},
+    "PORTA": {"address": 34, "reset": 0, "bits": {}},
+    "PORTB": {"address": 37, "reset": 0, "bits": {}},
+    "PORTC": {"address": 40, "reset": 0, "bits": {}},
+    "PORTD": {"address": 43, "reset": 0, "bits": {}},
+    "PORTE": {"address": 46, "reset": 0, "bits": {}},
+    "PORTF": {"address": 49, "reset": 0, "bits": {}},
+    "PORTG": {"address": 52, "reset": 0, "bits": {}},
+    "PORTH": {"address": 258, "reset": 0, "bits": {}},
+    "PORTJ": {"address": 261, "reset": 0, "bits": {}},
+    "PORTK": {"address": 264, "reset": 0, "bits": {}},
+    "PORTL": {"address": 267, "reset": 0, "bits": {}},
+    "PRR0": {"address": 100, "reset": 0, "bits": {"PRTWI": 128, "PRTIM2": 64, "PRTIM0": 32, "PRTIM1": 8, "PRSPI": 4, "PRUSART0": 2, "PRADC": 1}},
+    "PRR1": {"address": 101, "reset": 0, "bits": {"PRTIM5": 32, "PRTIM4": 16, "PRTIM3": 8, "PRUSART3": 4, "PRUSART2": 2, "PRUSART1": 1}},
+    "RAMPZ": {"address": 91, "reset": 0, "bits": {"RAMPZ": 3}},
+    "SMCR": {"address": 83, "reset": 0, "bits": {"SM": 14, "SE": 1}},
+    "SPCR": {"address": 76, "reset": 0, "bits": {"SPIE": 128, "SPE": 64, "DORD": 32, "MSTR": 16, "CPOL": 8, "CPHA": 4, "SPR": 3}},
+    "SPDR": {"address": 78, "reset": 0, "bits": {}},
+    "SPH": {"address": 94, "reset": 33, "bits": {}},
+    "SPL": {"address": 93, "reset": 255, "bits": {}},
+    "SPMCSR": {"address": 87, "reset": 0, "bits": {"SPMIE": 128, "RWWSB": 64, "SIGRD": 32, "RWWSRE": 16, "BLBSET": 8, "PGWRT": 4, "PGERS": 2, "SPMEN": 1}},
+    "SPSR": {"address": 77, "reset": 0, "bits": {"SPIF": 128, "WCOL": 64, "SPI2X": 1}},
+    "SREG": {"address": 95, "reset": 0, "bits": {"I": 128, "T": 64, "H": 32, "S": 16, "V": 8, "N": 4, "Z": 2, "C": 1}},
+    "TCCR0A": {"address": 68, "reset": 0, "bits": {"COM0A": 192, "COM0B": 48, "WGM0": 3}},
+    "TCCR0B": {"address": 69, "reset": 0, "bits": {"FOC0A": 128, "FOC0B": 64, "WGM02": 8, "CS0": 7}},
+    "TCCR1A": {"address": 128, "reset": 0, "bits": {"COM1A": 192, "COM1B": 48, "COM1C": 12, "WGM1": 3}},
+    "TCCR1B": {"address": 129, "reset": 0, "bits": {"ICNC1": 128, "ICES1": 64, "WGM1": 24, "CS1": 7}},
+    "TCCR1C": {"address": 130, "reset": 0, "bits": {"FOC1A": 128, "FOC1B": 64, "FOC1C": 32}},
+    "TCCR2A": {"address": 176, "reset": 0, "bits": {"COM2A": 192, "COM2B": 48, "WGM2": 3}},
+    "TCCR2B": {"address": 177, "reset": 0, "bits": {"FOC2A": 128, "FOC2B": 64, "WGM22": 8, "CS2": 7}},
+    "TCCR3A": {"address": 144, "reset": 0, "bits": {"COM3A": 192, "COM3B": 48, "COM3C": 12, "WGM3": 3}},
+    "TCCR3B": {"address": 145, "reset": 0, "bits": {"ICNC3": 128, "ICES3": 64, "WGM3": 24, "CS3": 7}},
+    "TCCR3C": {"address": 146, "reset": 0, "bits": {"FOC3A": 128, "FOC3B": 64, "FOC3C": 32}},
+    "TCCR4A": {"address": 160, "reset": 0, "bits": {"COM4A": 192, "COM4B": 48, "COM4C": 12, "WGM4": 3}},
+    "TCCR4B": {"address": 161, "reset": 0, "bits": {"ICNC4": 128, "ICES4": 64, "WGM4": 24, "CS4": 7}},
+    "TCCR4C": {"address": 162, "reset": 0, "bits": {"FOC4A": 128, "FOC4B": 64, "FOC4C": 32}},
+    "TCCR5A": {"address": 288, "reset": 0, "bits": {"COM5A": 192, "COM5B": 48, "COM5C": 12, "WGM5": 3}},
+    "TCCR5B": {"address": 289, "reset": 0, "bits": {"ICNC5": 128, "ICES5": 64, "WGM5": 24, "CS5": 7}},
+    "TCCR5C": {"address": 290, "reset": 0, "bits": {"FOC5A": 128, "FOC5B": 64, "FOC5C": 32}},
+    "TCNT0": {"address": 70, "reset": 0, "bits": {}},
+    "TCNT1H": {"address": 133, "reset": 0, "bits": {}},
+    "TCNT1L": {"address": 132, "reset": 0, "bits": {}},
+    "TCNT2": {"address": 178, "reset": 0, "bits": {}},
+    "TCNT3H": {"address": 149, "reset": 0, "bits": {}},
+    "TCNT3L": {"address": 148, "reset": 0, "bits": {}},
+    "TCNT4H": {"address": 165, "reset": 0, "bits": {}},
+    "TCNT4L": {"address": 164, "reset": 0, "bits": {}},
+    "TCNT5H": {"address": 293, "reset": 0, "bits": {}},
+    "TCNT5L": {"address": 292, "reset": 0, "bits": {}},
+    "TIFR0": {"address": 53, "reset": 0, "bits": {"OCF0B": 4, "OCF0A": 2, "TOV0": 1}},
+    "TIFR1": {"address": 54, "reset": 0, "bits": {"ICF1": 32, "OCF1C": 8, "OCF1B": 4, "OCF1A": 2, "TOV1": 1}},
+    "TIFR2": {"address": 55, "reset": 0, "bits": {"OCF2B": 4, "OCF2A": 2, "TOV2": 1}},
+    "TIFR3": {"address": 56, "reset": 0, "bits": {"ICF3": 32, "OCF3C": 8, "OCF3B": 4, "OCF3A": 2, "TOV3": 1}},
+    "TIFR4": {"address": 57, "reset": 0, "bits": {"ICF4": 32, "OCF4C": 8, "OCF4B": 4, "OCF4A": 2, "TOV4": 1}},
+    "TIFR5": {"address": 58, "reset": 0, "bits": {"ICF5": 32, "OCF5C": 8, "OCF5B": 4, "OCF5A": 2, "TOV5": 1}},
+    "TIMSK0": {"address": 110, "reset": 0, "bits": {"OCIE0B": 4, "OCIE0A": 2, "TOIE0": 1}},
+    "TIMSK1": {"address": 111, "reset": 0, "bits": {"ICIE1": 32, "OCIE1C": 8, "OCIE1B": 4, "OCIE1A": 2, "TOIE1": 1}},
+    "TIMSK2": {"address": 112, "reset": 0, "bits": {"OCIE2B": 4, "OCIE2A": 2, "TOIE2": 1}},
+    "TIMSK3": {"address": 113, "reset": 0, "bits": {"ICIE3": 32, "OCIE3C": 8, "OCIE3B": 4, "OCIE3A": 2, "TOIE3": 1}},
+    "TIMSK4": {"address": 114, "reset": 0, "bits": {"ICIE4": 32, "OCIE4C": 8, "OCIE4B": 4, "OCIE4A": 2, "TOIE4": 1}},
+    "TIMSK5": {"address": 115, "reset": 0, "bits": {"ICIE5": 32, "OCIE5C": 8, "OCIE5B": 4, "OCIE5A": 2, "TOIE5": 1}},
+    "TWAMR": {"address": 189, "reset": 0, "bits": {"TWAM": 254}},
+    "TWAR": {"address": 186, "reset": 254, "bits": {"TWA": 254, "TWGCE": 1}},
+    "TWBR": {"address": 184, "reset": 0, "bits": {}},
+    "TWCR": {"address": 188, "reset": 0, "bits": {"TWINT": 128, "TWEA": 64, "TWSTA": 32, "TWSTO": 16, "TWWC": 8, "TWEN": 4, "TWIE": 1}},
+    "TWDR": {"address": 187, "reset": 255, "bits": {}},
+    "TWSR": {"address": 185, "reset": 248, "bits": {"TWS": 248, "TWPS": 3}},
+    "UBRR0H": {"address": 197, "reset": 0, "bits": {}},
+    "UBRR0L": {"address": 196, "reset": 0, "bits": {}},
+    "UBRR1H": {"address": 205, "reset": 0, "bits": {}},
+    "UBRR1L": {"address": 204, "reset": 0, "bits": {}},
+    "UBRR2H": {"address": 213, "reset": 0, "bits": {}},
+    "UBRR2L": {"address": 212, "reset": 0, "bits": {}},
+    "UBRR3H": {"address": 309, "reset": 0, "bits": {}},
+    "UBRR3L": {"address": 308, "reset": 0, "bits": {}},
+    "UCSR0A": {"address": 192, "reset": 32, "bits": {"RXC0": 128, "TXC0": 64, "UDRE0": 32, "FE0": 16, "DOR0": 8, "UPE0": 4, "U2X0": 2, "MPCM0": 1}},
+    "UCSR0B": {"address": 193, "reset": 0, "bits": {"RXCIE0": 128, "TXCIE0": 64, "UDRIE0": 32, "RXEN0": 16, "TXEN0": 8, "UCSZ02": 4, "RXB80": 2, "TXB80": 1}},
+    "UCSR0C": {"address": 194, "reset": 6, "bits": {"UMSEL0": 192, "UPM0": 48, "USBS0": 8, "UCSZ0": 6, "UCPOL0": 1}},
+    "UCSR1A": {"address": 200, "reset": 32, "bits": {"RXC1": 128, "TXC1": 64, "UDRE1": 32, "FE1": 16, "DOR1": 8, "UPE1": 4, "U2X1": 2, "MPCM1": 1}},
+    "UCSR1B": {"address": 201, "reset": 0, "bits": {"RXCIE1": 128, "TXCIE1": 64, "UDRIE1": 32, "RXEN1": 16, "TXEN1": 8, "UCSZ12": 4, "RXB81": 2, "TXB81": 1}},
+    "UCSR1C": {"address": 202, "reset": 6, "bits": {"UMSEL1": 192, "UPM1": 48, "USBS1": 8, "UCSZ1": 6, "UCPOL1": 1}},
+    "UCSR2A": {"address": 208, "reset": 32, "bits": {"RXC2": 128, "TXC2": 64, "UDRE2": 32, "FE2": 16, "DOR2": 8, "UPE2": 4, "U2X2": 2, "MPCM2": 1}},
+    "UCSR2B": {"address": 209, "reset": 0, "bits": {"RXCIE2": 128, "TXCIE2": 64, "UDRIE2": 32, "RXEN2": 16, "TXEN2": 8, "UCSZ22": 4, "RXB82": 2, "TXB82": 1}},
+    "UCSR2C": {"address": 210, "reset": 6, "bits": {"UMSEL2": 192, "UPM2": 48, "USBS2": 8, "UCSZ2": 6, "UCPOL2": 1}},
+    "UCSR3A": {"address": 304, "reset": 32, "bits": {"RXC3": 128, "TXC3": 64, "UDRE3": 32, "FE3": 16, "DOR3": 8, "UPE3": 4, "U2X3": 2, "MPCM3": 1}},
+    "UCSR3B": {"address": 305, "reset": 0, "bits": {"RXCIE3": 128, "TXCIE3": 64, "UDRIE3": 32, "RXEN3": 16, "TXEN3": 8, "UCSZ32": 4, "RXB83": 2, "TXB83": 1}},
+    "UCSR3C": {"address": 306, "reset": 6, "bits": {"UMSEL3": 192, "UPM3": 48, "USBS3": 8, "UCSZ3": 6, "UCPOL3": 1}},
+    "UDR0": {"address": 198, "reset": 0, "bits": {}},
+    "UDR1": {"address": 206, "reset": 0, "bits": {}},
+    "UDR2": {"address": 214, "reset": 0, "bits": {}},
+    "UDR3": {"address": 310, "reset": 0, "bits": {}},
+    "WDTCSR": {"address": 96, "reset": 0, "bits": {"WDIF": 128, "WDIE": 64, "WDP": 39, "WDCE": 16, "WDE": 8}},
+    "XMCRA": {"address": 116, "reset": 0, "bits": {"SRE": 128, "SRL": 112, "SRW1": 12, "SRW0": 3}},
+    "XMCRB": {"address": 117, "reset": 0, "bits": {"XMBK": 128, "XMM": 7}}
+  },
+  "peripherals": [
+    {
+      "type": "avr.gpio",
+      "name": "PORTA",
+      "registers": {
+        "pin": "PINA",
+        "ddr": "DDRA",
+        "port": "PORTA"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PA0",
+        "PA1",
+        "PA2",
+        "PA3",
+        "PA4",
+        "PA5",
+        "PA6",
+        "PA7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTB",
+      "registers": {
+        "pin": "PINB",
+        "ddr": "DDRB",
+        "port": "PORTB"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PB0",
+        "PB1",
+        "PB2",
+        "PB3",
+        "PB4",
+        "PB5",
+        "PB6",
+        "PB7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTC",
+      "registers": {
+        "pin": "PINC",
+        "ddr": "DDRC",
+        "port": "PORTC"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PC0",
+        "PC1",
+        "PC2",
+        "PC3",
+        "PC4",
+        "PC5",
+        "PC6",
+        "PC7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTD",
+      "registers": {
+        "pin": "PIND",
+        "ddr": "DDRD",
+        "port": "PORTD"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PD0",
+        "PD1",
+        "PD2",
+        "PD3",
+        "PD4",
+        "PD5",
+        "PD6",
+        "PD7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTE",
+      "registers": {
+        "pin": "PINE",
+        "ddr": "DDRE",
+        "port": "PORTE"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PE0",
+        "PE1",
+        "PE2",
+        "PE3",
+        "PE4",
+        "PE5",
+        "PE6",
+        "PE7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTF",
+      "registers": {
+        "pin": "PINF",
+        "ddr": "DDRF",
+        "port": "PORTF"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PF0",
+        "PF1",
+        "PF2",
+        "PF3",
+        "PF4",
+        "PF5",
+        "PF6",
+        "PF7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTG",
+      "implementedMask": 63,
+      "registers": {
+        "pin": "PING",
+        "ddr": "DDRG",
+        "port": "PORTG"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PG0",
+        "PG1",
+        "PG2",
+        "PG3",
+        "PG4",
+        "PG5"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTH",
+      "registers": {
+        "pin": "PINH",
+        "ddr": "DDRH",
+        "port": "PORTH"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PH0",
+        "PH1",
+        "PH2",
+        "PH3",
+        "PH4",
+        "PH5",
+        "PH6",
+        "PH7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTJ",
+      "registers": {
+        "pin": "PINJ",
+        "ddr": "DDRJ",
+        "port": "PORTJ"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PJ0",
+        "PJ1",
+        "PJ2",
+        "PJ3",
+        "PJ4",
+        "PJ5",
+        "PJ6",
+        "PJ7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTK",
+      "registers": {
+        "pin": "PINK",
+        "ddr": "DDRK",
+        "port": "PORTK"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PK0",
+        "PK1",
+        "PK2",
+        "PK3",
+        "PK4",
+        "PK5",
+        "PK6",
+        "PK7"
+      ]
+    },
+    {
+      "type": "avr.gpio",
+      "name": "PORTL",
+      "registers": {
+        "pin": "PINL",
+        "ddr": "DDRL",
+        "port": "PORTL"
+      },
+      "mcucr": "MCUCR",
+      "pins": [
+        "PL0",
+        "PL1",
+        "PL2",
+        "PL3",
+        "PL4",
+        "PL5",
+        "PL6",
+        "PL7"
+      ]
+    },
+    {
+      "type": "avr.timer8",
+      "name": "TIMER0",
+      "registers": {
+        "tccrA": "TCCR0A",
+        "tccrB": "TCCR0B",
+        "tcnt": "TCNT0",
+        "ocrA": "OCR0A",
+        "ocrB": "OCR0B",
+        "timsk": "TIMSK0",
+        "tifr": "TIFR0"
+      },
+      "vectors": {
+        "compareA": "TIMER0_COMPA",
+        "compareB": "TIMER0_COMPB",
+        "overflow": "TIMER0_OVF"
+      },
+      "prescalers": [
+        0,
+        1,
+        8,
+        64,
+        256,
+        1024,
+        0,
+        0
+      ],
+      "outputs": [
+        {
+          "port": "PORTB",
+          "bit": 7
+        },
+        {
+          "port": "PORTG",
+          "bit": 5
+        }
+      ]
+    },
+    {
+      "type": "avr.usart",
+      "name": "USART0",
+      "registers": {
+        "udr": "UDR0",
+        "ucsrA": "UCSR0A",
+        "ucsrB": "UCSR0B",
+        "ucsrC": "UCSR0C",
+        "ubrrL": "UBRR0L",
+        "ubrrH": "UBRR0H"
+      },
+      "vectors": {
+        "rxComplete": "USART0_RX",
+        "dataEmpty": "USART0_UDRE",
+        "txComplete": "USART0_TX"
+      },
+      "port": "PORTE",
+      "rx": 0,
+      "tx": 1,
+      "clockDividers": [
+        16,
+        8
+      ],
+      "receiveFifoDepth": 2
+    },
+    {
+      "type": "avr.usart",
+      "name": "USART1",
+      "registers": {
+        "udr": "UDR1",
+        "ucsrA": "UCSR1A",
+        "ucsrB": "UCSR1B",
+        "ucsrC": "UCSR1C",
+        "ubrrL": "UBRR1L",
+        "ubrrH": "UBRR1H"
+      },
+      "vectors": {
+        "rxComplete": "USART1_RX",
+        "dataEmpty": "USART1_UDRE",
+        "txComplete": "USART1_TX"
+      },
+      "port": "PORTD",
+      "rx": 2,
+      "tx": 3,
+      "clockDividers": [
+        16,
+        8
+      ],
+      "receiveFifoDepth": 2
+    },
+    {
+      "type": "avr.usart",
+      "name": "USART2",
+      "registers": {
+        "udr": "UDR2",
+        "ucsrA": "UCSR2A",
+        "ucsrB": "UCSR2B",
+        "ucsrC": "UCSR2C",
+        "ubrrL": "UBRR2L",
+        "ubrrH": "UBRR2H"
+      },
+      "vectors": {
+        "rxComplete": "USART2_RX",
+        "dataEmpty": "USART2_UDRE",
+        "txComplete": "USART2_TX"
+      },
+      "port": "PORTH",
+      "rx": 0,
+      "tx": 1,
+      "clockDividers": [
+        16,
+        8
+      ],
+      "receiveFifoDepth": 2
+    },
+    {
+      "type": "avr.usart",
+      "name": "USART3",
+      "registers": {
+        "udr": "UDR3",
+        "ucsrA": "UCSR3A",
+        "ucsrB": "UCSR3B",
+        "ucsrC": "UCSR3C",
+        "ubrrL": "UBRR3L",
+        "ubrrH": "UBRR3H"
+      },
+      "vectors": {
+        "rxComplete": "USART3_RX",
+        "dataEmpty": "USART3_UDRE",
+        "txComplete": "USART3_TX"
+      },
+      "port": "PORTJ",
+      "rx": 0,
+      "tx": 1,
+      "clockDividers": [
+        16,
+        8
+      ],
+      "receiveFifoDepth": 2
+    },
+    {
+      "type": "avr.spi",
+      "name": "SPI",
+      "registers": {
+        "spcr": "SPCR",
+        "spsr": "SPSR",
+        "spdr": "SPDR"
+      },
+      "vectors": {
+        "transferComplete": "SPI_STC"
+      },
+      "port": "PORTB",
+      "mosi": 2,
+      "miso": 3,
+      "sck": 1,
+      "ss": 0
+    },
+    {
+      "type": "avr.twi",
+      "name": "TWI",
+      "registers": {
+        "twbr": "TWBR",
+        "twsr": "TWSR",
+        "twar": "TWAR",
+        "twdr": "TWDR",
+        "twcr": "TWCR"
+      },
+      "vector": "TWI",
+      "port": "PORTD",
+      "sda": 1,
+      "scl": 0
+    },
+    {
+      "type": "avr.eeprom",
+      "name": "EEPROM",
+      "registers": {
+        "control": "EECR",
+        "data": "EEDR",
+        "addressLow": "EEARL",
+        "addressHigh": "EEARH"
+      },
+      "vector": "EE_READY",
+      "writeTimeNs": 3400000,
+      "readCycles": 4
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "AC",
+      "registers": {
+        "ADCSRB": "ADCSRB",
+        "ACSR": "ACSR",
+        "DIDR1": "DIDR1"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TC2",
+      "registers": {
+        "TIMSK2": "TIMSK2",
+        "TIFR2": "TIFR2",
+        "TCCR2A": "TCCR2A",
+        "TCCR2B": "TCCR2B",
+        "TCNT2": "TCNT2",
+        "OCR2B": "OCR2B",
+        "OCR2A": "OCR2A",
+        "ASSR": "ASSR",
+        "GTCCR": "GTCCR"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "WDT",
+      "registers": {
+        "WDTCSR": "WDTCSR"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TC5",
+      "registers": {
+        "TCCR5A": "TCCR5A",
+        "TCCR5B": "TCCR5B",
+        "TCCR5C": "TCCR5C",
+        "TCNT5L": "TCNT5L",
+        "TCNT5H": "TCNT5H",
+        "OCR5AL": "OCR5AL",
+        "OCR5AH": "OCR5AH",
+        "OCR5BL": "OCR5BL",
+        "OCR5BH": "OCR5BH",
+        "OCR5CL": "OCR5CL",
+        "OCR5CH": "OCR5CH",
+        "ICR5L": "ICR5L",
+        "ICR5H": "ICR5H",
+        "TIMSK5": "TIMSK5",
+        "TIFR5": "TIFR5"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TC4",
+      "registers": {
+        "TCCR4A": "TCCR4A",
+        "TCCR4B": "TCCR4B",
+        "TCCR4C": "TCCR4C",
+        "TCNT4L": "TCNT4L",
+        "TCNT4H": "TCNT4H",
+        "OCR4AL": "OCR4AL",
+        "OCR4AH": "OCR4AH",
+        "OCR4BL": "OCR4BL",
+        "OCR4BH": "OCR4BH",
+        "OCR4CL": "OCR4CL",
+        "OCR4CH": "OCR4CH",
+        "ICR4L": "ICR4L",
+        "ICR4H": "ICR4H",
+        "TIMSK4": "TIMSK4",
+        "TIFR4": "TIFR4"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TC3",
+      "registers": {
+        "TCCR3A": "TCCR3A",
+        "TCCR3B": "TCCR3B",
+        "TCCR3C": "TCCR3C",
+        "TCNT3L": "TCNT3L",
+        "TCNT3H": "TCNT3H",
+        "OCR3AL": "OCR3AL",
+        "OCR3AH": "OCR3AH",
+        "OCR3BL": "OCR3BL",
+        "OCR3BH": "OCR3BH",
+        "OCR3CL": "OCR3CL",
+        "OCR3CH": "OCR3CH",
+        "ICR3L": "ICR3L",
+        "ICR3H": "ICR3H",
+        "TIMSK3": "TIMSK3",
+        "TIFR3": "TIFR3"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "TC1",
+      "registers": {
+        "TCCR1A": "TCCR1A",
+        "TCCR1B": "TCCR1B",
+        "TCCR1C": "TCCR1C",
+        "TCNT1L": "TCNT1L",
+        "TCNT1H": "TCNT1H",
+        "OCR1AL": "OCR1AL",
+        "OCR1AH": "OCR1AH",
+        "OCR1BL": "OCR1BL",
+        "OCR1BH": "OCR1BH",
+        "OCR1CL": "OCR1CL",
+        "OCR1CH": "OCR1CH",
+        "ICR1L": "ICR1L",
+        "ICR1H": "ICR1H",
+        "TIMSK1": "TIMSK1",
+        "TIFR1": "TIFR1"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "JTAG",
+      "registers": {
+        "OCDR": "OCDR",
+        "MCUCR": "MCUCR",
+        "MCUSR": "MCUSR"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "EXINT",
+      "registers": {
+        "EICRA": "EICRA",
+        "EICRB": "EICRB",
+        "EIMSK": "EIMSK",
+        "EIFR": "EIFR",
+        "PCMSK2": "PCMSK2",
+        "PCMSK1": "PCMSK1",
+        "PCMSK0": "PCMSK0",
+        "PCIFR": "PCIFR",
+        "PCICR": "PCICR"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "ADC",
+      "registers": {
+        "ADMUX": "ADMUX",
+        "ADCL": "ADCL",
+        "ADCH": "ADCH",
+        "ADCSRA": "ADCSRA",
+        "ADCSRB": "ADCSRB",
+        "DIDR2": "DIDR2",
+        "DIDR0": "DIDR0"
+      }
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "FUSE"
+    },
+    {
+      "type": "avr.unmodeled",
+      "name": "LOCKBIT"
+    }
+  ],
+  "package": {
+    "name": "TQFP100",
+    "pins": [
+      {"n": 1, "port": "PG5", "label": "", "labels": ["PG5"], "functions": ["OC0B"]},
+      {"n": 2, "port": "PE0", "label": "", "labels": ["PE0"], "functions": ["PCINT8", "RXD"]},
+      {"n": 3, "port": "PE1", "label": "", "labels": ["PE1"], "functions": ["TXD"]},
+      {"n": 4, "port": "PE2", "label": "", "labels": ["PE2"], "functions": ["AIN0", "XCK"]},
+      {"n": 5, "port": "PE3", "label": "", "labels": ["PE3"], "functions": ["AIN1", "OC3A"]},
+      {"n": 6, "port": "PE4", "label": "", "labels": ["PE4"], "functions": ["INT4", "OC3B"]},
+      {"n": 7, "port": "PE5", "label": "", "labels": ["PE5"], "functions": ["INT5", "OC3C"]},
+      {"n": 8, "port": "PE6", "label": "", "labels": ["PE6"], "functions": ["INT6", "T3"]},
+      {"n": 9, "port": "PE7", "label": "", "labels": ["PE7"], "functions": ["CLKO0", "ICP3", "INT7"]},
+      {"n": 10, "port": null, "label": "", "labels": ["VCC"], "functions": []},
+      {"n": 11, "port": null, "label": "", "labels": ["GND"], "functions": []},
+      {"n": 12, "port": "PH0", "label": "", "labels": ["PH0"], "functions": ["RXD"]},
+      {"n": 13, "port": "PH1", "label": "", "labels": ["PH1"], "functions": ["TXD"]},
+      {"n": 14, "port": "PH2", "label": "", "labels": ["PH2"], "functions": ["XCK"]},
+      {"n": 15, "port": "PH3", "label": "", "labels": ["PH3"], "functions": ["OC4A"]},
+      {"n": 16, "port": "PH4", "label": "", "labels": ["PH4"], "functions": ["OC4B"]},
+      {"n": 17, "port": "PH5", "label": "", "labels": ["PH5"], "functions": ["OC4C"]},
+      {"n": 18, "port": "PH6", "label": "", "labels": ["PH6"], "functions": ["OC2B"]},
+      {"n": 19, "port": "PB0", "label": "", "labels": ["PB0"], "functions": ["PCINT0", "SS"]},
+      {"n": 20, "port": "PB1", "label": "", "labels": ["PB1"], "functions": ["PCINT1", "SCK"]},
+      {"n": 21, "port": "PB2", "label": "", "labels": ["PB2"], "functions": ["MOSI", "PCINT2"]},
+      {"n": 22, "port": "PB3", "label": "", "labels": ["PB3"], "functions": ["MISO", "PCINT3"]},
+      {"n": 23, "port": "PB4", "label": "", "labels": ["PB4"], "functions": ["OC2A", "PCINT4"]},
+      {"n": 24, "port": "PB5", "label": "", "labels": ["PB5"], "functions": ["OC1A", "PCINT5"]},
+      {"n": 25, "port": "PB6", "label": "", "labels": ["PB6"], "functions": ["OC1B", "PCINT6"]},
+      {"n": 26, "port": "PB7", "label": "", "labels": ["PB7"], "functions": ["OC0A", "OC1C", "PCINT7"]},
+      {"n": 27, "port": "PH7", "label": "", "labels": ["PH7"], "functions": []},
+      {"n": 28, "port": "PG3", "label": "", "labels": ["PG3"], "functions": ["TOSC"]},
+      {"n": 29, "port": "PG4", "label": "", "labels": ["PG4"], "functions": ["TOSC"]},
+      {"n": 30, "port": null, "label": "", "labels": ["RESET"], "functions": []},
+      {"n": 31, "port": null, "label": "", "labels": ["VCC"], "functions": []},
+      {"n": 32, "port": null, "label": "", "labels": ["GND"], "functions": []},
+      {"n": 33, "port": null, "label": "", "labels": ["XTAL2"], "functions": []},
+      {"n": 34, "port": null, "label": "", "labels": ["XTAL1"], "functions": []},
+      {"n": 35, "port": "PL0", "label": "", "labels": ["PL0"], "functions": ["ICP4"]},
+      {"n": 36, "port": "PL1", "label": "", "labels": ["PL1"], "functions": ["ICP5"]},
+      {"n": 37, "port": "PL2", "label": "", "labels": ["PL2"], "functions": ["T5"]},
+      {"n": 38, "port": "PL3", "label": "", "labels": ["PL3"], "functions": ["OC5A"]},
+      {"n": 39, "port": "PL4", "label": "", "labels": ["PL4"], "functions": ["OC5B"]},
+      {"n": 40, "port": "PL5", "label": "", "labels": ["PL5"], "functions": ["OC5C"]},
+      {"n": 41, "port": "PL6", "label": "", "labels": ["PL6"], "functions": []},
+      {"n": 42, "port": "PL7", "label": "", "labels": ["PL7"], "functions": []},
+      {"n": 43, "port": "PD0", "label": "", "labels": ["PD0"], "functions": ["INT0", "SCL"]},
+      {"n": 44, "port": "PD1", "label": "", "labels": ["PD1"], "functions": ["INT1", "SDA"]},
+      {"n": 45, "port": "PD2", "label": "", "labels": ["PD2"], "functions": ["INT2", "RXD"]},
+      {"n": 46, "port": "PD3", "label": "", "labels": ["PD3"], "functions": ["INT3", "TXD"]},
+      {"n": 47, "port": "PD4", "label": "", "labels": ["PD4"], "functions": ["ICP1"]},
+      {"n": 48, "port": "PD5", "label": "", "labels": ["PD5"], "functions": ["XCK"]},
+      {"n": 49, "port": "PD6", "label": "", "labels": ["PD6"], "functions": ["T1"]},
+      {"n": 50, "port": "PD7", "label": "", "labels": ["PD7"], "functions": ["T0"]},
+      {"n": 51, "port": "PG0", "label": "", "labels": ["PG0"], "functions": []},
+      {"n": 52, "port": "PG1", "label": "", "labels": ["PG1"], "functions": []},
+      {"n": 53, "port": "PC0", "label": "", "labels": ["PC0"], "functions": []},
+      {"n": 54, "port": "PC1", "label": "", "labels": ["PC1"], "functions": []},
+      {"n": 55, "port": "PC2", "label": "", "labels": ["PC2"], "functions": []},
+      {"n": 56, "port": "PC3", "label": "", "labels": ["PC3"], "functions": []},
+      {"n": 57, "port": "PC4", "label": "", "labels": ["PC4"], "functions": []},
+      {"n": 58, "port": "PC5", "label": "", "labels": ["PC5"], "functions": []},
+      {"n": 59, "port": "PC6", "label": "", "labels": ["PC6"], "functions": []},
+      {"n": 60, "port": "PC7", "label": "", "labels": ["PC7"], "functions": []},
+      {"n": 61, "port": null, "label": "", "labels": ["VCC"], "functions": []},
+      {"n": 62, "port": null, "label": "", "labels": ["GND"], "functions": []},
+      {"n": 63, "port": "PJ0", "label": "", "labels": ["PJ0"], "functions": ["PCINT9", "RXD"]},
+      {"n": 64, "port": "PJ1", "label": "", "labels": ["PJ1"], "functions": ["PCINT10", "TXD"]},
+      {"n": 65, "port": "PJ2", "label": "", "labels": ["PJ2"], "functions": ["PCINT11", "XCK"]},
+      {"n": 66, "port": "PJ3", "label": "", "labels": ["PJ3"], "functions": ["PCINT12"]},
+      {"n": 67, "port": "PJ4", "label": "", "labels": ["PJ4"], "functions": ["PCINT13"]},
+      {"n": 68, "port": "PJ5", "label": "", "labels": ["PJ5"], "functions": ["PCINT14"]},
+      {"n": 69, "port": "PJ6", "label": "", "labels": ["PJ6"], "functions": ["PCINT15"]},
+      {"n": 70, "port": "PG2", "label": "", "labels": ["PG2"], "functions": []},
+      {"n": 71, "port": "PA7", "label": "", "labels": ["PA7"], "functions": []},
+      {"n": 72, "port": "PA6", "label": "", "labels": ["PA6"], "functions": []},
+      {"n": 73, "port": "PA5", "label": "", "labels": ["PA5"], "functions": []},
+      {"n": 74, "port": "PA4", "label": "", "labels": ["PA4"], "functions": []},
+      {"n": 75, "port": "PA3", "label": "", "labels": ["PA3"], "functions": []},
+      {"n": 76, "port": "PA2", "label": "", "labels": ["PA2"], "functions": []},
+      {"n": 77, "port": "PA1", "label": "", "labels": ["PA1"], "functions": []},
+      {"n": 78, "port": "PA0", "label": "", "labels": ["PA0"], "functions": []},
+      {"n": 79, "port": "PJ7", "label": "", "labels": ["PJ7"], "functions": []},
+      {"n": 80, "port": null, "label": "", "labels": ["VCC"], "functions": []},
+      {"n": 81, "port": null, "label": "", "labels": ["GND"], "functions": []},
+      {"n": 82, "port": "PK7", "label": "", "labels": ["PK7"], "functions": ["ADC15", "PCINT23"]},
+      {"n": 83, "port": "PK6", "label": "", "labels": ["PK6"], "functions": ["ADC14", "PCINT22"]},
+      {"n": 84, "port": "PK5", "label": "", "labels": ["PK5"], "functions": ["ADC13", "PCINT21"]},
+      {"n": 85, "port": "PK4", "label": "", "labels": ["PK4"], "functions": ["ADC12", "PCINT20"]},
+      {"n": 86, "port": "PK3", "label": "", "labels": ["PK3"], "functions": ["ADC11", "PCINT19"]},
+      {"n": 87, "port": "PK2", "label": "", "labels": ["PK2"], "functions": ["ADC10", "PCINT18"]},
+      {"n": 88, "port": "PK1", "label": "", "labels": ["PK1"], "functions": ["ADC9", "PCINT17"]},
+      {"n": 89, "port": "PK0", "label": "", "labels": ["PK0"], "functions": ["ADC8", "PCINT16"]},
+      {"n": 90, "port": "PF7", "label": "", "labels": ["PF7"], "functions": ["ADC7", "TDI"]},
+      {"n": 91, "port": "PF6", "label": "", "labels": ["PF6"], "functions": ["ADC6", "TDO"]},
+      {"n": 92, "port": "PF5", "label": "", "labels": ["PF5"], "functions": ["ADC5", "TMS"]},
+      {"n": 93, "port": "PF4", "label": "", "labels": ["PF4"], "functions": ["ADC4", "TCK"]},
+      {"n": 94, "port": "PF3", "label": "", "labels": ["PF3"], "functions": ["ADC3"]},
+      {"n": 95, "port": "PF2", "label": "", "labels": ["PF2"], "functions": ["ADC2"]},
+      {"n": 96, "port": "PF1", "label": "", "labels": ["PF1"], "functions": ["ADC1"]},
+      {"n": 97, "port": "PF0", "label": "", "labels": ["PF0"], "functions": ["ADC0"]},
+      {"n": 98, "port": null, "label": "", "labels": ["AREF"], "functions": []},
+      {"n": 99, "port": null, "label": "", "labels": ["GND"], "functions": []},
+      {"n": 100, "port": null, "label": "", "labels": ["AVCC"], "functions": []}
+    ],
+    "slotKinds": [
+      "port",
+      "digital",
+      "function",
+      "ide",
+      "pwm",
+      "function"
+    ]
+  }
+}

@@ -18,7 +18,9 @@
 #include <functional>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <set>
+#include <stdexcept>
 
 namespace siliconforge::qualification {
 
@@ -36,7 +38,7 @@ const std::map<std::string, Manual, std::less<>> manual{
     {"adc", {1}},   {"add", {1}},   {"adiw", {2}},  {"and", {1}},  {"andi", {1}}, {"asr", {1}},
     {"bclr", {1}},  {"bld", {1}},   {"brbc", {1, 2}}, {"brbs", {1, 2}}, {"break", {1}}, {"bset", {1}},
     {"bst", {1}},   {"call", {4, -1, -1, -1, -1, 5}}, {"cbi", {2}}, {"com", {1}}, {"cp", {1}}, {"cpc", {1}},
-    {"cpi", {1}},   {"cpse", {1, -1, 2, 3}}, {"dec", {1}}, {"eor", {1}}, {"fmul", {2}}, {"fmuls", {2}},
+    {"cpi", {1}},   {"cpse", {1, -1, 2, 3}}, {"dec", {1}}, {"eicall", {4}}, {"eijmp", {2}}, {"elpm", {3}}, {"eor", {1}}, {"fmul", {2}}, {"fmuls", {2}},
     {"fmulsu", {2}}, {"icall", {3, -1, -1, -1, -1, 4}}, {"ijmp", {2}}, {"in", {1}}, {"inc", {1}}, {"jmp", {3}},
     {"ld -x", {2, -1, -1, -1, 2}}, {"ld -y", {2, -1, -1, -1, 2}}, {"ld -z", {2, -1, -1, -1, 2}},
     {"ld x", {2, -1, -1, -1, 2}}, {"ld x+", {2, -1, -1, -1, 2}}, {"ld y+", {2, -1, -1, -1, 2}},
@@ -64,10 +66,20 @@ struct Stall {
     unsigned    extra;
     std::string reason;
 };
-const std::map<u16, Stall> peripheralStalls{
-    {0x9AF8, {4, "SBI EECR, EERE lance une lecture de l'EEPROM : la datasheet arrête le CPU pendant 4 cycles "
-                 "(`readCycles` du périphérique `avr.eeprom` de la description)."}},
-};
+std::map<u16, Stall> eepromStalls(const nlohmann::json& description, Address ioStart) {
+    for (const auto& peripheral : description.at("peripherals")) {
+        if (peripheral.at("type") != "avr.eeprom")
+            continue;
+        const auto reg = peripheral.at("registers").at("control").get<std::string>();
+        const auto address = description.at("registers").at(reg).at("address").get<Address>();
+        if (address >= ioStart && address - ioStart < 32) {
+            const auto opcode = static_cast<u16>(0x9A00 | ((address - ioStart) << 3));  // SBI control, EERE (bit 0).
+            return {{opcode, {peripheral.at("readCycles").get<unsigned>(),
+                              "SBI active EERE et ajoute les cycles de lecture du périphérique `avr.eeprom`."}}};
+        }
+    }
+    return {};
+}
 
 /// A program, the number of its instructions that prepare the state, then the instruction measured.
 struct Scenario {
@@ -75,10 +87,26 @@ struct Scenario {
     std::string  description;
     AvrAssembler program;
     int          setup;
+    std::optional<Address> dataAddress{};  ///< Address the measured instruction must access.
 };
 
-constexpr unsigned gpior0 = 0x1E;  // I/O address, plain storage
-constexpr unsigned spl = 0x3D, sph = 0x3E;
+struct MemoryLayout {
+    Address scratch;  ///< Data address of the general-purpose I/O register used by the fixtures.
+    Address sram;
+    Address spl;
+    Address sph;
+    unsigned bitIo;   ///< Instruction operand for SBI, CBI, SBIC and SBIS on the scratch register.
+};
+
+MemoryLayout memoryLayout(const nlohmann::json& description, const avr::AvrCoreConfig& config) {
+    const auto& registers = description.at("registers");
+    const auto scratch = registers.at(registers.contains("GPIOR0") ? "GPIOR0" : "GPIO_GPIOR0")
+                             .at("address").get<Address>();
+    if (scratch < config.ioStart || scratch - config.ioStart >= 32)
+        throw std::logic_error("Qualification scratch register must support bit I/O instructions");
+    return {scratch, description.at("memories").at("sram").at("start").get<Address>(),
+            config.spl, config.sph, scratch - config.ioStart};
+}
 
 /// The pointer register (26, 28, 30) of an indirect access, set to `address`.
 AvrAssembler pointer(std::string_view mnemonic, unsigned address) {
@@ -87,13 +115,15 @@ AvrAssembler pointer(std::string_view mnemonic, unsigned address) {
 }
 
 /// Scenarios of an entry, one per case that the device can reach.
-std::vector<Scenario> scenarios(const std::string& mnemonic, const nlohmann::json& entry, unsigned pcBytes) {
+std::vector<Scenario> scenarios(const std::string& mnemonic, const nlohmann::json& entry, unsigned pcBytes, const MemoryLayout& layout) {
     std::vector<Scenario> result;
-    const auto            add = [&](std::string name, std::string description, AvrAssembler program, int setup) {
-        result.push_back({std::move(name), std::move(description), std::move(program), setup});
+    const auto add = [&](std::string name, std::string description, AvrAssembler program, int setup,
+                         std::optional<Address> address = std::nullopt) {
+        result.push_back({std::move(name), std::move(description), std::move(program), setup, address});
     };
     const auto first = opcodesByMnemonic().find(mnemonic)->second.front();
-    const bool memory = mnemonic.starts_with("ld") || mnemonic.starts_with("st") || mnemonic == "lds" || mnemonic == "sts";
+    const bool memory = mnemonic == "lds" || mnemonic == "sts" || mnemonic.starts_with("ld ") ||
+        mnemonic.starts_with("st ") || mnemonic.starts_with("ldd ") || mnemonic.starts_with("std ");
 
     if (mnemonic == "brbs" || mnemonic == "brbc") {
         const bool set = mnemonic == "brbs";
@@ -114,26 +144,37 @@ std::vector<Scenario> scenarios(const std::string& mnemonic, const nlohmann::jso
             else if (mnemonic == "sbrs")
                 a.ldi(16, skips ? 1 : 0).nop().sbrs(16, 0);
             else if (mnemonic == "sbic")
-                (skips ? a.cbi(gpior0, 0) : a.sbi(gpior0, 0)).nop().sbic(gpior0, 0);
+                (skips ? a.cbi(layout.bitIo, 0) : a.sbi(layout.bitIo, 0)).nop().sbic(layout.bitIo, 0);
             else
-                (skips ? a.sbi(gpior0, 0) : a.cbi(gpior0, 0)).nop().sbis(gpior0, 0);
+                (skips ? a.sbi(layout.bitIo, 0) : a.cbi(layout.bitIo, 0)).nop().sbis(layout.bitIo, 0);
             return a;
         };
         add("cycles", "no skip", make(false).nop(), 2);
         add("skipOneWord", "skips a one-word instruction (NOP)", make(true).nop(), 2);
-        add("skipTwoWords", "skips a two-word instruction (LDS)", make(true).lds(0, 0x0100), 2);
-    } else if (mnemonic == "lds" || mnemonic == "sts") {
-        add("cycles", "address in the register file (0x0010)", AvrAssembler{}.raw(first).raw(0x0010), 0);
-        add("sram", "address in SRAM (0x0200)", AvrAssembler{}.raw(first).raw(0x0200), 0);
-    } else if (mnemonic == "push" || mnemonic == "pop") {
-        // The stack is in SRAM; moved into the register file for the other case.
-        add("cycles", "stack pointer in the register file (0x0010)",
-            AvrAssembler{}.ldi(16, 0x10).out(spl - 0x20, 16).ldi(16, 0).out(sph - 0x20, 16).raw(first), 4);
-        add("sram", "stack in SRAM (reset value of SP)", AvrAssembler{}.raw(first), 0);
-    } else if (memory) {
-        const unsigned low = mnemonic.contains('-') ? 0x11 : 0x10;  // The address accessed is 0x10 in both cases.
-        add("cycles", "address in the register file (0x0010)", pointer(mnemonic, low).raw(first), 2);
-        add("sram", "address in SRAM (0x0200)", pointer(mnemonic, mnemonic.contains('-') ? 0x0201 : 0x0200).raw(first), 2);
+        add("skipTwoWords", "skips a two-word instruction (LDS)", make(true).lds(0, layout.sram), 2);
+    } else if (memory || mnemonic == "push" || mnemonic == "pop") {
+        const auto access = [&](Address address, std::string name, std::string_view region) {
+            AvrAssembler program;
+            int setup = 0;
+            if (mnemonic == "lds" || mnemonic == "sts") {
+                program.raw(first).raw(static_cast<u16>(address));
+            } else if (mnemonic == "push" || mnemonic == "pop") {
+                // PUSH writes at SP before decrementing, while POP increments SP before reading.
+                const auto sp = address - (mnemonic == "pop" ? 1u : 0u);
+                program.ldi(16, sp >> 8).sts(layout.sph, 16)
+                       .ldi(16, sp & 0xff).sts(layout.spl, 16).raw(first);
+                setup = 4;
+            } else {
+                // A pre-decrement instruction needs a pointer one byte past the intended address.
+                const auto initial = address + (mnemonic.contains('-') ? 1u : 0u);
+                program = pointer(mnemonic, initial);
+                program.raw(first);
+                setup = 2;
+            }
+            add(std::move(name), std::format("{} access in {} ({:#06x})", mnemonic, region, address), std::move(program), setup, address);
+        };
+        access(layout.scratch, "cycles", "I/O");
+        access(layout.sram, "sram", "SRAM");
     } else if (mnemonic == "jmp" || mnemonic == "call") {
         add("cycles", "to 0x0010", AvrAssembler{}.raw(first).raw(0x0008), 0);
     } else if (mnemonic == "sleep") {
@@ -141,8 +182,10 @@ std::vector<Scenario> scenarios(const std::string& mnemonic, const nlohmann::jso
     } else {
         add("cycles", "from the reset state", AvrAssembler{}.raw(first).nop(), 0);
     }
-    (void)entry;
-    (void)pcBytes;  // pc3Bytes cannot be reached on a 16-bit program counter: cycles() reports it as not applicable.
+    if (pcBytes == 3 && entry.contains("pc3Bytes"))
+        for (auto& scenario : result)
+            if (scenario.name == "cycles")
+                scenario.name = "pc3Bytes";
     return result;
 }
 
@@ -151,8 +194,16 @@ Cycles measure(avr::Device& device, const Scenario& scenario) {
     device.reset();
     for (int i = 0; i < scenario.setup; ++i)
         device.step();
+    auto& debugger = device.debugger();
+    if (scenario.dataAddress)
+        debugger.addWatchpoint(*scenario.dataAddress, Access::ReadWrite);
     const auto before = device.cycles();
-    device.step();
+    const auto result = device.step();
+    if (scenario.dataAddress) {
+        debugger.clearWatchpoints();
+        if (result.reason != StopReason::Watchpoint)
+            throw std::logic_error(std::format("{} did not reach data address {:#06x}", scenario.description, *scenario.dataAddress));
+    }
     return device.cycles() - before;
 }
 
@@ -176,14 +227,21 @@ int cycles(const Options& options) {
     const auto&                          timing      = description.at("timing");
     const auto                           pcBytes     = description.at("cpu").value("pcBytes", 2u);
     avr::Device                          device(description);
+    const bool consistencyOnly = description.at("core") == "avr:AVRxt";
+    const auto& config = device.avrCore().config();
+    const auto capabilities = config.instructions();
+    const auto layout = memoryLayout(description, config);
+    const auto peripheralStalls = eepromStalls(description, config.ioStart);
 
     nlohmann::json instructions = nlohmann::json::object();
     unsigned       failures = 0, measured = 0;
     for (const auto& [mnemonic, entry] : timing.items()) {
+        if (!avr::supportsInstruction(mnemonic, capabilities))
+            continue;
         nlohmann::json row{{"cases", nlohmann::json::array()}};
         std::set<std::string> covered;
         const auto            m = manual.find(mnemonic);
-        if (m == manual.end()) {
+        if (!consistencyOnly && m == manual.end()) {
             row["status"] = "fail";
             row["error"]  = "no reference in the manual table of the tool";
             ++failures;
@@ -191,37 +249,42 @@ int cycles(const Options& options) {
             continue;
         }
         bool ok = true;
-        for (const auto& scenario : scenarios(mnemonic, entry, pcBytes)) {
+        for (const auto& scenario : scenarios(mnemonic, entry, pcBytes, layout)) {
             const auto value      = static_cast<int>(measure(device, scenario));
             const auto expected   = expectedCase(entry, scenario.name);
-            const auto reference  = manualCase(m->second, scenario.name);
-            const bool exception  = exceptions.contains(mnemonic);
-            const bool agrees     = value == expected && (expected == reference || exception);
+            const auto reference  = consistencyOnly ? nlohmann::json() : nlohmann::json(manualCase(m->second, scenario.name));
+            const bool exception  = !consistencyOnly && exceptions.contains(mnemonic);
+            const bool agrees     = value == expected && (consistencyOnly || reference == expected || exception);
             ok                    = ok && agrees;
             covered.insert(scenario.name);
             ++measured;
             row["cases"].push_back({{"case", scenario.name}, {"description", scenario.description}, {"measured", value},
                                     {"description_cycles", expected}, {"manual", reference}, {"agrees", agrees}});
+            if (scenario.dataAddress)
+                row["cases"].back()["dataAddress"] = *scenario.dataAddress;
             if (!agrees)
-                std::cerr << std::format("{} ({}): measured {}, description {}, manual {}\n", mnemonic, scenario.name, value, expected, reference);
+                std::cerr << std::format("{} ({}): measured {}, description {}, manual {}\n", mnemonic, scenario.name, value, expected, reference.dump());
         }
         // Every case of the entry must have been measured, except those this device cannot reach.
         for (const auto& [field, value] : entry.items()) {
             if (covered.contains(field))
                 continue;
-            if (field == "pc3Bytes" && pcBytes != 3) {
-                row["cases"].push_back({{"case", field}, {"description", "not applicable: 16-bit program counter"},
-                                        {"description_cycles", value}, {"manual", manualCase(m->second, field)}, {"agrees", value == manualCase(m->second, field)}});
-                ok = ok && value == manualCase(m->second, field);
+            if ((field == "pc3Bytes" && pcBytes != 3) || (field == "cycles" && pcBytes == 3 && entry.contains("pc3Bytes"))) {
+                const auto note = pcBytes == 3 ? "not applicable: three-byte program counter" : "not applicable: two-byte program counter";
+                const auto reference = consistencyOnly ? nlohmann::json() : nlohmann::json(manualCase(m->second, field));
+                const bool agrees = consistencyOnly || value == reference;
+                row["cases"].push_back({{"case", field}, {"description", note},
+                                        {"description_cycles", value}, {"manual", reference}, {"agrees", agrees}});
+                ok = ok && agrees;
                 continue;
             }
             ok = false;
             std::cerr << std::format("{}: no scenario for the case {}\n", mnemonic, field);
             row["cases"].push_back({{"case", field}, {"description", "no scenario"}, {"agrees", false}});
         }
-        if (const auto e = exceptions.find(mnemonic); e != exceptions.end())
+        if (const auto e = exceptions.find(mnemonic); !consistencyOnly && e != exceptions.end())
             row["exception"] = e->second;
-        row["status"] = ok ? (exceptions.contains(mnemonic) ? "exception" : "pass") : "fail";
+        row["status"] = ok ? (row.contains("exception") ? "exception" : "pass") : "fail";
         failures += !ok;
         instructions[mnemonic] = row;
     }
@@ -230,15 +293,17 @@ int cycles(const Options& options) {
     unsigned outside = 0, opcodes = 0;
     nlohmann::json examples = nlohmann::json::array();
     for (u32 op = 0; op < 65536; ++op) {
-        const auto c = avr::classify(static_cast<u16>(op));
+        const auto c = avr::classify(static_cast<u16>(op), capabilities);
         if (c.kind != avr::OpcodeKind::Instruction)
             continue;
         ++opcodes;
         const auto& entry = timing.at(std::string(c.mnemonic));
         std::set<int> allowed;
-        for (const auto& [field, value] : entry.items())
-            if (field != "pc3Bytes" || pcBytes == 3)
-                allowed.insert(value.get<int>());
+        for (const auto& [field, value] : entry.items()) {
+            if ((field == "pc3Bytes" && pcBytes != 3) || (field == "cycles" && pcBytes == 3 && entry.contains("pc3Bytes")))
+                continue;
+            allowed.insert(value.get<int>());
+        }
         auto value = static_cast<int>(measure(device, {"", "", AvrAssembler{}.raw(static_cast<u16>(op)).nop().nop(), 0}));
         if (const auto stall = peripheralStalls.find(static_cast<u16>(op)); stall != peripheralStalls.end())
             value -= static_cast<int>(stall->second.extra);
@@ -252,12 +317,14 @@ int cycles(const Options& options) {
         std::cerr << "  " << example.get<std::string>() << '\n';
 
     writeJson(options.get("out"), {{"mcu", description.at("name")},
-                                   {"reference", "AVR Instruction Set Manual (DS40002198B), colonne AVRe+"},
+                                   {"mode", consistencyOnly ? "consistency" : "qualification"},
+                                   {"reference", consistencyOnly ? nlohmann::json() :
+                                       nlohmann::json("AVR Instruction Set Manual (DS40002198B), colonne AVRe+")},
                                    {"instructions", instructions},
                                    {"scenarios", measured},
                                    {"opcodes", opcodes},
                                    {"opcodesOutsideTheirEntry", outside},
-                                   {"peripheralStalls", [] {
+                                   {"peripheralStalls", [&] {
                                         auto list = nlohmann::json::array();
                                         for (const auto& [opcode, stall] : peripheralStalls)
                                             list.push_back({{"instruction", disassemble(opcode, 0)}, {"extra", stall.extra}, {"reason", stall.reason}});
@@ -265,7 +332,9 @@ int cycles(const Options& options) {
                                     }()},
                                    {"examples", examples}});
     std::cout << std::format("{}: {} timing entries, {} scenarios, {} opcodes; {} entry(ies) in error, {} opcode(s) outside their entry\n",
-                             description.at("name").get<std::string>(), timing.size(), measured, opcodes, failures, outside);
+                             description.at("name").get<std::string>(), instructions.size(), measured, opcodes, failures, outside);
+    if (consistencyOnly)
+        std::cout << "Consistency check against the profile; AVRxt timings are not qualified against the manual.\n";
     return failures == 0 && outside == 0 ? 0 : 1;
 }
 

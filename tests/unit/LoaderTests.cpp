@@ -92,3 +92,14 @@ const Scenario elfExecutablesAreLoadedFromTheirProgram{"ELF executables are load
     });
     check(!parseElf(std::vector<u8>(10, 0)));
 }};
+
+const Scenario hexRecordsCannotWrapTheAddressSpace{
+    "Intel HEX records cannot wrap the address space", {"core", "loader"}, [] {
+        const auto base = record(4, 0, {0xff, 0xff});
+        auto lastByte = parseIntelHex(base + record(0, 0xffff, {0x42}) + endOfFile);
+        require(lastByte);
+        check(lastByte->segments.at(0).address == 0xffffffff);
+        auto overflow = parseIntelHex(base + record(0, 0xffff, {0x42, 0x43}) + endOfFile);
+        require(!overflow);
+        check(overflow.error().line == 2);
+    }};

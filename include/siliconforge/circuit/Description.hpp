@@ -19,6 +19,9 @@ namespace siliconforge::circuit {
 
 using LoadError = DescriptionError;
 
+/// Resolves the target of a validated circuit, including projects saved without chip.mcu.
+[[nodiscard]] std::string targetMcu(const nlohmann::json& circuit);
+
 /// One hole of a breadboard: "e6" on a terminal strip, "T+12" or "B-3" on a power rail.
 struct Hole {
     char     row;       ///< 'a'..'j' on a terminal strip; 'T' (top) or 'B' (bottom) on a power rail.

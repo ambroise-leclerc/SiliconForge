@@ -51,7 +51,8 @@ int program(const Options& options) {
     const auto  dash     = program.rfind('-');
     const auto  status   = passed ? "pass" : verdict == 0x02 ? "fail" : "no verdict";
 
-    writeJson(options.get("out"), {{"program", program.substr(0, dash)},
+    writeJson(options.get("out"), {{"mcu", device.name()},
+                                   {"program", program.substr(0, dash)},
                                    {"level", dash == std::string::npos ? "" : program.substr(dash + 1)},
                                    {"status", status},
                                    {"checks", checks},

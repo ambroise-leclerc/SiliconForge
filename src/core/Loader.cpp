@@ -6,6 +6,7 @@
 #include <format>
 #include <fstream>
 #include <iterator>
+#include <limits>
 
 namespace siliconforge {
 
@@ -28,7 +29,7 @@ void place(ProgramImage& image, Address address, std::span<const u8> bytes, Memo
         return;
     if (!image.segments.empty()) {
         auto& last = image.segments.back();
-        if (last.space == space && last.address + last.bytes.size() == address) {
+        if (last.space == space && u64{last.address} + last.bytes.size() == address) {
             last.bytes.insert(last.bytes.end(), bytes.begin(), bytes.end());
             return;
         }
@@ -45,6 +46,15 @@ T readLittleEndian(std::span<const u8> bytes, std::size_t offset) {
 }
 
 }  // namespace
+
+LoadResult<void> checkFirmwareBounds(const Segment& segment, std::size_t capacity, std::string_view target) {
+    if (segment.address <= capacity && segment.bytes.size() <= capacity - segment.address)
+        return {};
+    const auto firstInvalid = std::max<std::size_t>(segment.address, capacity);
+    const auto space = segment.space == MemorySpace::Program ? "Flash" : "EEPROM";
+    return std::unexpected(LoadError{std::format("{} address {:#x} is outside {} memory ({:#x} bytes)",
+                                                space, firstInvalid, target, capacity)});
+}
 
 LoadResult<ProgramImage> parseIntelHex(std::string_view text) {
     ProgramImage image;
@@ -84,7 +94,13 @@ LoadResult<ProgramImage> parseIntelHex(std::string_view text) {
         const auto type    = record[3];
         const auto payload = std::span<const u8>{record}.subspan(4, count);
         switch (type) {
-            case 0x00: place(image, base + offset, payload); break;
+            case 0x00: {
+                const auto address = u64{base} + offset;
+                if (address + count > u64{std::numeric_limits<Address>::max()} + 1)
+                    return std::unexpected(LoadError{"data record exceeds the Intel HEX address range", lineNumber});
+                place(image, static_cast<Address>(address), payload);
+                break;
+            }
             case 0x01: ended = true; break;
             case 0x02:  // Extended segment address: base = value * 16
                 if (count != 2)
@@ -94,7 +110,7 @@ LoadResult<ProgramImage> parseIntelHex(std::string_view text) {
             case 0x04:  // Extended linear address: upper 16 bits
                 if (count != 2)
                     return std::unexpected(LoadError{"bad extended linear address record", lineNumber});
-                base = static_cast<Address>((payload[0] << 8 | payload[1]) << 16);
+                base = (Address{payload[0]} << 24) | (Address{payload[1]} << 16);
                 break;
             case 0x03:
             case 0x05: break;  // Start addresses are irrelevant for a reset-vector based MCU.

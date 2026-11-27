@@ -4,9 +4,17 @@ namespace siliconforge::mcu::embedded {
 inline constexpr unsigned char atmega328pBytes[] = {
 @SILICONFORGE_ATMEGA328P_BYTES@
 };
+inline constexpr unsigned char attiny424Bytes[] = {
+@SILICONFORGE_ATTINY424_BYTES@
+};
+inline constexpr unsigned char atmega2560Bytes[] = {
+@SILICONFORGE_ATMEGA2560_BYTES@
+};
 inline constexpr unsigned char schemaBytes[] = {
 @SILICONFORGE_MCU_SCHEMA_BYTES@
 };
 inline const std::string_view atmega328p{reinterpret_cast<const char*>(atmega328pBytes), sizeof(atmega328pBytes)};
+inline const std::string_view attiny424{reinterpret_cast<const char*>(attiny424Bytes), sizeof(attiny424Bytes)};
+inline const std::string_view atmega2560{reinterpret_cast<const char*>(atmega2560Bytes), sizeof(atmega2560Bytes)};
 inline const std::string_view schema{reinterpret_cast<const char*>(schemaBytes), sizeof(schemaBytes)};
 }

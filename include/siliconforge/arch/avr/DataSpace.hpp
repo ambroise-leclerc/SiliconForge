@@ -4,7 +4,9 @@
 #include <siliconforge/core/Types.hpp>
 
 #include <algorithm>
+#include <array>
 #include <functional>
+#include <utility>
 #include <vector>
 
 namespace siliconforge::avr {
@@ -19,7 +21,7 @@ struct IoHandler {
     std::function<void(u8 value, u8 mask)> write;
 };
 
-/// AVR data address space: 32 general-purpose registers, I/O registers, extended I/O registers, then SRAM.
+/// AVR data address space. On AVRxt the CPU registers are separate and I/O begins at zero.
 ///
 /// Registers without a handler behave as plain storage, so that firmware touching peripherals that are not emulated
 /// yet keeps running and reads back what it wrote.
@@ -27,26 +29,29 @@ class DataSpace {
 public:
     static constexpr Address registerCount = 0x20;
 
-    DataSpace(Address ioEnd, Address ramEnd) : ioEnd(ioEnd), ramEnd(ramEnd), memory(ramEnd + 1, 0), handlers(ioEnd + 1) {}
+    DataSpace(Address ioEnd, Address ramEnd) : DataSpace(registerCount, ioEnd, ioEnd + 1, ramEnd) {}
+
+    DataSpace(Address ioStart, Address ioEnd, Address ramStart, Address ramEnd)
+        : ioStart(ioStart), ioEnd(ioEnd), ramStart(ramStart), ramEnd(ramEnd), memory(ramEnd + 1), handlers(ioEnd + 1) {}
 
     void map(Address address, IoHandler handler) { handlers[address] = std::move(handler); }
+
+    void mapFlash(Address start, Address size, std::function<u8(Address)> readByte) {
+        flashStart = start;
+        flashSize = size;
+        readFlash = std::move(readByte);
+    }
 
     [[nodiscard]] u8 read(Address address) {
         if (debugger && debugger->hasWatchpoints())
             debugger->checkAccess(address, Access::Read);
-        if (address < registerCount)
-            return memory[address];
-        if (address <= ioEnd) {
-            const auto& handler = handlers[address];
-            return handler.read ? handler.read() : memory[address];
-        }
-        return address <= ramEnd ? memory[address] : 0;
+        return peek(address);
     }
 
     void write(Address address, u8 value, u8 mask = 0xFF) {
         if (debugger && debugger->hasWatchpoints())
             debugger->checkAccess(address, Access::Write);
-        if (address < registerCount) {
+        if (address < ioStart) {
             memory[address] = value;
         } else if (address <= ioEnd) {
             const auto& handler = handlers[address];
@@ -54,34 +59,45 @@ public:
                 handler.write(value, mask);
             else
                 memory[address] = static_cast<u8>((memory[address] & ~mask) | (value & mask));
-        } else if (address <= ramEnd) {
+        } else if (address >= ramStart && address <= ramEnd) {
             memory[address] = value;
         }
     }
 
     /// Direct access to the storage, bypassing handlers (used by peripherals for their own registers, and by the UI).
     [[nodiscard]] u8& raw(Address address) noexcept { return memory[address]; }
-    [[nodiscard]] u8  raw(Address address) const noexcept { return address <= ramEnd ? memory[address] : 0; }
-    [[nodiscard]] u8* registers() noexcept { return memory.data(); }
+    [[nodiscard]] u8  raw(Address address) const noexcept { return address <= ioEnd || (address >= ramStart && address <= ramEnd) ? memory[address] : 0; }
+    [[nodiscard]] u8* registers() noexcept { return ioStart == 0 ? separateRegisters.data() : memory.data(); }
 
     /// Peek used by debuggers and UIs: goes through read handlers but never triggers watchpoints.
     [[nodiscard]] u8 peek(Address address) const {
-        if (address >= registerCount && address <= ioEnd && handlers[address].read)
+        if (address >= ioStart && address <= ioEnd && handlers[address].read)
             return handlers[address].read();
+        if (address >= flashStart && address - flashStart < flashSize)
+            return readFlash(address - flashStart);
         return raw(address);
     }
 
     [[nodiscard]] Address ramEndAddress() const noexcept { return ramEnd; }
     [[nodiscard]] Address ioEndAddress() const noexcept { return ioEnd; }
 
-    void clear() { std::ranges::fill(memory, u8{0}); }
+    void clear() {
+        std::ranges::fill(memory, u8{0});
+        separateRegisters.fill(0);
+    }
     void attach(Debugger* attachedDebugger) noexcept { debugger = attachedDebugger; }
 
 private:
+    Address                ioStart;
     Address                ioEnd;
+    Address                ramStart;
     Address                ramEnd;
+    std::array<u8, registerCount> separateRegisters{};
     std::vector<u8>        memory;
     std::vector<IoHandler> handlers;
+    Address                flashStart{0};
+    Address                flashSize{0};
+    std::function<u8(Address)> readFlash;
     Debugger*              debugger{nullptr};
 };
 

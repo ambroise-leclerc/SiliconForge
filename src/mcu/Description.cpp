@@ -24,7 +24,7 @@ std::expected<void, LoadError> validate(const Json& d) {
                 if (!p.is_object() || !p.contains("type") || !p.at("type").is_string())
                     continue;
                 const std::string type = p.at("type");
-                if (type != "avr.gpio" && type != "avr.timer8" && type != "avr.usart" && type != "avr.spi" && type != "avr.twi" && type != "avr.adc" && type != "avr.eeprom")
+                if (type != "avr.gpio" && type != "avr.timer8" && type != "avr.usart" && type != "avr.spi" && type != "avr.twi" && type != "avr.adc" && type != "avr.eeprom" && type != "avr.unmodeled")
                     fail("/peripherals/" + std::to_string(i) + "/type", "Unknown peripheral type: " + type);
             }
         // The same embedded Draft-07 schema is used by the runtime and the CTest validation test.
@@ -51,17 +51,29 @@ std::expected<void, LoadError> validate(const Json& d) {
             fail("/memories/registers", "AVR requires 32 general-purpose registers at zero");
         const auto ioStart = m.at("io").at("start").get<unsigned>(), ioSize = m.at("io").at("size").get<unsigned>();
         const auto ramStart = m.at("sram").at("start").get<unsigned>(), ramSize = m.at("sram").at("size").get<unsigned>();
-        if (ioStart != 32 || ioStart + ioSize != ramStart)
-            fail("/memories/sram/start", "SRAM must immediately follow AVR I/O space starting at 32");
+        if (ioStart != avr::DataSpace::registerCount && !(ioStart == 0 && d.at("core") == "avr:AVRxt"))
+            fail("/memories/io/start", "I/O must start at 32, or at zero on AVRxt");
+        const auto ioLimit = ioStart + ioSize;
+        if (ioLimit > ramStart)
+            fail("/memories/sram/start", "SRAM overlaps AVR I/O space");
         if (ramStart + ramSize > 65536)
             fail("/memories/sram/size", "AVR data space exceeds 16-bit addressing");
-        if (d.at("cpu").at("pcBytes") != 2 && d.at("cpu").at("pcBytes") != 3)
+        if (const auto& flash = m.at("flash"); flash.contains("mappedStart")) {
+            const auto start = flash.at("mappedStart").get<Address>();
+            const auto limit = start + flashSize;
+            if (limit > 65536 || start < ioLimit || (start < ramStart + ramSize && ramStart < limit))
+                fail("/memories/flash/mappedStart", "Flash alias must fit in data space without overlapping registers, I/O or SRAM");
+        }
+        const auto pcBytes = d.at("cpu").at("pcBytes").get<unsigned>();
+        if (pcBytes != 2 && pcBytes != 3)
             fail("/cpu/pcBytes", "Only two- and three-byte program counters are supported");
+        if (flashSize / 2 > (1u << (8 * pcBytes)))
+            fail("/cpu/pcBytes", "Program counter cannot address every Flash word");
         std::set<unsigned> addresses, vectorNumbers, physicalNumbers;
         for (const auto& [name, r] : d.at("registers").items()) {
             const auto path = child("/registers", name) + "/address";
             const auto a    = r.at("address").get<unsigned>();
-            if (a < ioStart || a >= ramStart)
+            if (a < ioStart || a >= ioLimit)
                 fail(path, "Register address is outside I/O memory");
             if (!addresses.insert(a).second)
                 fail(path, "Duplicate register address");
@@ -74,12 +86,25 @@ std::expected<void, LoadError> validate(const Json& d) {
                 fail(path, "Unknown register: " + value.get<std::string>());
         };
         std::set<std::string> cpuRegisters;
-        for (const char* key : {"spmcsr", "smcr", "spl", "sph", "sreg"}) {
+        for (const char* key : {"spmcsr", "smcr", "spl", "sph", "sreg", "rampz", "eind"}) {
             if (!d.at("cpu").contains(key)) continue;
-            registerRef(d.at("cpu").at(key), std::string("/cpu/") + key);
-            if (!cpuRegisters.insert(d.at("cpu").at(key).get<std::string>()).second)
-                fail(std::string("/cpu/") + key, "CPU registers must be distinct");
+            const auto path = child("/cpu", key);
+            const auto name = d.at("cpu").at(key).get<std::string>();
+            registerRef(name, path);
+            if ((std::string_view{key} == "smcr" || std::string_view{key} == "spmcsr") && d.at("registers").at(name).at("address") == 0)
+                fail(path, "This CPU control cannot be mapped at address zero");
+            if (!cpuRegisters.insert(name).second)
+                fail(path, "CPU registers must be distinct");
         }
+        const auto& cpu = d.at("cpu");
+        if (cpu.contains("eind") && pcBytes != 3)
+            fail("/cpu/eind", "EIND requires a three-byte program counter");
+        const avr::InstructionCapabilities capabilities{
+            cpu.contains("rampz"), cpu.contains("eind"), cpu.value("absoluteJump", true), cpu.contains("spmcsr")
+        };
+        for (const char* instruction : {"call", "jmp", "spm", "elpm", "eicall", "eijmp"})
+            if (avr::supportsInstruction(instruction, capabilities) && !d.at("timing").contains(instruction))
+                fail(child("/timing", instruction), "Timing is required for an instruction supported by this CPU");
         std::set<std::string> peripheralNames, gpios, pinNames, assignedRegisters;
         for (const auto& p : d.at("package").at("pins")) {
             if (!physicalNumbers.insert(p.at("n").get<unsigned>()).second)
@@ -94,8 +119,9 @@ std::expected<void, LoadError> validate(const Json& d) {
             const std::string name = p.at("name");
             if (!peripheralNames.insert(name).second)
                 fail(path + "/name", "Duplicate peripheral name");
-            if (p.at("type") == "avr.gpio") {
+            if (p.at("type") == "avr.gpio")
                 gpios.insert(name);
+            if (p.contains("pins")) {
                 for (const auto& n : p.at("pins"))
                     if (!pinNames.insert(n.get<std::string>()).second)
                         fail(path + "/pins", "Pin wired to multiple GPIO bits");
@@ -122,6 +148,12 @@ std::expected<void, LoadError> validate(const Json& d) {
         for (std::size_t i = 0; i < d.at("peripherals").size(); ++i) {
             const auto& p    = d.at("peripherals")[i];
             const auto  path = "/peripherals/" + std::to_string(i);
+            if (p.at("type") == "avr.unmodeled") {
+                if (p.contains("registers"))
+                    for (const auto& [key, value] : p.at("registers").items())
+                        registerRef(value, path + "/registers/" + key);
+                continue;
+            }
             for (const auto& [key, value] : p.at("registers").items()) {
                 registerRef(value, path + "/registers/" + key);
                 if (!assignedRegisters.insert(value.get<std::string>()).second)
@@ -173,6 +205,10 @@ std::expected<void, LoadError> validate(const Json& d) {
 nlohmann::json builtinDescription(std::string_view name) {
     if (name == "atmega328p")
         return Json::parse(embedded::atmega328p);
+    if (name == "attiny424")
+        return Json::parse(embedded::attiny424);
+    if (name == "atmega2560")
+        return Json::parse(embedded::atmega2560);
     throw std::invalid_argument("Unknown built-in MCU");
 }
 std::expected<std::unique_ptr<Mcu>, LoadError> loadJson(std::string_view text) {

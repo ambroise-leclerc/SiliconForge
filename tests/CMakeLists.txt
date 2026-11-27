@@ -26,7 +26,6 @@ endif()
 add_executable(siliconforge_tests
     support/Main.cpp
     support/PublicHeaders.cpp
-    support/OpcodeCoverageListener.cpp
     unit/DescriptionTests.cpp
     unit/CircuitDescriptionTests.cpp
     unit/CircuitModelTests.cpp

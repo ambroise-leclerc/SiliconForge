@@ -231,7 +231,7 @@ private:
     [[nodiscard]] bool circuitFits(const Mcu& mcu) const {
         if (!description.is_object())
             return false;
-        const std::string wanted = description.at("chip").at("mcu");
+        const std::string wanted = circuit::targetMcu(description);
         return (mcuId && sameName(*mcuId, wanted)) || sameName(mcu.name(), wanted);
     }
 
@@ -297,7 +297,7 @@ private:
         auto trial = circuit::Circuit::create(next);
         if (!trial)
             throw fail(trial.error());
-        const std::string wanted = next.at("chip").at("mcu");
+        const std::string wanted = circuit::targetMcu(next);
         const auto same = simulation.access([&](Mcu& mcu) { return (mcuId && sameName(*mcuId, wanted)) || sameName(mcu.name(), wanted); });
         if (!same) {
             auto device = mcu::create(wanted);

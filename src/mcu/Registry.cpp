@@ -1,4 +1,5 @@
 #include <siliconforge/mcu/Registry.hpp>
+#include <nlohmann/json.hpp>
 #include <siliconforge/mcu/atmega328p/Atmega328p.hpp>
 
 #include <algorithm>
@@ -15,10 +16,17 @@ struct Entry {
     std::function<std::unique_ptr<Mcu>()> factory;
 };
 
+class BuiltinDevice final : public avr::Device {
+public:
+    explicit BuiltinDevice(std::string_view id) : Device(builtinDescription(id), 0, id) {}
+};
+
 // Integrated descriptions and the additional descriptions discovered at startup.
 std::vector<Entry>& entries() {
     static std::vector<Entry> list{
-        {"atmega328p", [] { return std::make_unique<Atmega328p>(); }},
+        {defaultName, [] { return std::make_unique<Atmega328p>(); }},
+        {"attiny424", [] { return std::make_unique<BuiltinDevice>("attiny424"); }},
+        {"atmega2560", [] { return std::make_unique<BuiltinDevice>("atmega2560"); }},
     };
     return list;
 }

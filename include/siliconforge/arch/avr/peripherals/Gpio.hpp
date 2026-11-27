@@ -22,7 +22,7 @@ public:
     };
 
     /// `pins[i]` is the package pin of bit i, nullptr when the bit has no pin. `mcucr` holds PUD in bit 4.
-    GpioPort(DataSpace& data, Registers registers, std::array<Pin*, 8> pins, Address mcucr);
+    GpioPort(DataSpace& data, Registers registers, std::array<Pin*, 8> pins, Address mcucr, u8 implementedMask = 0xff);
 
     /// Keep JSON-provided register reset values when assembling a described device.
     void reset(bool preserveRegisters = false);
@@ -37,8 +37,8 @@ public:
     void refresh();
 
     [[nodiscard]] u8 input() const noexcept;
-    [[nodiscard]] u8 ddr() const noexcept { return data.raw(regs.ddr); }
-    [[nodiscard]] u8 port() const noexcept { return data.raw(regs.port); }
+    [[nodiscard]] u8 ddr() const noexcept { return data.raw(regs.ddr) & implementedMask; }
+    [[nodiscard]] u8 port() const noexcept { return data.raw(regs.port) & implementedMask; }
     /// The package pin of bit `bit`, nullptr when it has none.
     [[nodiscard]] Pin* pin(unsigned bit) const noexcept { return bit < pins.size() ? pins[bit] : nullptr; }
 
@@ -49,6 +49,7 @@ private:
     Registers                          regs;
     std::array<Pin*, 8>                pins;
     Address                            mcucr;
+    u8                                 implementedMask;
     std::array<std::optional<bool>, 8> levelOverrides;
     std::array<std::optional<bool>, 8> outputOverrides;
     std::array<std::optional<bool>, 8> drainOverrides;

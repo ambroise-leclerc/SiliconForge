@@ -29,7 +29,7 @@ namespace {
 enum class Display { Window, Browser, None };
 
 struct Options {
-    std::string                  mcu{"atmega328p"};
+    std::string                  mcu{mcu::defaultName};
     std::optional<std::filesystem::path> firmware;
     bool                         headless{false};
     bool                         help{false};
@@ -252,7 +252,7 @@ int main(int argc, char** argv) {
     if (!selected)
         return 1;
     if (selected->description.is_object() && !options->explicitMcu && !options->mcuFile)
-        options->mcu = selected->description.at("chip").at("mcu").get<std::string>();  // The circuit chooses its chip.
+        options->mcu = circuit::targetMcu(selected->description);  // The circuit chooses its chip.
     std::unique_ptr<Mcu> device;
     if (options->mcuFile) {
         if (options->explicitMcu)

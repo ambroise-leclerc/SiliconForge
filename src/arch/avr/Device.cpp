@@ -2,6 +2,7 @@
 #include <nlohmann/json.hpp>
 
 #include <algorithm>
+#include <bit>
 #include <format>
 #include <set>
 
@@ -28,24 +29,34 @@ AvrCoreConfig config(const Json& d) {
             .sreg            = address("sreg"),
             .pcBytes         = c.at("pcBytes"),
             .interruptCycles = c.at("interruptCycles"),
-            .wakeUpCycles    = c.at("wakeUpCycles")};
+            .wakeUpCycles    = c.at("wakeUpCycles"),
+            .ioStart         = m.at("io").at("start"),
+            .eind            = c.contains("eind") ? std::optional{address("eind")} : std::nullopt,
+            .rampz           = c.contains("rampz") ? std::optional{address("rampz")} : std::nullopt,
+            .absoluteJump    = c.value("absoluteJump", true),
+            .preserveInterruptEnable = d.at("core") == "avr:AVRxm" || d.at("core") == "avr:AVRxt"};
 }
 }  // namespace
 
-Device::Device(Json d, u64 clockOverride)
+Device::Device(Json d, u64 clockOverride) : Device(std::move(d), clockOverride, {}) {}
+
+Device::Device(Json d, u64 clockOverride, std::string_view builtinTarget)
     : description(std::make_unique<Json>(std::move(d))),
       coreConfig(config(*description)),
       deviceName(description->at("name")),
       clock(clockOverride ? clockOverride : description->at("clockHz").get<u64>()),
       supplyVoltage(description->at("supplyVoltage")),
-      data(coreConfig.ioEnd, coreConfig.ramEnd),
-      core(coreConfig, data, scheduler, interrupts, debug),
+      data(coreConfig.ioStart, coreConfig.ioEnd, description->at("memories").at("sram").at("start"), coreConfig.ramEnd),
+      core(coreConfig, data, scheduler, interrupts, debug, builtinTarget),
       eeprom(description->at("memories").at("eeprom").at("size"), 0xFF) {
+    const auto& flash = description->at("memories").at("flash");
+    if (flash.contains("mappedStart"))
+        data.mapFlash(flash.at("mappedStart"), coreConfig.flashBytes, [this](Address offset) { return core.flashByte(offset); });
     auto view    = description->at("package");
     view["name"] = deviceName;
     chip = view.dump();
     for (const auto& p : description->at("peripherals"))
-        if (p.at("type") == "avr.gpio")
+        if (p.contains("pins"))
             for (const auto& n : p.at("pins")) {
                 std::string label;
                 for (const auto& physical : description->at("package").at("pins"))
@@ -84,7 +95,7 @@ Device::Device(Json d, u64 clockOverride)
                          }});
     }
     for (const auto& p : description->at("peripherals"))
-        if (p.at("type") != "avr.gpio")
+        if (p.at("type") != "avr.gpio" && p.at("type") != "avr.unmodeled")
             (this->*factories.at(p.at("type")))(p);
     reset();
 }
@@ -102,7 +113,8 @@ void Device::makeGpio(const Json& p) {
     for (std::size_t i = 0; i < p.at("pins").size(); ++i)
         pins[i] = pin(p.at("pins")[i].get<std::string>());
     const auto mcucr = description->at("registers").at(p.at("mcucr").get<std::string>()).at("address").get<Address>();
-    auto       port  = std::make_unique<GpioPort>(data, GpioPort::Registers{reg(p, "pin"), reg(p, "ddr"), reg(p, "port")}, pins, mcucr);
+    const auto mask  = p.value("implementedMask", u8{0xff});
+    auto       port  = std::make_unique<GpioPort>(data, GpioPort::Registers{reg(p, "pin"), reg(p, "ddr"), reg(p, "port")}, pins, mcucr, mask);
     resetters.emplace_back([ptr = port.get()] {
         ptr->reset(true);
     });
@@ -279,8 +291,8 @@ void Device::load(const ProgramImage& image) {
         if (segment.space != MemorySpace::Program && segment.space != MemorySpace::Eeprom)
             throw std::invalid_argument("AVR firmware images support only Program and Eeprom segments; Data segments are not supported");
         const auto limit = segment.space == MemorySpace::Program ? core.config().flashBytes : eeprom.size();
-        if (segment.address > limit || segment.bytes.size() > limit - segment.address)
-            throw std::out_of_range("Firmware segment exceeds MCU memory");
+        if (auto checked = checkFirmwareBounds(segment, limit, name()); !checked)
+            throw std::out_of_range(checked.error().message);
     }
     core.eraseFlash();
     std::ranges::fill(eeprom, u8{0xFF});
@@ -320,7 +332,7 @@ void Device::reset() {
 std::vector<RegisterValue> Device::registers() const {
     std::vector<RegisterValue> result;
     result.reserve(40);
-    result.push_back({"PC", core.pc * 2, 16});
+    result.push_back({"PC", core.pc * 2, static_cast<u8>(std::max(16, static_cast<int>(std::bit_width(coreConfig.flashBytes - 1u))))});
     result.push_back({"SP", core.sp, 16});
     result.push_back({"SREG", core.sreg, 8});
     result.push_back({"X", core.pair(26), 16});

@@ -1,4 +1,5 @@
 #include "../support/AvrFixture.hpp"
+#include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/testing/Bdd.hpp>
 
@@ -87,3 +88,85 @@ const Scenario sleepWaitsForAnInterruptWithoutExecuting{"SLEEP waits for an inte
         });
     });
 }};
+
+const Scenario avrXtPreservesInterruptEnableAcrossInterrupts{
+    "AVRxt preserves I on entry and RETI and defers another normal interrupt", {"avr", "interrupts"}, [] {
+        const auto exercise = [](bool clearInHandler) {
+            auto mcu = mcu::create("attiny424");
+            require(mcu);
+            auto& core = static_cast<avr::Device&>(*mcu).avrCore();
+            constexpr unsigned firstVector = 6, secondVector = 13;
+            AvrAssembler program;
+            program.inc(20).sei().nop().nop();
+            program.org(firstVector).inc(18);
+            if (clearInHandler)
+                program.cli();
+            else
+                program.nop();
+            program.reti().org(secondVector).inc(19).reti();
+            mcu->load(program.image());
+            const auto stack = core.sp;
+            core.interrupts.onAcknowledge(firstVector, [&] { core.interrupts.set(firstVector, false); });
+            core.sreg = sreg::I | sreg::C;
+            core.interrupts.set(firstVector, true);
+            core.interrupts.set(secondVector, true);
+
+            mcu->step();
+            check(core.pc == firstVector);
+            check((core.sreg & sreg::I) != 0);
+            check(core.sp == stack - 2);
+            mcu->step();
+            check(core.r(18) == 1);
+            check(core.r(19) == 0);
+            check(core.interrupts.isPending(secondVector));
+            mcu->step();
+            mcu->step();  // RETI restores PC and releases the active interrupt, preserving I.
+            check(core.pc == 0);
+            check(core.sp == stack);
+            check((core.sreg & sreg::I) == (clearInHandler ? 0 : sreg::I));
+            check((core.sreg & sreg::C) != 0);
+
+            mcu->step();
+            check(core.r(20) == 1);
+            if (clearInHandler) {
+                mcu->step();  // SEI executes while the second interrupt is still pending.
+                check(core.pc == 2);
+                check(core.interrupts.isPending(secondVector));
+                mcu->step();  // One instruction after SEI.
+            }
+            mcu->step();
+            check(core.pc == secondVector);
+
+            mcu->reset();  // The second ISR was active at reset.
+            core.sreg = sreg::I;
+            core.interrupts.set(firstVector, true);
+            mcu->step();
+            check(core.pc == firstVector);
+        };
+        section("I stays set if the handler leaves it set", [&] { exercise(false); });
+        section("CLI in the handler keeps I clear after RETI", [&] { exercise(true); });
+    }};
+
+const Scenario attiny424InterruptResponseIncludesVectorJump{
+    "ATtiny424 enters the handler four cycles after the interrupted instruction", {"avr", "interrupts"}, [] {
+        auto mcu = mcu::create("attiny424");
+        require(mcu);
+        auto& core = static_cast<avr::Device&>(*mcu).avrCore();
+        constexpr unsigned vector = 6, handler = 16;
+        AvrAssembler program;
+        program.nop().org(vector).rjmp(handler - vector - 1).org(handler).inc(18).reti();
+        mcu->load(program.image());
+        core.sreg = sreg::I;
+        mcu->step();  // The interrupted instruction finishes.
+        const auto start = mcu->cycles();
+        core.interrupts.set(vector, true);
+
+        check(mcu->step().elapsed == 2);
+        check(core.pc == vector);
+        check(mcu->step().elapsed == 2);
+        check(core.pc == handler);
+        check(mcu->cycles() - start == 4);
+        check(core.r(18) == 0);
+        mcu->step();
+        check(core.r(18) == 1);
+    }};

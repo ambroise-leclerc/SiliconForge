@@ -1,4 +1,5 @@
 #include "../support/AvrFixture.hpp"
+#include <siliconforge/mcu/Registry.hpp>
 
 #include <webfront/testing/Bdd.hpp>
 
@@ -63,3 +64,22 @@ const Scenario pinObserversReceiveTheCycleOfEach{"Pin observers receive the cycl
     check(changes[1] == std::pair{Cycles{2}, PinState::High});
     check(changes[2] == std::pair{Cycles{4}, PinState::Low});
 }};
+
+const Scenario atmega2560PortGHasSixImplementedBits{
+    "ATmega2560 Port G reads and toggles only its six implemented bits", {"avr", "gpio"}, [] {
+        auto mcu = mcu::create("atmega2560");
+        require(mcu);
+        constexpr unsigned pin = 0x12, ddr = 0x13, port = 0x14;  // I/O instruction operands.
+        mcu->load(AvrAssembler{}.ldi(16, 0xff).out(ddr, 16).out(port, 16)
+                      .in(17, ddr).in(18, port).in(19, pin)
+                      .ldi(16, 0xc0).out(pin, 16).in(20, port)
+                      .ldi(16, 0xff).out(pin, 16).in(21, port).image());
+        check(mcu->run(12).reason == StopReason::BudgetReached);
+        const auto& core = static_cast<avr::Device&>(*mcu).avrCore();
+        check(core.r(17) == 0x3f);
+        check(core.r(18) == 0x3f);
+        check(core.r(19) == 0x3f);
+        check(core.r(20) == 0x3f);  // Writing ones to PING[7:6] has no effect.
+        check(core.r(21) == 0x00);
+        check(mcu->readMemory(MemorySpace::Data, pin + 0x20, 3) == std::vector<u8>{0, 0x3f, 0});
+    }};

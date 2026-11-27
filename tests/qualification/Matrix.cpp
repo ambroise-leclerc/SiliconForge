@@ -2,14 +2,15 @@
 //
 //   siliconforge_qualification matrix --results build/qualification --out docs/qualification
 //
-// Reads, in the results directory: cycles.json, differential.json, programs/*.json, and the opcodes executed by the
+// Reads target-matched cycles, differential and program reports, and the opcodes executed by the
 // test suite (coverage/tests) and by the qualification tools (coverage/qualification). Writes <chip>.md, the page,
 // <chip>.matrix.json, the same data for tools, and README.md, the summary of every chip.
 
 #include "Qualification.hpp"
 
+#include <siliconforge/arch/avr/Device.hpp>
 #include <siliconforge/arch/avr/Opcodes.hpp>
-#include <siliconforge/mcu/Description.hpp>
+#include <siliconforge/mcu/Registry.hpp>
 
 #include <algorithm>
 #include <format>
@@ -70,16 +71,35 @@ int matrix(const Options& options) {
     const auto                  description = mcu::builtinDescription(chip);
     const auto                  name    = description.at("name").get<std::string>();
     const auto                  timing  = description.at("timing");
+    avr::Device device(description);
+    const auto capabilities = device.avrCore().config().instructions();
 
-    const auto cycles       = readJson(results / "cycles.json");
-    const auto differential = readJson(results / "differential.json");
-    const auto tests        = avr::OpcodeCoverage::merge(results / "coverage" / "tests");
-    const auto tools        = avr::OpcodeCoverage::merge(results / "coverage" / "qualification");
+    const auto matches = [&](const nlohmann::json& result) {
+        if (!result.is_object() || !result.contains("mcu") || !result.at("mcu").is_string())
+            return false;
+        const auto& target = result.at("mcu").get_ref<const std::string&>();
+        return target == chip || target == name;
+    };
+    const auto readForChip = [&](std::string_view stem) {
+        auto result = readJson(results / std::format("{}-{}.json", stem, chip));
+        if (matches(result))
+            return result;
+        result = readJson(results / std::format("{}.json", stem));
+        return matches(result) ? result : nlohmann::json();
+    };
+    const auto cycles = readForChip("cycles");
+    const auto differential = readForChip("differential");
+    const bool consistencyOnly = cycles.is_object() && cycles.value("mode", "") == "consistency";
+    // Older AVRxt reports used the AVRe+ reference and carry no measurement mode.
+    const bool qualifiedCycles = cycles.is_object() && !consistencyOnly &&
+        (description.at("core") != "avr:AVRxt" || cycles.value("mode", "") == "qualification");
+    const auto tests = avr::OpcodeCoverage::merge(results / "coverage" / "tests" / "builtin" / chip);
+    const auto tools = avr::OpcodeCoverage::merge(results / "coverage" / "qualification" / "builtin" / chip);
     std::vector<nlohmann::json> programs;
     std::error_code             error;
     for (const auto& entry : std::filesystem::directory_iterator(results / "programs", error))
         if (entry.path().extension() == ".json")
-            if (auto program = readJson(entry.path()); program.is_object())
+            if (auto program = readJson(entry.path()); matches(program))
                 programs.push_back(std::move(program));
     std::ranges::sort(programs, {}, [](const nlohmann::json& p) { return p.value("program", "") + p.value("level", ""); });
 
@@ -89,7 +109,7 @@ int matrix(const Options& options) {
     std::map<std::string, std::string>         variants;
     std::map<std::string, unsigned>            opcodeCount, testedOpcodes, toolOpcodes;
     for (u32 op = 0; op < 65536; ++op) {
-        const auto c = avr::classify(static_cast<u16>(op));
+        const auto c = avr::classify(static_cast<u16>(op), capabilities);
         if (c.kind == avr::OpcodeKind::Reserved) {
             ++reserved;
             elsewhere += !c.elsewhere.empty();
@@ -114,6 +134,8 @@ int matrix(const Options& options) {
     std::vector<Row> rows;
     unsigned         qualified = 0, withExceptions = 0;
     for (const auto& [mnemonic, entry] : timing.items()) {
+        if (!avr::supportsInstruction(mnemonic, capabilities))
+            continue;
         Row row;
         row.mnemonic = mnemonic;
         const auto count = opcodeCount[mnemonic];
@@ -141,7 +163,7 @@ int matrix(const Options& options) {
             row.semantics    = {executed ? State::Pass : State::Missing, executed ? "tests unitaires" : "non exercée"};
             row.flags        = {executed ? State::Pass : State::Missing, executed ? "tests unitaires" : "non exercée"};
         }
-        if (cycles.is_object() && cycles.at("instructions").contains(mnemonic)) {
+        if (qualifiedCycles && cycles.at("instructions").contains(mnemonic)) {
             const auto& c      = cycles.at("instructions").at(mnemonic);
             const auto  status = c.at("status").get<std::string>();
             std::string values;
@@ -160,9 +182,9 @@ int matrix(const Options& options) {
     for (const auto& program : programs)
         passedPrograms += program.value("status", "") == "pass";
     unsigned testedMnemonics = 0;
-    for (const auto& [mnemonic, entry] : timing.items())
-        testedMnemonics += testedOpcodes[mnemonic] > 0;
-    const bool complete = qualified == rows.size() && passedPrograms == programs.size() && !programs.empty() && cycles.is_object() && differential.is_object();
+    for (const auto& row : rows)
+        testedMnemonics += testedOpcodes[row.mnemonic] > 0;
+    const bool complete = qualified == rows.size() && passedPrograms == programs.size() && !programs.empty() && qualifiedCycles && differential.is_object();
     const auto level    = complete ? (withExceptions ? "qualifié, avec exceptions documentées" : "qualifié") : "partiellement qualifié";
 
     // Page ----------------------------------------------------------------------------------------------------------------
@@ -186,7 +208,9 @@ int matrix(const Options& options) {
                             differential.at("reference").get<std::string>(), differential.at("unexplained").get<u64>());
     else
         page << "- **Différentiel** : non exécuté (simavr demande avr-libc et un hôte Unix).\n";
-    if (cycles.is_object())
+    if (consistencyOnly)
+        page << "- **Cycles** : contrôle de cohérence avec le profil. Validation des timings avec le manuel AVRxt en attente.\n";
+    if (qualifiedCycles)
         page << std::format("- **Cycles** : {} scénarios, un par cas de la table `timing` (branchement pris, saut d'un ou deux "
                             "mots, accès SRAM ou registres), comparés à la description et à l'*{}* ; chacun des {} opcodes "
                             "exécuté une fois depuis l'état de reset.\n",
@@ -197,7 +221,7 @@ int matrix(const Options& options) {
     page << std::format("- **Couverture des tests** : {} instructions sur {} exécutées par la suite de tests unitaires et "
                         "d'intégration ; la colonne *Opcodes* compte les encodages distincts exercés par les tests, puis par "
                         "l'ensemble de la qualification.\n\n",
-                        testedMnemonics, timing.size());
+                        testedMnemonics, rows.size());
 
     page << "## Matrice\n\n";
     page << "✅ vérifié · ⚠️ exception documentée · ❌ en défaut · — non mesuré\n\n";
@@ -239,7 +263,7 @@ int matrix(const Options& options) {
     page << "\n## Exceptions\n\n";
     for (const auto& [reason, which] : reasons)
         page << std::format("- **Écart de simavr** ({} ; {} occurrences dans cette campagne) : {}\n", join(which.first), which.second, reason);
-    if (cycles.is_object()) {
+    if (qualifiedCycles) {
         for (const auto& [mnemonic, c] : cycles.at("instructions").items())
             if (c.contains("exception"))
                 page << std::format("- **Cycles de `{}`** : {}\n", mnemonic, c.at("exception").get<std::string>());
@@ -270,8 +294,19 @@ int matrix(const Options& options) {
              "<!-- Généré par `cmake --build build --target qualification` (ADR 0006). Ne pas modifier à la main. -->\n\n"
              "Méthode : [ADR 0006](../adr/0006-qualification-coeur.md) et [guide de la qualification](../QUALIFICATION.md).\n\n"
              "| Puce | Cœur | Niveau | Instructions | Programmes compilés |\n| --- | --- | --- | --- | --- |\n";
-    index << std::format("| [{}]({}.md) | {} | {} | {} / {} | {} / {} |\n", name, chip, description.at("core").get<std::string>(), level,
-                         qualified, rows.size(), passedPrograms, programs.size());
+    auto targets = mcu::available();
+    std::ranges::sort(targets);
+    for (const auto target : targets) {
+        const auto summary = readJson(out / std::format("{}.matrix.json", target));
+        if (!summary.is_object())
+            continue;
+        const auto profile = mcu::builtinDescription(target);
+        index << std::format("| [{}]({}.md) | {} | {} | {} / {} | {} / {} |\n",
+                             summary.at("mcu").get<std::string>(), target, profile.at("core").get<std::string>(),
+                             summary.at("level").get<std::string>(), summary.at("qualified").get<unsigned>(),
+                             summary.at("instructions").get<unsigned>(), summary.at("programsPassed").get<unsigned>(),
+                             summary.at("programs").get<unsigned>());
+    }
     index.close();
 
     std::cout << std::format("{}: {} ({} / {} instructions, {} / {} programs) -> {}\n", name, level, qualified, rows.size(),

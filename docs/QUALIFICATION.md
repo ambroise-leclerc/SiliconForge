@@ -80,9 +80,14 @@ ni distribué, et l'option `-DSILICONFORGE_DIFFERENTIAL_TESTS=OFF` le retire.
 
 Pour chaque entrée de la table `timing` de la description et pour chacun de ses cas (`taken`, `skipOneWord`,
 `skipTwoWords`, `sram`), un scénario prépare l'état puis mesure l'instruction : branchement pris ou non, saut d'une NOP
-ou d'un LDS, accès en SRAM (0x0200) ou dans le fichier de registres (0x0010), pile déplacée pour PUSH/POP. La mesure
+ou d'un LDS, accès en SRAM ou à un registre d’E/S d’usage général, pile déplacée pour PUSH/POP. Les adresses
+viennent du profil de la cible. Un point de surveillance vérifie l’adresse effectivement utilisée. La mesure
 doit égaler la description, qui doit égaler le manuel (table embarquée dans `tests/qualification/Cycles.cpp`). Une
 entrée sans scénario est une erreur. `pc3Bytes` est signalé non applicable sur un PC de 16 bits.
+
+Sur l’ATtiny424, le test `CycleConsistency-attiny424` compare les mesures au profil provisoire.
+Le rapport indique `mode: consistency`. La matrice laisse les cycles non qualifiés en attendant
+la vérification des timings contre la colonne AVRxt du manuel.
 
 Chacun des 63 770 opcodes d'instruction est en outre exécuté une fois depuis l'état de reset, et ses cycles doivent
 être l'une des valeurs de son entrée. Les exceptions sont documentées dans la matrice : SPM, dont le manuel ne donne pas
@@ -130,6 +135,12 @@ fin par `finish()` et ses `abort()` par `check(0)` ; il peut alors rejoindre le 
 colonne par source, avec un état par case (vérifié, exception documentée, en défaut, non mesuré). La puce est
 **qualifiée** quand chaque ligne est vérifiée ou couverte par une exception documentée, et que tous les programmes
 réussissent. La même matrice existe au format JSON (`atmega328p.matrix.json`) pour les outils.
+
+Pour produire une matrice ciblée, lancez `siliconforge_qualification matrix --mcu atmega2560 --results build/qualification`.
+Le générateur vérifie le champ `mcu` des rapports et lit la couverture dans les sous-répertoires
+`builtin/<cible>`. La couverture des profils chargés depuis JSON et des cœurs autonomes est enregistrée
+dans le répertoire parent, hors des matrices des profils intégrés. Relancez les tests pour actualiser
+les anciennes mesures dépourvues d’identifiant.
 
 Le même cadre servira aux futures architectures : pour ARM et RISC-V, la référence différentielle sera un autre
 simulateur (QEMU, Spike) et les suites de conformité s'y brancheront.
